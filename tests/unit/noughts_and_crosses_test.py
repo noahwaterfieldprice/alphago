@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from alphago import noughts_and_crosses as nac
@@ -32,9 +33,9 @@ def test_abstract_state():
 
 
 def test_noughts_and_crosses_initial_state():
-    assert nac.initial_state == (None, ) * 9
+    assert nac.NoughtsAndCrossesState.initial_state == (np.nan, ) * 9
 
 
 @pytest.mark.parametrize("terminal_state", terminal_states)
 def test_is_terminal_returns_true_for_terminal_states(terminal_state):
-    assert nac.NoughtsAndCrosses.is_terminal(terminal_state)
+    assert nac.NoughtsAndCrossesState.is_terminal(terminal_state)
