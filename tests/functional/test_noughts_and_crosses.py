@@ -1,9 +1,11 @@
+import numpy as np
 import pytest
+
 from alphago.noughts_and_crosses import NoughtsAndCrossesState
 
 
 def test_can_create_initial_state():
-    assert NoughtsAndCrossesState.initial_state == (None, ) * 9
+    assert NoughtsAndCrossesState.initial_state == (np.nan, ) * 9
 
 
 def test_correctly_identifies_terminal_state():
