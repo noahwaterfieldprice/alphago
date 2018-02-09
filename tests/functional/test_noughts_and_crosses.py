@@ -1,5 +1,4 @@
 import pytest
-
 from alphago import noughts_and_crosses
 
 
