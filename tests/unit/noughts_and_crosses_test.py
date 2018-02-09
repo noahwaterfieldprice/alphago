@@ -4,17 +4,17 @@ import pytest
 from alphago import noughts_and_crosses as nac
 
 terminal_states = [
-    (1, 1, 1, 1, 0, 1, 0, 0, 0),  # 1s top line
-    (1, 0, 1, 1, 0, 0, 1, 0, 0),  # 1s left side
-    (1, 0, 0, 0, 1, 1, 0, 1, 1),  # 1s negative diagonal
-    (1, 1, 1, 1, 0, 0, 1, 0, 0),  # 1s top line and left side
-    (1, 0, 1, 0, 1, 0, 1, 0, 1)   # 1s both diagonals
+    (1, 1, 1, 1, -1, 1, -1, -1, -1),  # 1s top line
+    (1, -1, 1, 1, -1, -1, 1, -1, -1),  # 1s left side
+    (1, -1, -1, -1, 1, 1, -1, 1, 1),  # 1s negative diagonal
+    (1, 1, 1, 1, -1, -1, 1, -1, -1),  # 1s top line and left side
+    (1, -1, 1, -1, 1, -1, 1, -1, 1)   # 1s both diagonals
 ]
 
 def test_abstract_state():
     abstract_state = nac.AbstractState
 
-    assert abstract_state.initial_state == None  # TODO: Maybe this is a bad idea
+    assert abstract_state.initial_state is None  # TODO: Maybe this is a bad idea
 
     with pytest.raises(NotImplementedError):
         abstract_state.vector(None)
