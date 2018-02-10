@@ -127,3 +127,26 @@ def utility(state):
     # TODO: Maybe have better message here
     raise ValueError("Utility can not be calculated for a "
                      "non-terminal state.")
+
+
+def display(state):
+    """Display the noughts and crosses state in a 2-D ASCII grid.
+
+    Parameters
+    ---------
+    state: tuple
+        A state representing a noughts and crosses grid to be printed.
+
+    """
+    divider = "\n---+---+---\n"
+    symbol_dict = {1: "x", -1: "o", 0: " "}
+
+    output_rows = []
+    for state_row in np.array_split(state, indices_or_sections=3):
+        # convert nans to 0s for symbol lookup
+        state_row[np.isnan(state_row)] = 0
+        y = "|". join([f" {symbol_dict[x]} " for x in state_row])
+        output_rows.append(y)
+
+    board = divider.join(output_rows)
+    print(board)
