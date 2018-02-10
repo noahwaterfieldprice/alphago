@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class MCTSNode:
     """ An MCTSNode stores Q, W, N for the action from the previous node to this
     node, where Q, W, N are from the paper. It also stores a list of the legal
@@ -25,6 +26,7 @@ class MCTSNode:
         # can return the list of legal actions from this game state.
         self.game_state = game_state
 
+
 def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     """ Returns a dictionary mapping each child node to: Q(s,a) + U(s,a),
     where U(s,a) = c_puct * prior_prob * sqrt(sum(action_counts)) / (1 +
@@ -32,7 +34,11 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     """
     num = np.sqrt(sum(action_counts.values()))
     assert num > 0
-    return {k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) * c_puct * num for k in action_values}
+    return {
+        k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *
+        c_puct * num for k in action_values
+    }
+
 
 def select(root, max_steps, c_puct):
     """ Selects a new leaf node. Returns all nodes and actions on the path
@@ -62,15 +68,17 @@ def select(root, max_steps, c_puct):
         nodes.append(node)
         actions.append(action)
         num_steps += 1
-        
+
     # We have reached a leaf node, or the maximum number of steps.
     # Return the sequence of nodes and actions.
     return nodes, actions
+
 
 def is_leaf(node):
     """ Returns whether or not the node in the tree is a leaf.
     """
     return len(node.children) == 0
+
 
 def expand(leaf, prior_probs, children_states):
     """ Expands the tree at the leaf node with the given probabilities. Note
@@ -79,10 +87,12 @@ def expand(leaf, prior_probs, children_states):
     the list of expanded child nodes.
     """
     assert is_leaf(leaf)
-    
+
     # Initialise the relevant data for each child of the leaf node
-    leaf.children = {a: MCTSNode(prior_probs[a], children_states[a]) for a in
-    children_states}
+    leaf.children = {
+        a: MCTSNode(prior_probs[a], children_states[a]) for a in children_states
+    }
+
 
 def backup(nodes, v):
     """ Given the sequence of nodes (ending in the new expanded node) from

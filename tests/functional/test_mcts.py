@@ -10,8 +10,8 @@ def test_can_create_mcts_node():
     node = mcts_tree.MCTSNode(prior_prob, game_state)
     assert node is not None
 
+
 def test_can_create_mcts_tree():
     game_state = None
     tree = mcts_tree.MCTSNode(None, game_state)
     assert tree is not None
-
