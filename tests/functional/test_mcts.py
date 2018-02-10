@@ -99,3 +99,23 @@ def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
         node = node.children[action]
         nodes.append(node)
     assert [node.game_state for node in nodes] == expected
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, initial_state, max_iters, max_steps,\
+    c_puct, expected_length", [
+        (next_states_function_2, evaluator_1, 0, 5, 10, 1.0, 4),
+        (next_states_function, evaluator_1, 0, 1000, 10, 1.0, 3),
+    ]
+)
+def test_mcts_can_self_play_fake_game(
+    next_states_function, evaluator, initial_state, max_iters, max_steps,
+    c_puct, expected_length
+):
+    states, action_probs = mcts_tree.self_play(
+        next_states_function, evaluator,
+        initial_state, max_iters, max_steps, c_puct
+    )
+    assert states[0] == initial_state
+    assert len(states) == expected_length
+    assert len(action_probs) == expected_length - 1
