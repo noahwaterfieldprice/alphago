@@ -151,26 +151,60 @@ def test_action_probs():
     assert computed == expected
 
 
-def test_mcts_action_count_at_root():
-    # We first create a dummy game
-    def next_states(state):
-        if state == 0:
-            return {0: 1, 1: 2}
-        elif state == 1:
-            return {0: 3, 1: 4}
-        elif state == 2:
-            return {0: 5, 1: 6}
-        else:
-            return {}
+# We first create a dummy game
+def next_states_function(state):
+    if state == 0:
+        return {0: 1, 1: 2}
+    elif state == 1:
+        return {0: 3, 1: 4}
+    elif state == 2:
+        return {0: 5, 1: 6}
+    else:
+        return {}
 
-    def evaluator(state):
-        probs = {0: 0.5, 1: 0.5}
-        value = state
-        return probs, value
 
+def evaluator_1(state):
+    probs = {0: 0.5, 1: 0.5}
+    value = 1.0
+    return probs, value
+
+
+def evaluator_2(state):
+    probs = {0: 0.5, 1: 0.5}
+    value = state
+    return probs, value
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator", [
+        (next_states_function, evaluator_1),
+        (next_states_function, evaluator_2),
+    ]
+)
+def test_mcts_action_count_at_root(next_states_function, evaluator):
     root = mcts_tree.MCTSNode(None, 0)
     assert root.N == 0
-    action_probs = mcts_tree.mcts(root, evaluator, next_states, 100, 10, 1.0)
+    action_probs = mcts_tree.mcts(
+        root, evaluator, next_states_function, 100, 10, 1.0
+    )
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert root.N == 100
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, num_iters, expected", [
+        (next_states_function, evaluator_1, 100, 100),
+        (next_states_function, evaluator_1, 2, 2),
+    ]
+)
+def test_mcts_value_at_root(next_states_function, evaluator, num_iters,
+                            expected):
+    root = mcts_tree.MCTSNode(None, 0)
+    assert root.N == 0
+    action_probs = mcts_tree.mcts(
+        root, evaluator, next_states_function, num_iters, 10, 1.0
+    )
+
+    # Each iteration of MCTS we should add 1 to N at the root.
+    assert root.W == expected
