@@ -33,7 +33,7 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     action_count).
     """
     num = np.sqrt(sum(action_counts.values()))
-    assert num > 0
+    # assert num > 0
     return {
         k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *
         c_puct * num for k in action_values
@@ -105,3 +105,55 @@ def backup(nodes, v):
         # Update the cumulative and mean action values
         node.W += v
         node.Q = float(node.W) / float(node.N)
+
+
+def action_probs(action_counts):
+    """ - action_counts is a dictionary from actions to the count of that
+    action.
+    Returns a probability distribution proportional to the action counts.
+    """
+    total = sum(N for a, N in action_counts.items())
+    assert total > 0
+    return {a: float(N) / float(total) for a, N in action_counts.items()}
+
+
+def mcts(root, evaluator, next_states, max_iters, max_steps, c_puct):
+    """ - root is an MCTSNode defining a subtree of the game. We take actions at
+    the root.
+    - evaluator is a function from states to probs, value. probs is a dictionary
+      with keys the actions in the state and value given by the estimate of the
+      value of the state.
+    - next_states is a function that takes a state and returns a dictionary with
+      keys the legal actions in the state and values the resulting game state.
+    - max_iters is the number of iterations of MCTS.
+    - max_steps is the maximum number of steps in the select algorithm.
+    - c_puct is the constant used by the select algorithm.
+    Returns a probability distribution over actions available in the root node,
+    as a dictionary from actions to probabilities.
+    """
+
+    for i in range(max_iters):
+        # First select a leaf node from the MCTS tree. This actually returns
+        # all nodes and actions taken, with the length of actions being one
+        # less than the length of nodes. The last element of nodes is the
+        # leaf node.
+        nodes, actions = select(root, max_steps, c_puct)
+        leaf = nodes[-1]
+
+        # Evaluate the leaf node to get the probabilities and value
+        # according to the net.
+        probs, value = evaluator(leaf.game_state)
+
+        # Compute the next possible states from the leaf node. This returns a
+        # dictionary with keys the legal actions and values the game states.
+        # Note that if the leaf is terminal, there will be no next_states.
+        child_states = next_states(leaf.game_state)
+
+        # Expand the tree with the new leaf node
+        expand(leaf, probs, child_states)
+
+        # Backup the value up the tree.
+        backup(nodes, value)
+
+    action_counts = {a: child.N for a, child in root.children.items()}
+    return action_probs(action_counts)
