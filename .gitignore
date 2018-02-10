@@ -1,5 +1,8 @@
 # IntelliJ project files
 .idea/
 
+# distribution/packaging
+*.egg-info/
+
 # py.test  files
 .pytest_cache
