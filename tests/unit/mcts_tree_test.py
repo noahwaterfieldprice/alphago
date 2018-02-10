@@ -21,18 +21,18 @@ def test_mcts_tree_initial_tree():
 
 def test_mcts_tree_is_leaf():
     leaf_node = mcts_tree.MCTSNode(None, None)
-    assert mcts_tree.is_leaf(leaf_node)
+    assert leaf_node.is_leaf()
 
 
 def test_mcts_tree_expand_root():
     # Check we can expand the root of the tree.
     root = mcts_tree.MCTSNode(None, 1)
 
-    children = {'a': 2, 'b': 3}
+    children_states = {'a': 2, 'b': 3}
     prior_probs = {'a': 0.4, 'b': 0.6}
 
     leaf = root
-    mcts_tree.expand(leaf, prior_probs, children)
+    leaf.expand(prior_probs, children_states)
 
     assert leaf.children['a'].game_state == 2
     assert leaf.children['a'].prior_prob == 0.4
@@ -43,7 +43,7 @@ def test_mcts_tree_expand_root():
 def test_mcts_tree_selects_root_as_leaf():
     root = mcts_tree.MCTSNode(None, 1)
 
-    nodes, actions = mcts_tree.select(root, 10, 10)
+    nodes, actions = mcts_tree.select(root, 10)
     assert len(actions) == 0
     assert len(nodes) == 1
     assert nodes[0] == root
@@ -120,7 +120,7 @@ def test_mcts_select():
     nodef = childb.children['f']
     nodef.N = 1
 
-    nodes, actions = mcts_tree.select(root, 10, 1.0)
+    nodes, actions = mcts_tree.select(root, 1.0)
     # We should go through the root, then choose child 'b', then child 'e'.
     # This gives game states 1, 3, 6.
     assert [node.game_state for node in nodes] == [1, 3, 6]
@@ -185,7 +185,7 @@ def test_mcts_action_count_at_root(next_states_function, evaluator):
     root = mcts_tree.MCTSNode(None, 0)
     assert root.N == 0
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, 100, 10, 1.0
+        root, evaluator, next_states_function, 100, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
@@ -203,7 +203,7 @@ def test_mcts_value_at_root(next_states_function, evaluator, num_iters,
     root = mcts_tree.MCTSNode(None, 0)
     assert root.N == 0
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, num_iters, 10, 1.0
+        root, evaluator, next_states_function, num_iters, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
