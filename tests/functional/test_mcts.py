@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from alphago import mcts_tree
@@ -75,25 +74,25 @@ def test_can_run_mcts_on_dummy_game(next_states_function, evaluator, num_iters):
     """
     root = mcts_tree.MCTSNode(None, 0)
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, 100, 10, 1.0
+        root, evaluator, next_states_function, num_iters, 1.0
     )
     assert action_probs is not None
 
 
 @pytest.mark.parametrize(
-    "next_states_function, evaluator, max_iters, max_steps, c_puct, expected", [
-        (next_states_function, evaluator_1, 100, 10, 1.0, [0, 1, 3]),
-        (next_states_function_2, evaluator_1, 5, 10, 1.0, [0, 1, 3, 7]),
+    "next_states_function, evaluator, max_iters, c_puct, expected", [
+        (next_states_function, evaluator_1, 100, 1.0, [0, 1, 3]),
+        (next_states_function_2, evaluator_1, 5, 1.0, [0, 1, 3, 7]),
     ]
 )
 def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
-                                 max_steps, c_puct, expected):
+                                 c_puct, expected):
     root = mcts_tree.MCTSNode(None, 0)
     node = root
     nodes = [node]
     while len(next_states_function(node.game_state)) > 0:
         action_probs = mcts_tree.mcts(
-            root, evaluator, next_states_function, max_iters, max_steps, c_puct
+            root, evaluator, next_states_function, max_iters, c_puct
         )
         action = max(action_probs, key=action_probs.get)
         node = node.children[action]
@@ -102,19 +101,18 @@ def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
 
 
 @pytest.mark.parametrize(
-    "next_states_function, evaluator, initial_state, max_iters, max_steps,\
-    c_puct, expected_length", [
-        (next_states_function_2, evaluator_1, 0, 5, 10, 1.0, 4),
-        (next_states_function, evaluator_1, 0, 1000, 10, 1.0, 3),
+    "next_states_function, evaluator, initial_state, max_iters,\
+     c_puct, expected_length", [
+        (next_states_function_2, evaluator_1, 0, 5, 1.0, 4),
+        (next_states_function, evaluator_1, 0, 1000, 1.0, 3),
     ]
 )
-def test_mcts_can_self_play_fake_game(
-    next_states_function, evaluator, initial_state, max_iters, max_steps,
-    c_puct, expected_length
-):
+def test_mcts_can_self_play_fake_game(next_states_function, evaluator,
+                                      initial_state, max_iters,
+                                      c_puct, expected_length):
     states, action_probs = mcts_tree.self_play(
         next_states_function, evaluator,
-        initial_state, max_iters, max_steps, c_puct
+        initial_state, max_iters, c_puct
     )
     assert states[0] == initial_state
     assert len(states) == expected_length

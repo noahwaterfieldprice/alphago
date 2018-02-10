@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class MCTSNode:
+class MCTSNode:  # TODO: write a expand class docstring
     """ An MCTSNode stores Q, W, N for the action from the previous node to this
     node, where Q, W, N are from the paper. It also stores a list of the legal
     actions from this node. It also stores the game state corresponding to this
@@ -26,42 +26,110 @@ class MCTSNode:
         # can return the list of legal actions from this game state.
         self.game_state = game_state
 
+    def is_leaf(self):
+        """Returns whether or not the node in the tree is a leaf."""
+        return len(self.children) == 0
+
+    def expand(self, prior_probs, children_states):
+        """ Expands the tree at the leaf node with the given probabilities.
+
+        Parameters
+        ---------
+        prior_probs: dict
+            A dictionary where the keys are the available actions from
+            the node and the values are the prior probabilities of
+            taking each action.
+        children_states: dict
+            A dictionary where the keys are the available actions from
+            the node and the values are the corresponding game states
+            resulting from taking each action.
+        """
+        assert self.is_leaf()
+
+        # Initialise the relevant data for each child of the leaf node
+        self.children = {
+            action: MCTSNode(prior_probs[action], children_states[action])
+            for action in children_states
+        }
+
 
 def compute_ucb(action_values, prior_probs, action_counts, c_puct):
-    """ Returns a dictionary mapping each child node to: Q(s,a) + U(s,a),
+    """Calculates the upper confidence bound, Q(s,a) + U(s,a), for each
+    of the child nodes.
+
+    U(s,a) is defined as
+        c_puct * prior_prob * sqrt(sum(N)) / (1 + N)
+    where N is the action count.
+
+    Parameters
+    ----------
+    action_values, prior_probs, action_counts: dict
+        These are all dictionaries where the keys are the available
+        actions and the values are the corresponding action values,
+        prior probabilities and action counts.
+    c_puct: float
+        A hyperparameter determining the level of exploration.
+
+    Returns
+    -------
+    upper_confidence_bounds: dict
+        A dictionary mapping each child node to: Q(s,a) + U(s,a),
     where U(s,a) = c_puct * prior_prob * sqrt(sum(action_counts)) / (1 +
     action_count).
     """
     num = np.sqrt(sum(action_counts.values()))
     # assert num > 0
-    return {
+    upper_confidence_bounds = {
         k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *
         c_puct * num for k in action_values
     }
+    return upper_confidence_bounds
 
 
-def select(root, max_steps, c_puct):
-    """ Selects a new leaf node. Returns all nodes and actions on the path
-    to the new leaf node. Terminates after max_steps.
+def select(starting_node, c_puct):
+    """Starting at a given node in the tree, traverse a path through
+     child nodes until a leaf is reached. Return the sequence of nodes
+     and actions taken along the path.
+
+    At each node, the next node in the path is chosen to be the child
+    node with the highest upper confidence bound, Q(s, a) + U(s, a).
+
+    Parameters
+    ----------
+    starting_node: MCTSNode
+        The node in the tree from which to start selection algorithm.
+    c_puct: float
+        A hyperparameter determining the level of exploration.
+
+    Returns
+    -------
+    nodes: list
+        The sequence of nodes that was traversed along the path.
+    actions: list
+        The sequence of actions that were taken along the path.
     """
-    node = root
+    node = starting_node
     num_steps = 0
 
     actions = []
     nodes = [node]
 
-    while not is_leaf(node) and num_steps < max_steps:
+    while not node.is_leaf():
         # The node is not a leaf, so has children. We select the one with
         # largest upper confidence bound.
-        prior_probs = {a: child.prior_prob for a, child in node.children.items()}
-        action_values = {a: child.Q for a, child in node.children.items()}
-        action_counts = {a: child.N for a, child in node.children.items()}
+        prior_probs = {action: child.prior_prob
+                       for action, child in node.children.items()}
+        action_values = {action: child.Q
+                         for action, child in node.children.items()}
+        action_counts = {action: child.N
+                         for action, child in node.children.items()}
 
         # Compute the upper confidence bound values
-        ucb = compute_ucb(action_values, prior_probs, action_counts, c_puct)
+        upper_confidence_bounds = compute_ucb(action_values, prior_probs,
+                                              action_counts, c_puct)
 
         # Take action with largest ucb
-        action = max(ucb, key=ucb.get)
+        action = max(upper_confidence_bounds, key=upper_confidence_bounds.get)
         node = node.children[action]
 
         # Append action to the list of actions, and node to nodes
@@ -74,29 +142,9 @@ def select(root, max_steps, c_puct):
     return nodes, actions
 
 
-def is_leaf(node):
-    """ Returns whether or not the node in the tree is a leaf.
-    """
-    return len(node.children) == 0
-
-
-def expand(leaf, prior_probs, children_states):
-    """ Expands the tree at the leaf node with the given probabilities. Note
-    that prior_probs is a dictionary with keys the children of the leaf
-    node and values the prior probability of visiting the child. Returns
-    the list of expanded child nodes.
-    """
-    assert is_leaf(leaf)
-
-    # Initialise the relevant data for each child of the leaf node
-    leaf.children = {
-        a: MCTSNode(prior_probs[a], children_states[a]) for a in children_states
-    }
-
-
 def backup(nodes, v):
     """ Given the sequence of nodes (ending in the new expanded node) from
-    the game tree, backup the value 'v'.
+    the game tree, propagate back the Q-values and action counts.
     """
     for node in nodes:
         # Increment the visit count
@@ -108,28 +156,54 @@ def backup(nodes, v):
 
 
 def action_probs(action_counts):
-    """ - action_counts is a dictionary from actions to the count of that
-    action.
-    Returns a probability distribution proportional to the action counts.
+    """Calculate the probability distribution given a dictionary of
+     actions and action counts.
+
+    Parameters
+    ----------
+    action_counts: dict
+        A dictionary with keys the actions and values the corresponding
+        action counts.
+    Returns
+    -------
+    prob_distribution: dict:
+        A probability distribution proportional to the action counts,
+        given as a dictionary from actions to action counts.
     """
-    total = sum(N for a, N in action_counts.items())
+    total = sum(action_counts.values())
     assert total > 0
-    return {a: float(N) / float(total) for a, N in action_counts.items()}
+    prob_distribution = {a: float(N) / float(total)
+                         for a, N in action_counts.items()}
+    return prob_distribution
 
 
-def mcts(root, evaluator, next_states, max_iters, max_steps, c_puct):
-    """ - root is an MCTSNode defining a subtree of the game. We take actions at
-    the root.
-    - evaluator is a function from states to probs, value. probs is a dictionary
-      with keys the actions in the state and value given by the estimate of the
-      value of the state.
-    - next_states is a function that takes a state and returns a dictionary with
-      keys the legal actions in the state and values the resulting game state.
-    - max_iters is the number of iterations of MCTS.
-    - max_steps is the maximum number of steps in the select algorithm.
-    - c_puct is the constant used by the select algorithm.
-    Returns a probability distribution over actions available in the root node,
-    as a dictionary from actions to probabilities.
+def mcts(starting_node, evaluator, next_states, max_iters, c_puct):
+    """Perform a MCTS from a given starting node
+
+    Parameters
+    ----------
+    starting_node: MCTSNode
+        The root of a subtree of the game. We take actions at the root.
+    evaluator: func
+        A function from states to probs, value. probs is a dictionary
+        with keys the actions in the state and value given by the estimate of the
+        value of the state.
+    next_states: func
+        A function that takes a state and returns a dictionary with
+        keys the available actions in the state and values the
+        resulting game states.
+    max_iters: int
+        The number of iterations of MCTS.
+    c_puct: float
+        A hyperparameter determining the level of exploration in the
+        select algorithm.
+
+    Returns
+    -------
+    action_probs: dict
+            A probability distribution over actions available in the
+            root node, given as a dictionary from actions to
+            probabilities.
     """
 
     for i in range(max_iters):
@@ -137,7 +211,7 @@ def mcts(root, evaluator, next_states, max_iters, max_steps, c_puct):
         # all nodes and actions taken, with the length of actions being one
         # less than the length of nodes. The last element of nodes is the
         # leaf node.
-        nodes, actions = select(root, max_steps, c_puct)
+        nodes, actions = select(starting_node, c_puct)
         leaf = nodes[-1]
 
         # Evaluate the leaf node to get the probabilities and value
@@ -147,20 +221,21 @@ def mcts(root, evaluator, next_states, max_iters, max_steps, c_puct):
         # Compute the next possible states from the leaf node. This returns a
         # dictionary with keys the legal actions and values the game states.
         # Note that if the leaf is terminal, there will be no next_states.
-        child_states = next_states(leaf.game_state)
+        children_states = next_states(leaf.game_state)
 
         # Expand the tree with the new leaf node
-        expand(leaf, probs, child_states)
+        leaf.expand(probs, children_states)
 
         # Backup the value up the tree.
         backup(nodes, value)
 
-    action_counts = {a: child.N for a, child in root.children.items()}
+    action_counts = {action: child.N
+                     for action, child in starting_node.children.items()}
     return action_probs(action_counts)
 
 
 def self_play(next_states_function, evaluator, initial_state,
-              max_iters, max_steps, c_puct):
+              max_iters, c_puct):
     node = MCTSNode(None, initial_state)
 
     game_state_list = [node.game_state]
@@ -169,7 +244,7 @@ def self_play(next_states_function, evaluator, initial_state,
     while len(next_states_function(node.game_state)) > 0:
         # First run MCTS to compute action probabilities.
         action_probs = mcts(node, evaluator, next_states_function, max_iters,
-                            max_steps, c_puct)
+                            c_puct)
 
         # Choose the action according to the action probabilities.
         actions = [a for a in action_probs]
