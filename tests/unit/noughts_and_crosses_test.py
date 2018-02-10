@@ -66,6 +66,25 @@ def test_utility_raises_exception_on_non_terminal_input_state(state):
                                          "for a non-terminal state.")
 
 
+@pytest.mark.parametrize("state", terminal_states)
+def test_next_state_raises_exception_on_terminal_input_state(state):
+    with pytest.raises(ValueError) as exception_info:
+        nac.next_states(state)
+    assert str(exception_info.value) == ("Next states can not be generated "
+                                         "for a terminal state.")
+
+
+# TODO: Add more test cases
+def test_generating_a_dict_of_all_possible_next_states():
+    state = (1, -1, -1, np.nan, 1, np.nan, 1, np.nan, -1)
+    expected_next_states = {
+        (1, 0):  (1, -1, -1, 1, 1, np.nan, 1, np.nan, -1),
+        (1, 2): (1, -1, -1, np.nan, 1, 1, 1, np.nan, -1),
+        (2, 1): (1, -1, -1, np.nan, 1, np.nan, 1, 1, -1),
+    }
+    assert nac.next_states(state) == expected_next_states
+
+
 states = [
     (np.nan,) * 9,
     (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
