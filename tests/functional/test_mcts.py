@@ -17,33 +17,85 @@ def test_can_create_mcts_tree():
     assert tree is not None
 
 
-def test_can_run_mcts_on_dummy_game():
+# The dummy game is defined by a function that takes a state to a dictionary
+# from actions available in state s to the state s.a (resulting from taking
+# action a in state s).
+def next_states_function(state):
+    if state == 0:
+        return {0: 1, 1: 2}
+    elif state == 1:
+        return {0: 3, 1: 4}
+    elif state == 2:
+        return {0: 5, 1: 6}
+    else:
+        return {}
+
+
+def next_states_function_2(state):
+    if state == 0:
+        return {0: 1, 1: 2}
+    elif state == 1:
+        return {0: 3, 1: 4}
+    elif state == 2:
+        return {0: 5, 1: 6}
+    elif state == 3:
+        return {0: 7, 1: 8}
+    elif state == 4:
+        return {0: 9, 1: 10}
+    else:
+        return {}
+
+
+# The evaluator returns a probs dictionary and scalar value. The probs
+# dictionary has keys the actions a and values the probability that the
+# evaluator assigns to the child state s.a. The value is the value that the
+# evaluator assigns to the state s (note that it is the value for s and not
+# s.a).
+def evaluator_1(state):
+    probs = {0: 0.5, 1: 0.5}
+    value = 1.0
+    return probs, value
+
+
+def evaluator_2(state):
+    probs = {0: 0.5, 1: 0.5}
+    value = state
+    return probs, value
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, num_iters", [
+        (next_states_function, evaluator_1, 100),
+        (next_states_function, evaluator_1, 2),
+    ]
+)
+def test_can_run_mcts_on_dummy_game(next_states_function, evaluator, num_iters):
     """ This test shows that we can run MCTS using a 'next_states' function and
     'evaluator' function.
     """
-    # The dummy game is defined by a function that takes a state to a dictionary
-    # from actions available in state s to the state s.a (resulting from taking
-    # action a in state s).
-    def next_states(state):
-        if state == 0:
-            return {0: 1, 1: 2}
-        elif state == 1:
-            return {0: 3, 1: 4}
-        elif state == 2:
-            return {0: 5, 1: 6}
-        else:
-            return {}
-
-    # The evaluator returns a probs dictionary and scalar value. The probs
-    # dictionary has keys the actions a and values the probability that the
-    # evaluator assigns to the child state s.a. The value is the value that the
-    # evaluator assigns to the state s (note that it is the value for s and not
-    # s.a).
-    def evaluator(state):
-        probs = {0: 0.5, 1: 0.5}
-        value = state
-        return probs, value
-
     root = mcts_tree.MCTSNode(None, 0)
-    action_probs = mcts_tree.mcts(root, evaluator, next_states, 100, 10, 1.0)
+    action_probs = mcts_tree.mcts(
+        root, evaluator, next_states_function, 100, 10, 1.0
+    )
     assert action_probs is not None
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, max_iters, max_steps, c_puct, expected", [
+        (next_states_function, evaluator_1, 100, 10, 1.0, [0, 1, 3]),
+        (next_states_function_2, evaluator_1, 5, 10, 1.0, [0, 1, 3, 7]),
+    ]
+)
+def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
+                                 max_steps, c_puct, expected):
+    root = mcts_tree.MCTSNode(None, 0)
+    node = root
+    nodes = [node]
+    while len(next_states_function(node.game_state)) > 0:
+        action_probs = mcts_tree.mcts(
+            root, evaluator, next_states_function, max_iters, max_steps, c_puct
+        )
+        action = max(action_probs, key=action_probs.get)
+        node = node.children[action]
+        nodes.append(node)
+    assert [node.game_state for node in nodes] == expected
