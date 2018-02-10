@@ -129,6 +129,32 @@ def utility(state):
                      "non-terminal state.")
 
 
+def next_states(state):  # TODO: write a better docstring
+    """Calculate a dictionary for all possible next states"""
+    if is_terminal(state):
+        raise ValueError("Next states can not be generated for a "
+                         "terminal state.")
+
+    board = np.array(state).reshape(3, 3)
+    # get a sequence of tuples (row_i, col_i) of available squares
+    available_squares = tuple(zip(*np.where(np.isnan(board))))
+    # generate all possible next_states by placing an x in each
+    # available square
+    next_states_ = []
+    for square in available_squares:
+        # convert the (row_i, col_i) into a flattened index
+        row_i, col_i = square
+        flattened_index = 3 * row_i + col_i
+        # create copy of next state with an 'x' in corresponding square
+        # and add it to list of next states
+        next_state = list(state)
+        next_state[flattened_index] = 1
+        next_states_.append(tuple(next_state))
+
+    return {a: next_state
+                   for a, next_state in zip(available_squares, next_states_)}
+
+
 def display(state):
     """Display the noughts and crosses state in a 2-D ASCII grid.
 
@@ -150,3 +176,5 @@ def display(state):
 
     board = divider.join(output_rows)
     print(board)
+
+

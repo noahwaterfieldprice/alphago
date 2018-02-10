@@ -31,7 +31,7 @@ class MCTSNode:  # TODO: write a expand class docstring
         return len(self.children) == 0
 
     def expand(self, prior_probs, children_states):
-        """ Expands the tree at the leaf node with the given probabilities.
+        """Expands the tree at the leaf node with the given probabilities.
 
         Parameters
         ---------

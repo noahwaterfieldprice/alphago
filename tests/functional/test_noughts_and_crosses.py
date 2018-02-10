@@ -32,6 +32,14 @@ def test_calculating_utility_of_terminal_state():
     assert nac.utility(terminal_state_draw) == nac.Outcome(0, 0)
 
 
+def test_generating_possible_next_states():
+    penultimate_state = (1, 1, np.nan, -1, 1, -1, 1, -1, -1)
+
+    expected_next_states = {(0, 2): TERMINAL_STATE}
+
+    assert nac.next_states(penultimate_state) == expected_next_states
+
+
 def test_displaying_a_game_in_ascii_format(capsys):
     expected_output = (" x | o |   \n"
                        "---+---+---\n"
