@@ -14,5 +14,5 @@ numpy = "*"
 [dev-packages]
 
 pytest = "*"
-"pytest-pep8" = "*"
 jupyter = "*"
+pytest-pycodestyle = "*"
