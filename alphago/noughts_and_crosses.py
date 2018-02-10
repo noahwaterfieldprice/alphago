@@ -151,8 +151,8 @@ def next_states(state):  # TODO: write a better docstring
         next_state[flattened_index] = 1
         next_states_.append(tuple(next_state))
 
-    return {a: next_state
-                   for a, next_state in zip(available_squares, next_states_)}
+    return {a: next_state for a, next_state in zip(available_squares,
+            next_states_)}
 
 
 def display(state):
@@ -176,5 +176,3 @@ def display(state):
 
     board = divider.join(output_rows)
     print(board)
-
-

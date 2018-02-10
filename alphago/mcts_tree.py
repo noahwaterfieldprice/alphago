@@ -46,6 +46,8 @@ class MCTSNode:  # TODO: write a expand class docstring
         """
         assert self.is_leaf()
 
+        prior_probs = compute_distribution(prior_probs)
+
         # Initialise the relevant data for each child of the leaf node
         self.children = {
             action: MCTSNode(prior_probs[action], children_states[action])
@@ -155,29 +157,31 @@ def backup(nodes, v):
         node.Q = float(node.W) / float(node.N)
 
 
-def action_probs(action_counts):
-    """Calculate the probability distribution given a dictionary of
-     actions and action counts.
+def compute_distribution(d):
+    """Calculate a probability distribution with probabilities proportional to
+    the values in a dictionary
 
     Parameters
     ----------
-    action_counts: dict
-        A dictionary with keys the actions and values the corresponding
-        action counts.
+    d: dict
+        A dictionary with values equal to positive floats.
+
     Returns
     -------
     prob_distribution: dict:
-        A probability distribution proportional to the action counts,
-        given as a dictionary from actions to action counts.
+        A probability distribution proportional to the values of d, given as a
+        dictionary with keys equal to those of d and values the probability
+        corresponding to the value.
     """
-    total = sum(action_counts.values())
+    total = sum(d.values())
+    assert min(d.values()) >= 0
     assert total > 0
-    prob_distribution = {a: float(N) / float(total)
-                         for a, N in action_counts.items()}
+    prob_distribution = {k: float(v) / float(total)
+                         for k, v in d.items()}
     return prob_distribution
 
 
-def mcts(starting_node, evaluator, next_states, max_iters, c_puct):
+def mcts(starting_node, evaluator, next_states, is_terminal, max_iters, c_puct):
     """Perform a MCTS from a given starting node
 
     Parameters
@@ -218,38 +222,41 @@ def mcts(starting_node, evaluator, next_states, max_iters, c_puct):
         # according to the net.
         probs, value = evaluator(leaf.game_state)
 
-        # Compute the next possible states from the leaf node. This returns a
-        # dictionary with keys the legal actions and values the game states.
-        # Note that if the leaf is terminal, there will be no next_states.
-        children_states = next_states(leaf.game_state)
+        if not is_terminal(leaf.game_state):
+            # Compute the next possible states from the leaf node. This returns a
+            # dictionary with keys the legal actions and values the game states.
+            # Note that if the leaf is terminal, there will be no next_states.
+            children_states = next_states(leaf.game_state)
 
-        # Expand the tree with the new leaf node
-        leaf.expand(probs, children_states)
+            # Expand the tree with the new leaf node
+            leaf.expand(probs, children_states)
 
         # Backup the value up the tree.
         backup(nodes, value)
 
     action_counts = {action: child.N
                      for action, child in starting_node.children.items()}
-    return action_probs(action_counts)
+    return compute_distribution(action_counts)
 
 
-def self_play(next_states_function, evaluator, initial_state,
+def self_play(next_states_function, evaluator, initial_state, is_terminal,
               max_iters, c_puct):
     node = MCTSNode(None, initial_state)
 
     game_state_list = [node.game_state]
     action_probs_list = []
 
-    while len(next_states_function(node.game_state)) > 0:
+    while not is_terminal(node.game_state) > 0:
         # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, evaluator, next_states_function, max_iters,
-                            c_puct)
+        action_probs = mcts(node, evaluator, next_states_function, is_terminal,
+                            max_iters, c_puct)
 
         # Choose the action according to the action probabilities.
         actions = [a for a in action_probs]
         probs = [p for a, p in action_probs.items()]
-        action = np.random.choice(actions, p=probs)
+        print(actions)
+        ix = np.random.choice(len(actions), p=probs)
+        action = actions[ix]
 
         # Play the action
         node = node.children[action]
