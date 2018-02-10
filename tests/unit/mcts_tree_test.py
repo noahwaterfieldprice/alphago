@@ -7,7 +7,7 @@ from alphago import mcts_tree
 
 def test_mcts_tree_initial_tree():
     root = mcts_tree.MCTSNode(None, None)
-    
+
     # Check the root has prior_prob None
     assert root.prior_prob is None
     assert root.Q == 0.0
@@ -18,9 +18,11 @@ def test_mcts_tree_initial_tree():
 
     assert root.game_state is None
 
+
 def test_mcts_tree_is_leaf():
     leaf_node = mcts_tree.MCTSNode(None, None)
     assert mcts_tree.is_leaf(leaf_node)
+
 
 def test_mcts_tree_expand_root():
     # Check we can expand the root of the tree.
@@ -37,6 +39,7 @@ def test_mcts_tree_expand_root():
     assert leaf.children['b'].game_state == 3
     assert leaf.children['b'].prior_prob == 0.6
 
+
 def test_mcts_tree_selects_root_as_leaf():
     root = mcts_tree.MCTSNode(None, 1)
 
@@ -50,6 +53,7 @@ backup_nodes = [
     [mcts_tree.MCTSNode(None, 3)],
     [mcts_tree.MCTSNode(None, None), mcts_tree.MCTSNode(None, None)],
     [mcts_tree.MCTSNode({'a': 1.0}, 1), mcts_tree.MCTSNode({3: 0.5}, 2)],
+
 ]
 
 backup_values = [
@@ -58,6 +62,7 @@ backup_values = [
     3.0,
 ]
 
+
 @pytest.mark.parametrize("nodes, v", zip(backup_nodes, backup_values))
 def test_mcts_backup(nodes, v):
     mcts_tree.backup(nodes, v)
@@ -65,6 +70,7 @@ def test_mcts_backup(nodes, v):
         assert node.N == 1.0
         assert node.W == v
         assert node.Q == v
+
 
 backup_nodes_n_times = [
     [mcts_tree.MCTSNode(None, 3)],
@@ -77,7 +83,8 @@ backup_n = [
     2,
     3,
 ]
-    
+
+
 @pytest.mark.parametrize("nodes, v, n", zip(backup_nodes_n_times, backup_values, backup_n))
 def test_mcts_backup_twice_n_times(nodes, v, n):
     for i in range(n):
@@ -86,7 +93,8 @@ def test_mcts_backup_twice_n_times(nodes, v, n):
         assert node.N == float(n)
         assert node.W == n*v
         assert node.Q == v
-    
+
+
 def test_mcts_select():
     root = mcts_tree.MCTSNode(None, 1)
 
@@ -117,12 +125,20 @@ def test_mcts_select():
     # This gives game states 1, 3, 6.
     assert [node.game_state for node in nodes] == [1, 3, 6]
 
+
 def test_compute_ucb():
     c_puct = 1.0
     action_values = {'a': 1.0, 'b': 2.0, 'c': 3.0}
     prior_probs = {'a': 0.2, 'b': 0.5, 'c': 0.3}
     action_counts = {'a': 10, 'b': 20, 'c': 30}
     num = np.sqrt(sum(action_counts.values()))
-    expected = {a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) * c_puct * num for a in action_values}
-    computed = mcts_tree.compute_ucb(action_values, prior_probs, action_counts, c_puct)
+    expected = {
+        a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) *
+        c_puct * num for a in action_values
+    }
+    computed = mcts_tree.compute_ucb(
+        action_values,
+        prior_probs,
+        action_counts,
+        c_puct)
     assert expected == computed
