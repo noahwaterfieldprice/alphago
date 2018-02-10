@@ -142,3 +142,35 @@ def test_compute_ucb():
         action_counts,
         c_puct)
     assert expected == computed
+
+
+def test_action_probs():
+    action_counts = {1: 3, 5: 7}
+    computed = mcts_tree.action_probs(action_counts)
+    expected = {1: 3.0 / 10.0, 5: 7.0 / 10.0}
+    assert computed == expected
+
+
+def test_mcts_action_count_at_root():
+    # We first create a dummy game
+    def next_states(state):
+        if state == 0:
+            return {0: 1, 1: 2}
+        elif state == 1:
+            return {0: 3, 1: 4}
+        elif state == 2:
+            return {0: 5, 1: 6}
+        else:
+            return {}
+
+    def evaluator(state):
+        probs = {0: 0.5, 1: 0.5}
+        value = state
+        return probs, value
+
+    root = mcts_tree.MCTSNode(None, 0)
+    assert root.N == 0
+    action_probs = mcts_tree.mcts(root, evaluator, next_states, 100, 10, 1.0)
+
+    # Each iteration of MCTS we should add 1 to N at the root.
+    assert root.N == 100
