@@ -3,6 +3,8 @@ import numpy as np
 import pytest
 
 from alphago import mcts_tree
+from alphago.evaluator import trivial_evaluator
+from alphago.noughts_and_crosses import Outcome
 
 
 def test_mcts_tree_initial_tree():
@@ -144,9 +146,9 @@ def test_compute_ucb():
     assert expected == computed
 
 
-def test_action_probs():
+def test_compute_distribution():
     action_counts = {1: 3, 5: 7}
-    computed = mcts_tree.action_probs(action_counts)
+    computed = mcts_tree.compute_distribution(action_counts)
     expected = {1: 3.0 / 10.0, 5: 7.0 / 10.0}
     assert computed == expected
 
@@ -184,8 +186,12 @@ def evaluator_2(state):
 def test_mcts_action_count_at_root(next_states_function, evaluator):
     root = mcts_tree.MCTSNode(None, 0)
     assert root.N == 0
+
+    def is_terminal(state):
+        return len(next_states_function(state)) == 0
+
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, 100, 1.0
+        root, evaluator, next_states_function, is_terminal, 100, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
@@ -202,9 +208,66 @@ def test_mcts_value_at_root(next_states_function, evaluator, num_iters,
                             expected):
     root = mcts_tree.MCTSNode(None, 0)
     assert root.N == 0
+
+    def is_terminal(state):
+        return len(next_states_function(state)) == 0
+
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, num_iters, 1.0
+        root, evaluator, next_states_function, is_terminal, num_iters, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert root.W == expected
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, num_iters, expected", [
+        (next_states_function, evaluator_1, 100, 100),
+        (next_states_function, evaluator_1, 2, 2),
+    ]
+)
+def test_mcts_does_not_expand_terminal_nodes(next_states_function, evaluator,
+                                             num_iters, expected):
+    def is_terminal(state):
+        return len(next_states_function(state)) == 0
+
+    def next_states_wrapper(state):
+        assert not is_terminal(state)
+        return next_states_function(state)
+
+    root = mcts_tree.MCTSNode(None, 0)
+    action_probs = mcts_tree.mcts(
+        root, evaluator, next_states_wrapper, is_terminal, num_iters, 1.0
+    )
+
+
+@pytest.mark.parametrize(
+    "next_states_function, evaluator, num_iters, expected", [
+        (next_states_function, evaluator_1, 100, {0: 98.0/99.0, 1: 1.0/99.0}),
+        (next_states_function, evaluator_1, 2, {0: 1.0, 1: 0.0}),
+    ]
+)
+def test_trivial_evaluator(next_states_function, evaluator, num_iters,
+                           expected):
+
+    def is_terminal(state):
+        return len(next_states_function(state)) == 0
+
+    def utility(state):
+        return Outcome(state, state)
+
+    def which_player(state):
+        return 1
+
+    action_space = [0, 1]
+
+    def evaluator(state):
+        return trivial_evaluator(
+            state, next_states_function, action_space, is_terminal,
+            utility, which_player)
+
+    root = mcts_tree.MCTSNode(None, 0)
+    action_probs = mcts_tree.mcts(
+        root, evaluator, next_states_function, is_terminal, num_iters, 1.0
+    )
+    assert action_probs == expected
