@@ -157,3 +157,30 @@ def mcts(root, evaluator, next_states, max_iters, max_steps, c_puct):
 
     action_counts = {a: child.N for a, child in root.children.items()}
     return action_probs(action_counts)
+
+
+def self_play(next_states_function, evaluator, initial_state,
+              max_iters, max_steps, c_puct):
+    node = MCTSNode(None, initial_state)
+
+    game_state_list = [node.game_state]
+    action_probs_list = []
+
+    while len(next_states_function(node.game_state)) > 0:
+        # First run MCTS to compute action probabilities.
+        action_probs = mcts(node, evaluator, next_states_function, max_iters,
+                            max_steps, c_puct)
+
+        # Choose the action according to the action probabilities.
+        actions = [a for a in action_probs]
+        probs = [p for a, p in action_probs.items()]
+        action = np.random.choice(actions, p=probs)
+
+        # Play the action
+        node = node.children[action]
+
+        # Add the action probabilities and game state to the list.
+        action_probs_list.append(action_probs)
+        game_state_list.append(node.game_state)
+
+    return game_state_list, action_probs_list
