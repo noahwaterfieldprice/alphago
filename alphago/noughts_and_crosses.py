@@ -173,7 +173,7 @@ def display(state):
     for state_row in np.array_split(state, indices_or_sections=3):
         # convert nans to 0s for symbol lookup
         state_row[np.isnan(state_row)] = 0
-        y = "|". join([f" {symbol_dict[x]} " for x in state_row])
+        y = "|". join([" {} ".format(symbol_dict[x]) for x in state_row])
         output_rows.append(y)
 
     ascii_grid = divider.join(output_rows)
