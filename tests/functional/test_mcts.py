@@ -137,15 +137,12 @@ def test_mcts_can_self_play_noughts_and_crosses():
     max_iters = 1000
     c_puct = 1.0
 
-    def which_player(state):
-        return 1 + (np.sum(np.isnan(state)) % 2)
-
     action_space = [(i, j) for i in range(3) for j in range(3)]
 
     def evaluator(state):
         return trivial_evaluator(
             state, nac.next_states, action_space, nac.is_terminal,
-            nac.utility, which_player)
+            nac.utility)
 
     game_states_, action_probs_ = mcts_tree.self_play(
         nac.next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,
