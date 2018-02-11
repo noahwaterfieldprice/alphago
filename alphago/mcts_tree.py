@@ -1,32 +1,50 @@
 import numpy as np
 
 
-class MCTSNode:  # TODO: write a expand class docstring
-    """ An MCTSNode stores Q, W, N for the action from the previous node to this
-    node, where Q, W, N are from the paper. It also stores a list of the legal
-    actions from this node. It also stores the game state corresponding to this
-    node.
+class MCTSNode:  # TODO: expand class docstring
+    """A class to represent a Monte Carlo search tree node. This node
+    keeps track of all quantities needed for the Monte Carlo tree
+    search (MCTS) algorithm. These quantities correspond to those in
+    the 'Mastering the game of Go without human knowledge' paper -
+    (doi:10.1038/nature24270) and are named identically.
+
+    Parameters
+    ----------
+    prior_prob: float
+
+    Attributes
+    ----------
+    prior_prob: float
+        The prior probability of visiting this node from the parent
+        node.
+    Q: float
+        The total action value of taking the action linking the parent
+        node to this node.
+    W: float
+        The mean action value of taking the action linking the parent
+        node to this node.
+    N: int
+        The number of times this node has been visited.
+    children: dict
+        A dictionary holding all the child nodes of this node with keys
+        the legal actions from this node and values the nodes
+        corresponding to taking said actions. Before the node has been
+        expanded, this is empty.
+    game_state: state
+        An object describing the game state corresponding to this node.
+        This object holds sufficient information for the game object to
+        understand the game -- in particular, given this state, the
+        game object can return all the legal actions from this state.
     """
 
     __slots__ = "prior_prob Q W N children game_state".split()
 
     def __init__(self, prior_prob, game_state):
-        # We store the prior probability, Q-value, cumulative Q-value (called W)
-        # and visit count (called N) from the parent node. These are all
-        # scalars. In particular, prior_prob is the prior probability of
-        # visiting this node from the parent node.
         self.prior_prob = prior_prob
         self.Q = 0.0
         self.W = 0.0
         self.N = 0.0
-
-        # children will hold the children of the node, once the node is
-        # expanded. It is a dictionary from actions to MCTSNodes.
         self.children = {}
-
-        # We also store the game state in the node. This is sufficient for the
-        # Game object to understand the game -- in particular, the Game object
-        # can return the list of legal actions from this game state.
         self.game_state = game_state
 
     def is_leaf(self):
@@ -34,7 +52,8 @@ class MCTSNode:  # TODO: write a expand class docstring
         return len(self.children) == 0
 
     def expand(self, prior_probs, children_states):
-        """Expands the tree at the leaf node with the given probabilities.
+        """Expands the tree at the leaf node with the given
+        probabilities.
 
         Parameters
         ---------
@@ -78,9 +97,7 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     Returns
     -------
     upper_confidence_bounds: dict
-        A dictionary mapping each child node to: Q(s,a) + U(s,a),
-    where U(s,a) = c_puct * prior_prob * sqrt(sum(action_counts)) / (1 +
-    action_count).
+        A dictionary mapping each child node to: Q(s,a) + U(s,a).
     """
     num = np.sqrt(sum(action_counts.values()))
     # assert num > 0
@@ -148,7 +165,7 @@ def select(starting_node, c_puct):
 
 
 def backup(nodes, v):
-    """ Given the sequence of nodes (ending in the new expanded node) from
+    """Given the sequence of nodes (ending in the new expanded node) from
     the game tree, propagate back the Q-values and action counts.
     """
     for node in nodes:
@@ -161,8 +178,8 @@ def backup(nodes, v):
 
 
 def compute_distribution(d):
-    """Calculate a probability distribution with probabilities proportional to
-    the values in a dictionary
+    """Calculate a probability distribution with probabilities
+    proportional to the values in a dictionary
 
     Parameters
     ----------
@@ -172,9 +189,9 @@ def compute_distribution(d):
     Returns
     -------
     prob_distribution: dict:
-        A probability distribution proportional to the values of d, given as a
-        dictionary with keys equal to those of d and values the probability
-        corresponding to the value.
+        A probability distribution proportional to the values of d,
+        given as a dictionary with keys equal to those of d and values
+        the probability corresponding to the value.
     """
     total = sum(d.values())
     assert min(d.values()) >= 0
@@ -194,9 +211,9 @@ def mcts(starting_node, evaluator, next_states_function,
         The root of a subtree of the game. We take actions at the root.
     evaluator: func
         A function from states to probs, value. probs is a dictionary
-        with keys the actions in the state and value given by the estimate of the
-        value of the state.
-    next_states: func
+        with keys the actions in the state and value given by the
+        estimate of the value of the state.
+    next_states_function: func
         A function that takes a state and returns a dictionary with
         keys the available actions in the state and values the
         resulting game states.
@@ -215,10 +232,10 @@ def mcts(starting_node, evaluator, next_states_function,
     """
 
     for i in range(max_iters):
-        # First select a leaf node from the MCTS tree. This actually returns
-        # all nodes and actions taken, with the length of actions being one
-        # less than the length of nodes. The last element of nodes is the
-        # leaf node.
+        # First select a leaf node from the MCTS tree. This actually
+        # returns all nodes and actions taken, with the length of
+        # actions being one less than the length of nodes. The last
+        # element of nodes is the leaf node.
         nodes, actions = select(starting_node, c_puct)
         leaf = nodes[-1]
 
@@ -227,9 +244,10 @@ def mcts(starting_node, evaluator, next_states_function,
         probs, value = evaluator(leaf.game_state)
 
         if not is_terminal(leaf.game_state):
-            # Compute the next possible states from the leaf node. This returns a
-            # dictionary with keys the legal actions and values the game states.
-            # Note that if the leaf is terminal, there will be no next_states.
+            # Compute the next possible states from the leaf node. This
+            # returns a dictionary with keys the legal actions and
+            # values the game states. Note that if the leaf is terminal
+            # there will be no next_states.
             children_states = next_states_function(leaf.game_state)
 
             # Expand the tree with the new leaf node
@@ -250,16 +268,17 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
     Parameters
     ----------
     next_states_function: func
-        Gives the next states from the given state as a dictionary with keys the
-        available actions and values the resulting states.
+        Gives the next states from the given state as a dictionary
+        with keys the available actions and values the resulting
+        states.
     evaluator: func
         An evaluator.
     initial_state: object
-        An initial state to start the game in. This must be compatible with
-        next_states_function, but is otherwise arbitrary.
+        An initial state to start the game in. This must be compatible
+        with next_states_function, but is otherwise arbitrary.
     is_terminal: func
-        A function that returns True if the state is terminal and otherwise
-        returns False.
+        A function that returns True if the state is terminal and
+        otherwise returns False.
     max_iters: int
         Number of iterations to run MCTS for.
     c_puct: float
