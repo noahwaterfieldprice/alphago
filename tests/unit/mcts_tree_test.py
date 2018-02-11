@@ -290,7 +290,7 @@ def test_build_training_data(states_, action_probs_, expected):
         return 1 + (state % 2)
 
     def utility(state):
-        return Outcome(state, -state)
+        return {1: state, 2: -state}
 
     training_data = mcts_tree.build_training_data(states_, action_probs_,
                                                   which_player, utility)
