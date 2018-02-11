@@ -74,7 +74,7 @@ def test_utility_function_returns_correct_outcomes(state, outcome):
 @pytest.mark.parametrize("state", terminal_states)
 def test_next_state_raises_exception_on_terminal_input_state(state):
     with pytest.raises(ValueError) as exception_info:
-        nac.next_states(state)
+        nac.compute_next_states(state)
     assert str(exception_info.value) == ("Next states can not be generated "
                                          "for a terminal state.")
 
@@ -120,7 +120,7 @@ expected_next_states_list = (next_states_move6, next_states_move7,
 def test_generating_a_dict_of_all_possible_next_states(state,
                                                        expected_next_states):
 
-    assert nac.next_states(state) == expected_next_states
+    assert nac.compute_next_states(state) == expected_next_states
 
 
 states = [

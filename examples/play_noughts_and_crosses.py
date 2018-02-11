@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     def evaluator(state):
         return trivial_evaluator(
-            state, nac.next_states, action_space, nac.is_terminal,
+            state, nac.compute_next_states, action_space, nac.is_terminal,
             nac.utility, nac.which_player)
 
     state = nac.INITIAL_STATE
@@ -27,7 +27,7 @@ if __name__ == "__main__":
             # Computer plays
             action_probs = mcts_tree.mcts(
                 mcts_tree.MCTSNode(None, state), evaluator,
-                nac.next_states, nac.is_terminal, max_iters,
+                nac.compute_next_states, nac.is_terminal, max_iters,
                 c_puct)
             actions = [a for a in action_probs]
             probs = [v for v in action_probs.values()]
@@ -39,7 +39,7 @@ if __name__ == "__main__":
                                "across the board): "))
             assert (action >= 1) and (action <= 9)
             action = action_space[action-1]
-        next_states = nac.next_states(state)
+        next_states = nac.compute_next_states(state)
         state = next_states[action]
 
         nac.display(state)

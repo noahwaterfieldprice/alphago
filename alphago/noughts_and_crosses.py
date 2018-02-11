@@ -11,8 +11,15 @@ Functions
 is_terminal:
     Return a bool indicating whether or not the input state is
     terminal.
+which_player:
+    Given a state, return and int indicating the player whose turn it
+    is.
+next_states:
+    Given a state, return a dict of all possible next states.
 utility:
-    Return the outcome of terminal state.
+    Given a terminal state, return the outcomes for each player
+display:
+    Display a noughts and crosses state as an ASCII grid.
 
 Attributes
 ----------
@@ -22,7 +29,9 @@ INITIAL_STATE:
 
 import numpy as np
 
-__all__ = ["INITIAL_STATE", "is_terminal", "utility"]
+__all__ = ["INITIAL_STATE", "is_terminal", "which_player",
+           "compute_next_states",
+           "utility", "display"]
 
 
 INITIAL_STATE = (np.nan, ) * 9
@@ -34,12 +43,12 @@ def _calculate_line_sums(state):
 
     Parameters
     ----------
-    state: array_like
-        A 1-D array representing a noughts and crosses grid.
+    state: tuple
+        A 1-D array representing a noughts and crosses game state.
 
     Returns
     -------
-    ndarray:
+    line_sums: ndarray
         An array of sums along all the possible lines on the noughts
         and crosses grid.
     """
@@ -49,12 +58,26 @@ def _calculate_line_sums(state):
     major_diagonal = np.nansum(grid.diagonal()),
     minor_diagonal = np.nansum(np.fliplr(grid).diagonal()),
 
-    return np.concatenate([horizontals, verticals,
-                           major_diagonal, minor_diagonal])
+    line_sums = np.concatenate([horizontals, verticals,
+                                major_diagonal, minor_diagonal])
+    return line_sums
 
 
 def which_player(state):
-    """Given a state, return which player's turn it is."""
+    """Given a state, return and int indicating the player whose turn it
+    is.
+
+    Parameters
+    ----------
+    state: array_like
+        A 1-D array representing a noughts and crosses game state.
+
+    Returns
+    -------
+    player: int
+        An int indicating the player whose turn it is, where 1 and 2
+        correspond to player 1 and player 2, respectively.
+    """
     return (np.sum(~np.isnan(state)) % 2) + 1
 
 
@@ -67,8 +90,8 @@ def is_terminal(state):
 
     Parameters
     ---------
-    state: GameState
-        A state representing a noughts and crosses grid.
+    state: tuple
+        A 1-D array representing a noughts and crosses game state.
 
     Returns
     -------
@@ -96,8 +119,8 @@ def utility(state):
     Parameters
     ---------
     state: tuple
-        A terminal state representing a noughts and crosses grid
-        corresponding to either a win or a draw.
+        A 1-D array representing a terminal noughts and crosses game
+        state, corresponding to either a win or a draw.
 
     Returns
     -------
@@ -129,8 +152,41 @@ def utility(state):
                      "non-terminal state.")
 
 
-def next_states(state):  # TODO: write a better docstring
-    """Calculate a dictionary for all possible next states"""
+def compute_next_states(state):  # TODO: write a better docstring
+    """Given a non-terminal state, generate a dictionary mapping legal
+    actions onto their resulting game states.
+
+    Actions are indicated by the coordinate of the square where the
+    player could place a 'x' or 'o', e.g. (2, 1) for the middle square
+    on the bottom row.
+
+    Parameters
+    ----------
+    state: tuple
+        A 1-D array representing a non-terminal noughts and crosses
+        game state.
+
+    Returns
+    -------
+    next_states: dict
+        A dictionary mapping all possible legal actions from the input
+        game state to the corresponding game states resulting from
+        taking each action.
+
+
+    Examples
+    --------
+    >>> import alphago.noughts_and_crosses as nac
+
+    Define a noughts and crosses board with only one move left.
+
+    >>> penultimate_state = (1, np.nan, -1, -1, 1, 1, 1, -1, -1)
+
+    Calculate the possible next states, of which there should only be one
+
+    >>> nac.compute_next_states(penultimate_state)
+    (0, 1): (1, 1, -1, -1, 1, 1, 1, -1, -1)
+    """
     if is_terminal(state):
         raise ValueError("Next states can not be generated for a "
                          "terminal state.")
@@ -138,23 +194,24 @@ def next_states(state):  # TODO: write a better docstring
     # TODO: maybe ternary expressions are not the clearest in this func
     player_symbol = 1 if which_player(state) == 1 else -1
     grid = np.array(state).reshape(3, 3)
+
     # get a sequence of tuples (row_i, col_i) of available squares
     available_squares = tuple(zip(*np.where(np.isnan(grid))))
+
     # generate all possible next_states by placing the appropriate symbol
     # in each available square
-    next_states_ = []
-    for square in available_squares:
+    next_states = []
+    for (row_i, col_i) in available_squares:
         # convert the (row_i, col_i) into a flattened index
-        row_i, col_i = square
         flattened_index = 3 * row_i + col_i
         # create copy of next state with a new 'o' or 'x in the
         # corresponding square # and add it to list of next states
         next_state = list(state)
         next_state[flattened_index] = player_symbol
-        next_states_.append(tuple(next_state))
+        next_states.append(tuple(next_state))
 
     return {a: next_state for a, next_state
-            in zip(available_squares, next_states_)}
+            in zip(available_squares, next_states)}
 
 
 def display(state):
@@ -162,9 +219,9 @@ def display(state):
 
     Parameters
     ---------
-    state: GameState
-        A state representing a noughts and crosses grid to be printed.
-
+    state: tuple
+        A tuple representing a noughts and crosses grid to be printed to
+        stdout.
     """
     divider = "\n---+---+---\n"
     symbol_dict = {1: "x", -1: "o", 0: " "}

@@ -11,11 +11,11 @@ if __name__ == "__main__":
 
     def evaluator(state):
         return trivial_evaluator(
-            state, nac.next_states, action_space, nac.is_terminal,
+            state, nac.compute_next_states, action_space, nac.is_terminal,
             nac.utility, nac.which_player)
 
     game_states, action_probs = mcts_tree.self_play(
-        nac.next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,
+        nac.compute_next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,
         max_iters, c_puct)
 
     for state in game_states:

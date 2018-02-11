@@ -38,7 +38,7 @@ def test_generating_possible_next_states():
 
     expected_next_states = {(0, 2): TERMINAL_STATE}
 
-    assert nac.next_states(penultimate_state) == expected_next_states
+    assert nac.compute_next_states(penultimate_state) == expected_next_states
 
 
 def test_displaying_a_game_in_ascii_format(capsys):
