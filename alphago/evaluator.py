@@ -4,7 +4,7 @@ from alphago.mcts_tree import compute_distribution
 
 
 def trivial_evaluator(state, next_states_function, action_space, is_terminal,
-                      utility):
+                      utility, which_player):
     """Evaluates a game state for a game. It is trivial in the sense that it
     returns the uniform probability distribution over all actions in the game.
 
@@ -36,14 +36,10 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
 
     if is_terminal(state):
         value = utility(state)
-        value = value.player1_score if state.player == 1 else value.player2_score
+        value = value.player1 if which_player(state) == 1 else value.player2
         probs = {}
         return probs, value
 
     next_states = next_states_function(state)
-
-    # TODO: is this variable required?
-    # terminal_next_states = {
-    #     a: child for a, child in next_states.items() if is_terminal(child)}
 
     return compute_distribution({a: 1.0 for a in next_states}), 0.0
