@@ -3,12 +3,12 @@ import pytest
 
 import alphago.noughts_and_crosses as nac
 
-TERMINAL_STATE = (1, 1, 1, -1, 1, -1, 1, -1, -1)
-NON_TERMINAL_STATE = (1, -1, np.nan, np.nan, -1, 1, np.nan, 1, -1)
+TERMINAL_STATE = nac.GameState(2, (1, 1, 1, -1, 1, -1, 1, -1, -1))
+NON_TERMINAL_STATE = nac.GameState(1, (1, -1, np.nan, np.nan, -1, 1, np.nan, 1, -1))
 
 
 def test_can_create_initial_state():
-    assert nac.INITIAL_STATE == (np.nan,) * 9
+    assert nac.INITIAL_STATE == nac.GameState(1, (np.nan,) * 9)
 
 
 def test_correctly_identifies_state_terminality():
@@ -28,12 +28,12 @@ def test_calculating_utility_of_terminal_state():
     # player 1 wins
     assert nac.utility(TERMINAL_STATE) == nac.Outcome(1, -1)
     # draw
-    terminal_state_draw = (1, 1, -1, -1, -1, 1, 1, -1, 1)
+    terminal_state_draw = nac.GameState(2, (1, 1, -1, -1, -1, 1, 1, -1, 1))
     assert nac.utility(terminal_state_draw) == nac.Outcome(0, 0)
 
 
 def test_generating_possible_next_states():
-    penultimate_state = (1, 1, np.nan, -1, 1, -1, 1, -1, -1)
+    penultimate_state = nac.GameState(1, (1, 1, np.nan, -1, 1, -1, 1, -1, -1))
 
     expected_next_states = {(0, 2): TERMINAL_STATE}
 

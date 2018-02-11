@@ -7,6 +7,9 @@ class MCTSNode:  # TODO: write a expand class docstring
     actions from this node. It also stores the game state corresponding to this
     node.
     """
+
+    __slots__ = "prior_prob Q W N children game_state".split()
+
     def __init__(self, prior_prob, game_state):
         # We store the prior probability, Q-value, cumulative Q-value (called W)
         # and visit count (called N) from the parent node. These are all
@@ -181,7 +184,8 @@ def compute_distribution(d):
     return prob_distribution
 
 
-def mcts(starting_node, evaluator, next_states, is_terminal, max_iters, c_puct):
+def mcts(starting_node, evaluator, next_states_function,
+         is_terminal, max_iters, c_puct):
     """Perform a MCTS from a given starting node
 
     Parameters
@@ -226,7 +230,7 @@ def mcts(starting_node, evaluator, next_states, is_terminal, max_iters, c_puct):
             # Compute the next possible states from the leaf node. This returns a
             # dictionary with keys the legal actions and values the game states.
             # Note that if the leaf is terminal, there will be no next_states.
-            children_states = next_states(leaf.game_state)
+            children_states = next_states_function(leaf.game_state)
 
             # Expand the tree with the new leaf node
             leaf.expand(probs, children_states)
