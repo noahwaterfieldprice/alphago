@@ -138,13 +138,10 @@ def test_mcts_can_self_play_noughts_and_crosses():
 
     action_space = [(i, j) for i in range(3) for j in range(3)]
 
-    def which_player(state):
-        return state.player
-
     def evaluator(state):
         return trivial_evaluator(
             state, nac.next_states, action_space, nac.is_terminal,
-            nac.utility, which_player)
+            nac.utility, nac.which_player)
 
     game_states_, action_probs_ = mcts_tree.self_play(
         nac.next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,

@@ -340,7 +340,7 @@ def build_training_data(states_, action_probs_, which_player, utility):
         # Get the player in the state, and the value to this player of the
         # terminal state.
         player = which_player(state)
-        z = outcome.player1 if player == 1 else outcome.player2
+        z = outcome[player]
         training_data.append((state, probs, z))
 
     return training_data
