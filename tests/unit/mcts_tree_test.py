@@ -4,7 +4,6 @@ import pytest
 
 from alphago import mcts_tree
 from alphago.evaluator import trivial_evaluator
-from alphago.noughts_and_crosses import Outcome, GameState
 
 
 class TestMCTSNode:
@@ -246,7 +245,7 @@ def test_trivial_evaluator(num_iters, expected):
         return len(next_states_function(state)) == 0
 
     def utility(state):
-        return Outcome(state, state)
+        return {1: state, 2: state}
 
     def which_player(state):
         return 1

@@ -36,7 +36,7 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
 
     if is_terminal(state):
         value = utility(state)
-        value = value.player1 if which_player(state) == 1 else value.player2
+        value = value[which_player(state)]
         probs = {}
         return probs, value
 
