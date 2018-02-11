@@ -153,25 +153,3 @@ def test_mcts_can_self_play_noughts_and_crosses():
     assert len(action_probs_) == len(game_states_) - 1
     assert nac.is_terminal(game_states_[-1])
     assert game_states_[0] == nac.INITIAL_STATE
-
-
-def test_self_play_multiple_can_play_nac():
-    max_iters = 10
-    num_self_play = 10
-    c_puct = 1.0
-
-    action_space = [(i, j) for i in range(3) for j in range(3)]
-
-    def which_player(state):
-        return state.player
-
-    def evaluator(state):
-        return trivial_evaluator(
-            state, nac.next_states, action_space, nac.is_terminal,
-            nac.utility, which_player)
-
-    training_data = mcts_tree.self_play_multiple(
-        nac.next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,
-        nac.utility, which_player, max_iters, c_puct, num_self_play
-    )
-    assert len(training_data) > 0
