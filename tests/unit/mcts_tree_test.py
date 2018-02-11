@@ -262,3 +262,37 @@ def test_trivial_evaluator(num_iters, expected):
         root, evaluator, next_states_function, is_terminal, num_iters, 1.0
     )
     assert action_probs == expected
+
+
+TRAINING_DATA_STATES = [
+    [1, 2, 3, 4],
+    [1, 4, 3, 6, 7],
+]
+
+TRAINING_DATA_ACTION_PROBS = [
+    [{1: 0.5, 2: 0.5}, {3: 0.7}, {2: 0.3, 5: 0.7}],
+    [{1: 0.5, 2: 0.5}, {3: 0.7}, {2: 0.3, 5: 0.7}, {1: 1.0}],
+]
+
+TRAINING_DATA_EXPECTED = [
+    [(1, {1: 0.5, 2: 0.5}, -4), (2, {3: 0.7}, 4), (3, {2: 0.3, 5: 0.7}, -4)],
+    [(1, {1: 0.5, 2: 0.5}, -7), (4, {3: 0.7}, 7), (3, {2: 0.3, 5: 0.7}, -7),
+        (6, {1: 1.0}, 7)],
+]
+
+
+@pytest.mark.parametrize("states_, action_probs_, expected",
+                         zip(TRAINING_DATA_STATES, TRAINING_DATA_ACTION_PROBS,
+                             TRAINING_DATA_EXPECTED))
+def test_build_training_data(states_, action_probs_, expected):
+
+    def which_player(state):
+        return 1 + (state % 2)
+
+    def utility(state):
+        return Outcome(state, -state)
+
+    training_data = mcts_tree.build_training_data(states_, action_probs_,
+                                                  which_player, utility)
+
+    assert training_data == expected
