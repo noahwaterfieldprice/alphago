@@ -248,12 +248,15 @@ def test_trivial_evaluator(num_iters, expected):
     def utility(state):
         return Outcome(state, state)
 
+    def which_player(state):
+        return 1
+
     action_space = [0, 1]
 
     def evaluator(state):
         return trivial_evaluator(
             state, next_states_function, action_space, is_terminal,
-            utility)
+            utility, which_player)
 
     root = mcts_tree.MCTSNode(None, 0)
     action_probs = mcts_tree.mcts(
