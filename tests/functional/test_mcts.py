@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from alphago import mcts_tree

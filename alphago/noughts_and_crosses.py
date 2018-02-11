@@ -28,8 +28,8 @@ __all__ = ["INITIAL_STATE", "Outcome", "is_terminal", "utility"]
 
 
 class Outcome(NamedTuple):
-    player1_score: int
-    player2_score: int
+    player1: int
+    player2: int
 
 
 class GameState(NamedTuple):
@@ -141,7 +141,7 @@ def next_states(state):  # TODO: write a better docstring
         raise ValueError("Next states can not be generated for a "
                          "terminal state.")
 
-    player_symbol = 1 if state.player == 1 else -1
+    player_symbol = 1 if state.player == 0 else -1
     grid = np.array(state.board).reshape(3, 3)
     # get a sequence of tuples (row_i, col_i) of available squares
     available_squares = tuple(zip(*np.where(np.isnan(grid))))
@@ -156,7 +156,7 @@ def next_states(state):  # TODO: write a better docstring
         # corresponding square # and add it to list of next states
         next_board = list(state.board)
         next_board[flattened_index] = player_symbol
-        next_player = 2 if state.player == 1 else 1
+        next_player = 1 if state.player == 0 else 0
         next_states_.append(GameState(next_player, tuple(next_board)))
 
     return {a: next_state for a, next_state
