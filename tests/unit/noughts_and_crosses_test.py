@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 
@@ -7,10 +5,10 @@ from alphago import noughts_and_crosses as nac
 
 
 def test_noughts_and_crosses_initial_state():
-    assert nac.INITIAL_STATE == nac.GameState(1, (np.nan,) * 9)
+    assert nac.INITIAL_STATE == (np.nan,) * 9
 
 
-terminal_boards = [
+terminal_states = [
     (1, 1, 1, 1, -1, -1, -1, -1, 1),  # 1s top line
     (1, -1, -1, -1, 1, 1, -1, 1, 1),  # 1s negative diagonal
     (1, 1, 1, 1, -1, -1, 1, -1, -1),  # 1s top line and left side
@@ -19,22 +17,23 @@ terminal_boards = [
     (1, np.nan, -1, -1, -1, 1, -1, 1, 1),  # -1s positive diagonal
     (1, 1, -1, -1, -1, 1, 1, -1, 1),  # draw
 ]
-terminal_states = [nac.GameState(1, board) for board in terminal_boards]
 
 
 @pytest.mark.parametrize("state", terminal_states)
 def test_is_terminal_returns_true_for_terminal_states(state):
-    assert nac.is_terminal(state)
+    assert nac.is_terminal(state) is True
 
 
-outcomes = ([nac.Outcome(1, -1)] * 4 +
-            [nac.Outcome(-1, 1)] * 2 +
-            [nac.Outcome(0, 0)])
+non_terminal_states = [
+    (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
+    (np.nan, 1, -1, -1, 1, -1, 1, np.nan, 1),
+    (1, np.nan, 1, np.nan, -1, np.nan, 1, np.nan, -1),
+]
 
 
-@pytest.mark.parametrize("state, outcome", zip(terminal_states, outcomes))
-def test_utility_function_returns_correct_outcomes(state, outcome):
-    assert nac.utility(state) == outcome
+@pytest.mark.parametrize("state", non_terminal_states)
+def test_is_terminal_returns_false_for_non_terminal_states(state):
+    assert nac.is_terminal(state) is False
 
 
 line_sums_list = [
@@ -51,16 +50,7 @@ line_sums_list = [
 @pytest.mark.parametrize("state, line_sums",
                          zip(terminal_states, line_sums_list))
 def test_line_sums_are_calculated_correctly(state, line_sums):
-    assert tuple(nac._calculate_line_sums(state.board)) == line_sums
-
-
-non_terminal_boards = [
-    (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
-    (np.nan, 1, -1, -1, 1, -1, 1, np.nan, 1),
-    (1, np.nan, 1, np.nan, -1, np.nan, 1, np.nan, -1),
-]
-
-non_terminal_states = [nac.GameState(1, board) for board in non_terminal_boards]
+    assert tuple(nac._calculate_line_sums(state)) == line_sums
 
 
 @pytest.mark.parametrize("state", non_terminal_states)
@@ -69,6 +59,16 @@ def test_utility_raises_exception_on_non_terminal_input_state(state):
         nac.utility(state)
     assert str(exception_info.value) == ("Utility can not be calculated "
                                          "for a non-terminal state.")
+
+
+outcomes = ([{1: 1, 2: -1}] * 4 +
+            [{1: -1, 2: 1}] * 2 +
+            [{1: 0, 2: 0}])
+
+
+@pytest.mark.parametrize("state, outcome", zip(terminal_states, outcomes))
+def test_utility_function_returns_correct_outcomes(state, outcome):
+    assert nac.utility(state) == outcome
 
 
 @pytest.mark.parametrize("state", terminal_states)
@@ -80,35 +80,35 @@ def test_next_state_raises_exception_on_terminal_input_state(state):
 
 
 states = [
-    nac.GameState(1, (1, np.nan, -1, np.nan, 1, np.nan, 1, np.nan, -1)),
-    nac.GameState(0, (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1)),
-    nac.GameState(1, (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1)),
-    nac.GameState(0, (1, np.nan, -1, -1, 1, 1, 1, -1, -1)),
+    (1, np.nan, -1, np.nan, 1, np.nan, 1, np.nan, -1),
+    (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1),
+    (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1),
+    (1, np.nan, -1, -1, 1, 1, 1, -1, -1),
 ]
 # player 2s turn
 next_states_move6 = {
-    (0, 1): nac.GameState(0, (1, -1, -1, np.nan, 1, np.nan, 1, np.nan, -1)),
-    (1, 0): nac.GameState(0, (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1)),
-    (1, 2): nac.GameState(0, (1, np.nan, -1, np.nan, 1, -1, 1, np.nan, -1)),
-    (2, 1): nac.GameState(0, (1, np.nan, -1, np.nan, 1, np.nan, 1, -1, -1)),
+    (0, 1): (1, -1, -1, np.nan, 1, np.nan, 1, np.nan, -1),
+    (1, 0): (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1),
+    (1, 2): (1, np.nan, -1, np.nan, 1, -1, 1, np.nan, -1),
+    (2, 1): (1, np.nan, -1, np.nan, 1, np.nan, 1, -1, -1),
 }
 # player 2 placed 'o' at (1, 0)
 # player 1s turn
 next_states_move7 = {
-    (0, 1): nac.GameState(1, (1, 1, -1, -1, 1, np.nan, 1, np.nan, -1)),
-    (1, 2): nac.GameState(1, (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1)),
-    (2, 1): nac.GameState(1, (1, np.nan, -1, -1, 1, np.nan, 1, 1, -1)),
+    (0, 1): (1, 1, -1, -1, 1, np.nan, 1, np.nan, -1),
+    (1, 2): (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1),
+    (2, 1): (1, np.nan, -1, -1, 1, np.nan, 1, 1, -1),
 }
 # player 1 placed 'x' at (1, 2)
 # player 2 to move
 next_states_move8 = {
-    (0, 1): nac.GameState(0, (1, -1, -1, -1, 1, 1, 1, np.nan, -1)),
-    (2, 1): nac.GameState(0, (1, np.nan, -1, -1, 1, 1, 1, -1, -1)),
+    (0, 1): (1, -1, -1, -1, 1, 1, 1, np.nan, -1),
+    (2, 1): (1, np.nan, -1, -1, 1, 1, 1, -1, -1),
 }
 # player 2 placed 'o' at (2, 1)
 # player 1 to move
 next_states_move9 = {
-    (0, 1): nac.GameState(1, (1, 1, -1, -1, 1, 1, 1, -1, -1)),
+    (0, 1): (1, 1, -1, -1, 1, 1, 1, -1, -1),
 }
 
 expected_next_states_list = (next_states_move6, next_states_move7,
@@ -124,9 +124,9 @@ def test_generating_a_dict_of_all_possible_next_states(state,
 
 
 states = [
-    nac.GameState(0, (np.nan,) * 9),
-    nac.GameState(1, (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1)),
-    nac.GameState(1, (1, 1, 1, 1, -1, -1, -1, -1, 1)),
+   (np.nan,) * 9,
+   (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
+   (1, 1, 1, 1, -1, -1, -1, -1, 1),
 ]
 div = "---+---+---"
 # additional newline character accounts for the one added to the output

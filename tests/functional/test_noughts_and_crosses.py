@@ -3,7 +3,8 @@ import pytest
 
 import alphago.noughts_and_crosses as nac
 
-TERMINAL_STATE = nac.GameState(0, (1, 1, -1, -1, 1, -1, 1, -1, -1))
+
+TERMINAL_STATE = nac.GameState(2, (1, 1, 1, -1, 1, -1, 1, -1, -1))
 NON_TERMINAL_STATE = nac.GameState(1, (1, -1, np.nan, np.nan, -1, 1, np.nan, 1, -1))
 
 
@@ -26,14 +27,14 @@ def test_exception_raised_when_utility_called_for_non_terminal_state():
 
 def test_calculating_utility_of_terminal_state():
     # player 1 wins
-    assert nac.utility(TERMINAL_STATE) == nac.Outcome(-1, 1)
+    assert nac.utility(TERMINAL_STATE) == {1: 1, 2: 1}
     # draw
     terminal_state_draw = nac.GameState(0, (1, 1, -1, -1, -1, 1, 1, -1, 1))
-    assert nac.utility(terminal_state_draw) == nac.Outcome(0, 0)
+    assert nac.utility(terminal_state_draw) == {1: 0, 2: 0}
 
 
 def test_generating_possible_next_states():
-    penultimate_state = nac.GameState(1, (1, 1, np.nan, -1, 1, -1, 1, -1, -1))
+    penultimate_state = nac.GameState(0, (1, 1, np.nan, -1, 1, -1, 1, -1, -1))
 
     expected_next_states = {(0, 2): TERMINAL_STATE}
 

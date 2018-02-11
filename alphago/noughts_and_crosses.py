@@ -20,33 +20,21 @@ INITIAL_STATE:
     A tuple representing the initial state of the game.
 """
 
-from typing import NamedTuple
-
 import numpy as np
 
-__all__ = ["INITIAL_STATE", "Outcome", "is_terminal", "utility"]
+__all__ = ["INITIAL_STATE", "is_terminal", "utility"]
 
 
-class Outcome(NamedTuple):
-    player1: int
-    player2: int
+INITIAL_STATE = (np.nan, ) * 9
 
 
-class GameState(NamedTuple):
-    player: int
-    board: tuple
-
-
-INITIAL_STATE = GameState(1, (np.nan, ) * 9)
-
-
-def _calculate_line_sums(board):
+def _calculate_line_sums(state):
     """Calculate line sums along horizontal and vertical directions
     and along major and minor diagonals.
 
     Parameters
     ----------
-    board: array_like
+    state: array_like
         A 1-D array representing a noughts and crosses grid.
 
     Returns
@@ -55,7 +43,7 @@ def _calculate_line_sums(board):
         An array of sums along all the possible lines on the noughts
         and crosses grid.
     """
-    grid = np.array(board).reshape(3, 3)
+    grid = np.array(state).reshape(3, 3)
     horizontals = np.nansum(grid, axis=1)
     verticals = np.nansum(grid, axis=0)
     major_diagonal = np.nansum(grid.diagonal()),
@@ -63,6 +51,11 @@ def _calculate_line_sums(board):
 
     return np.concatenate([horizontals, verticals,
                            major_diagonal, minor_diagonal])
+
+
+def which_player(state):
+    """Given a state, return which player's turn it is."""
+    return (np.sum(~np.isnan(state)) % 2) + 1
 
 
 def is_terminal(state):
@@ -85,10 +78,10 @@ def is_terminal(state):
     """
 
     # check all squares have been played on
-    if not np.any(np.isnan(state.board)):
+    if not np.any(np.isnan(state)):
         return True
     # check there is a winner
-    line_sums = _calculate_line_sums(state.board)
+    line_sums = _calculate_line_sums(state)
     if np.any(np.abs(line_sums) == 3):
         return True
     # otherwise it is non-terminal
@@ -108,26 +101,27 @@ def utility(state):
 
     Returns
     -------
-    Outcome:
+    outcome: dict
         The outcome of the terminal state for both players, represented
-        as a named tuple.
+        as a dictionary with keys ints indicating the players and
+        values each players respective utility.
 
     Raises
     ------
     ValueError:
         If the input state is a non-terminal state.
     """
-    line_sums = _calculate_line_sums(state.board)
+    line_sums = _calculate_line_sums(state)
 
     # player1 wins
     if np.any(line_sums == 3):
-        return Outcome(1, -1)
+        return {1: 1, 2: -1}
     # player2 wins
     if np.any(line_sums == -3):
-        return Outcome(-1, 1)
+        return {1: -1, 2: 1}
     # draw
-    if not np.any(np.isnan(state.board)):
-        return Outcome(0, 0)
+    if not np.any(np.isnan(state)):
+        return {1: 0, 2: 0}
 
     # otherwise it is non-terminal and the utility cannot be calculated
     # TODO: Maybe have better message here
@@ -141,8 +135,9 @@ def next_states(state):  # TODO: write a better docstring
         raise ValueError("Next states can not be generated for a "
                          "terminal state.")
 
-    player_symbol = 1 if state.player == 0 else -1
-    grid = np.array(state.board).reshape(3, 3)
+    # TODO: maybe ternary expressions are not the clearest in this func
+    player_symbol = 1 if which_player(state) == 1 else -1
+    grid = np.array(state).reshape(3, 3)
     # get a sequence of tuples (row_i, col_i) of available squares
     available_squares = tuple(zip(*np.where(np.isnan(grid))))
     # generate all possible next_states by placing the appropriate symbol
@@ -154,10 +149,9 @@ def next_states(state):  # TODO: write a better docstring
         flattened_index = 3 * row_i + col_i
         # create copy of next state with a new 'o' or 'x in the
         # corresponding square # and add it to list of next states
-        next_board = list(state.board)
-        next_board[flattened_index] = player_symbol
-        next_player = 1 if state.player == 0 else 0
-        next_states_.append(GameState(next_player, tuple(next_board)))
+        next_state = list(state)
+        next_state[flattened_index] = player_symbol
+        next_states_.append(tuple(next_state))
 
     return {a: next_state for a, next_state
             in zip(available_squares, next_states_)}
@@ -176,7 +170,7 @@ def display(state):
     symbol_dict = {1: "x", -1: "o", 0: " "}
 
     output_rows = []
-    for state_row in np.array_split(state.board, indices_or_sections=3):
+    for state_row in np.array_split(state, indices_or_sections=3):
         # convert nans to 0s for symbol lookup
         state_row[np.isnan(state_row)] = 0
         y = "|". join([f" {symbol_dict[x]} " for x in state_row])
