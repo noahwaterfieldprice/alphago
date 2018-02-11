@@ -245,12 +245,44 @@ def mcts(starting_node, evaluator, next_states_function,
 
 def self_play(next_states_function, evaluator, initial_state, is_terminal,
               max_iters, c_puct):
+    """Plays a game using MCTS to choose actions for both players.
+
+    Parameters
+    ----------
+    next_states_function: func
+        Gives the next states from the given state as a dictionary with keys the
+        available actions and values the resulting states.
+    evaluator: func
+        An evaluator.
+    initial_state: object
+        An initial state to start the game in. This must be compatible with
+        next_states_function, but is otherwise arbitrary.
+    is_terminal: func
+        A function that returns True if the state is terminal and otherwise
+        returns False.
+    max_iters: int
+        Number of iterations to run MCTS for.
+    c_puct: float
+        Parameter for MCTS.
+
+    Returns
+    -------
+    game_state_list: list
+        A list of game states encountered in the self-play game. Starts with the
+        initial state and ends with a terminal state.
+    action_probs_list: list
+        A list of action probability dictionaries, as returned by MCTS each time
+        the algorithm has to take an action. The ith action probabilities
+        dictionary corresponds to the ith game_state, and action_probs_list has
+        length one less than game_state_list, since we don't have to move in a
+        terminal state.
+    """
     node = MCTSNode(None, initial_state)
 
     game_state_list = [node.game_state]
     action_probs_list = []
 
-    while not is_terminal(node.game_state) > 0:
+    while not is_terminal(node.game_state):
         # First run MCTS to compute action probabilities.
         action_probs = mcts(node, evaluator, next_states_function, is_terminal,
                             max_iters, c_puct)
@@ -258,7 +290,6 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
         # Choose the action according to the action probabilities.
         actions = [a for a in action_probs]
         probs = [p for a, p in action_probs.items()]
-        print(actions)
         ix = np.random.choice(len(actions), p=probs)
         action = actions[ix]
 
@@ -270,3 +301,92 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
         game_state_list.append(node.game_state)
 
     return game_state_list, action_probs_list
+
+
+def build_training_data(states_, action_probs_, which_player, utility):
+    """Takes a list of states and action probabilities, as returned by
+    self_play, and creates training data from this. We build up a list
+    consisting of (state, probs, z) tuples, where player is the player in state
+    'state', and 'z' is the utility to 'player' in 'last_state'.
+
+    Parameters
+    ----------
+    states_: list
+        A list of n states, with the last being terminal.
+    action_probs_: list
+        A list of n-1 dictionaries containing action probabilities. The ith
+        dictionary applies to the ith state, representing the probabilities
+        returned by self_play of taking each available action in the state.
+    which_player: func
+        A function taking a state to the player to play in that state.
+    utility: func
+        A function taking a terminal state to the outcome of the state.
+
+    Returns
+    -------
+    training_data: list
+        A list consisting of (state, probs, z) tuples, where player is the
+        player in state 'state', and 'z' is the utility to 'player' in
+        'last_state'.
+    """
+
+    training_data = []
+    # Get the outcome for the game. This should be the last state in states_.
+    last_state = states_.pop()
+    outcome = utility(last_state)
+
+    # Now action_probs_ and states_ are the same length.
+    for state, probs in zip(states_, action_probs_):
+        # Get the player in the state, and the value to this player of the
+        # terminal state.
+        player = which_player(state)
+        z = outcome.player1 if player == 1 else outcome.player2
+        training_data.append((state, probs, z))
+
+    return training_data
+
+
+def self_play_multiple(next_states_function, evaluator, initial_state,
+                       is_terminal, utility, which_player, max_iters, c_puct,
+                       num_self_play):
+    """Combines self_play and build_training_data to generate training data
+    given a game and an evaluator.
+
+    Parameters
+    ----------
+    next_states_function: func
+        Gives the next states from the given state as a dictionary with keys the
+        available actions and values the resulting states.
+    evaluator: func
+        An evaluator.
+    initial_state: object
+        An initial state to start the game in. This must be compatible with
+        next_states_function, but is otherwise arbitrary.
+    is_terminal: func
+        A function that returns True if the state is terminal and otherwise
+        returns False.
+    utility: func
+        A function that returns an Outcome for terminal states.
+    which_player: func
+        A function that returns which player is to play in a given state.
+    max_iters: int
+        Number of iterations to run MCTS for.
+    c_puct: float
+        Parameter for MCTS.
+    num_self_play: int
+        Number of games to play in 'self-play'
+
+    Returns
+    -------
+    training_data: list
+        A list of training data tuples. See 'build_training_data'.
+    """
+
+    training_data = []
+    for i in range(num_self_play):
+        game_states_, action_probs_ = self_play(
+            next_states_function, evaluator, initial_state, is_terminal,
+            max_iters, c_puct)
+        training_data.append(build_training_data(
+            game_states_, action_probs_, which_player, utility))
+    return training_data
