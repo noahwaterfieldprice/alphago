@@ -1,9 +1,8 @@
 import numpy as np
 
-
-from alphago.evaluator import trivial_evaluator
-import alphago.noughts_and_crosses as nac
+import alphago.games.noughts_and_crosses as nac
 from alphago import mcts_tree
+from alphago.evaluator import trivial_evaluator
 
 if __name__ == "__main__":
 

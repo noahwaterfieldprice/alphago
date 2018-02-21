@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 
 from alphago.mcts_tree import compute_distribution
 
@@ -43,3 +44,51 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
     next_states = next_states_function(state)
 
     return compute_distribution({a: 1.0 for a in next_states}), 0.0
+
+
+class BasicNACNet:
+    def __init__(self):
+        self.tensors = self._initialise_net()
+
+    def _initialise_net(self):
+        # TODO: test reshape recreates game properly
+        state_vector = tf.placeholder(tf.float32, shape=(9,))
+        pi = tf.placeholder(tf.float32, shape=(1, 9))
+        outcomes = tf.placeholder(tf.float32, shape=(1, 1))
+
+        input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
+
+        conv1 = tf.layers.conv2d(inputs=input_layer, filters=5,
+                                 kernel_size=[2, 2], padding='same',
+                                 activation=tf.nn.relu)
+
+        conv2 = tf.layers.conv2d(inputs=conv1, filters=5, kernel_size=[2, 2],
+                                 padding='same', activation=tf.nn.relu)
+
+        conv2_flat = tf.contrib.layers.flatten(conv2)
+
+        dense = tf.layers.dense(inputs=conv2_flat, units=21,
+                                activation=tf.nn.relu)
+
+        values = tf.layers.dense(inputs=dense, units=1,
+                                 activation=tf.nn.tanh)
+
+        prob_logits = tf.layers.dense(inputs=dense, units=9)
+
+        loss = tf.losses.mean_squared_error(outcomes, values) - \
+               tf.tensordot(tf.transpose(pi), prob_logits, axes=1)
+
+        tensors = [state_vector, outcomes, pi, values, prob_logits, loss]
+        keys = "state_vector outcomes pi values prob_logits loss".split()
+        return dict(zip(keys, tensors))
+
+    def evaluate(self, state):
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            probs = sess.run(self.tensors['prob_logits'],
+                     feed_dict={self.tensors['state_vector']: state})
+            values = sess.run(self.tensors['values'],
+                     feed_dict={self.tensors['state_vector']: state})
+
+        return probs, values

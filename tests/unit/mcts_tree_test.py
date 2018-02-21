@@ -1,9 +1,7 @@
-
 import numpy as np
 import pytest
 
 from alphago import mcts_tree
-from alphago.evaluator import trivial_evaluator
 
 
 class TestMCTSNode:
@@ -232,36 +230,6 @@ def test_mcts_does_not_expand_terminal_nodes(evaluator, num_iters, expected):
     action_probs = mcts_tree.mcts(
         root, evaluator, next_states_wrapper, is_terminal, num_iters, 1.0
     )
-
-
-@pytest.mark.parametrize("num_iters, expected", [
-        (100, {0: 98.0/99.0, 1: 1.0/99.0}),
-        (2, {0: 1.0, 1: 0.0}),
-    ]
-)
-def test_trivial_evaluator(num_iters, expected):
-
-    def is_terminal(state):
-        return len(next_states_function(state)) == 0
-
-    def utility(state):
-        return {1: state, 2: state}
-
-    def which_player(state):
-        return 1
-
-    action_space = [0, 1]
-
-    def evaluator(state):
-        return trivial_evaluator(
-            state, next_states_function, action_space, is_terminal,
-            utility, which_player)
-
-    root = mcts_tree.MCTSNode(None, 0)
-    action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, is_terminal, num_iters, 1.0
-    )
-    assert action_probs == expected
 
 
 TRAINING_DATA_STATES = [

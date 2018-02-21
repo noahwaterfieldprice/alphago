@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphago import noughts_and_crosses as nac
+from alphago.games import noughts_and_crosses as nac
 
 
 def test_noughts_and_crosses_initial_state():

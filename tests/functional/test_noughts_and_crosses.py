@@ -1,8 +1,8 @@
+import alphago.games.noughts_and_crosses_mxn as nacmn
 import numpy as np
 import pytest
 
-import alphago.noughts_and_crosses as nac
-import alphago.noughts_and_crosses_mxn as nacmn
+import alphago.games.noughts_and_crosses as nac
 
 
 class TestBasic3x3NoughtsAndCrosses:
