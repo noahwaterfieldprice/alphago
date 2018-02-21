@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class MCTSNode:  # TODO: expand class docstring
+class MCTSNode:
     """A class to represent a Monte Carlo search tree node. This node
     keeps track of all quantities needed for the Monte Carlo tree
     search (MCTS) algorithm. These quantities correspond to those in
@@ -139,6 +139,7 @@ def select(starting_node, c_puct):
     while not node.is_leaf():
         # The node is not a leaf, so has children. We select the one with
         # largest upper confidence bound.
+        # TODO: maybe these should be arrays to vectorise compute_ucb
         prior_probs = {action: child.prior_prob
                        for action, child in node.children.items()}
         action_values = {action: child.Q
@@ -287,14 +288,14 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
     Returns
     -------
     game_state_list: list
-        A list of game states encountered in the self-play game. Starts with the
-        initial state and ends with a terminal state.
+        A list of game states encountered in the self-play game. Starts
+        with the initial state and ends with a terminal state.
     action_probs_list: list
-        A list of action probability dictionaries, as returned by MCTS each time
-        the algorithm has to take an action. The ith action probabilities
-        dictionary corresponds to the ith game_state, and action_probs_list has
-        length one less than game_state_list, since we don't have to move in a
-        terminal state.
+        A list of action probability dictionaries, as returned by MCTS
+        each time the algorithm has to take an action. The ith action
+        probabilities dictionary corresponds to the ith game_state, and
+        action_probs_list has length one less than game_state_list,
+        since we don't have to move in a terminal state.
     """
     node = MCTSNode(None, initial_state)
 
@@ -307,8 +308,9 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
                             max_iters, c_puct)
 
         # Choose the action according to the action probabilities.
-        actions = [a for a in action_probs]
-        probs = [p for a, p in action_probs.items()]
+        # TODO: * unpacking is fast but only works in > Python3.5 - good idea?
+        actions = [*action_probs]
+        probs = [*action_probs.values()]
         ix = np.random.choice(len(actions), p=probs)
         action = actions[ix]
 
@@ -325,8 +327,8 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
 def build_training_data(states_, action_probs_, which_player, utility):
     """Takes a list of states and action probabilities, as returned by
     self_play, and creates training data from this. We build up a list
-    consisting of (state, probs, z) tuples, where player is the player in state
-    'state', and 'z' is the utility to 'player' in 'last_state'.
+    consisting of (state, probs, z) tuples, where player is the player
+    in state 'state', and 'z' is the utility to 'player' in 'last_state'.
 
     Parameters
     ----------
@@ -385,7 +387,7 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
         A function that returns True if the state is terminal and otherwise
         returns False.
     utility: func
-        A function that returns an Outcome for terminal states.
+        A function that returns the utility for terminal states.
     which_player: func
         A function that returns which player is to play in a given state.
     max_iters: int
