@@ -1,8 +1,6 @@
-import pytest
-
+import alphago.games.noughts_and_crosses as nac
 from alphago import mcts_tree
 from alphago.evaluator import trivial_evaluator
-import alphago.noughts_and_crosses as nac
 
 
 def test_self_play_multiple_can_play_nac():

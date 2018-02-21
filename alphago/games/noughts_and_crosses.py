@@ -174,7 +174,7 @@ def compute_next_states(state):
 
     Examples
     --------
-    >>> import alphago.noughts_and_crosses as nac
+    >>> import alphago.games.noughts_and_crosses as nac
 
     Define a noughts and crosses board with only one move left.
 

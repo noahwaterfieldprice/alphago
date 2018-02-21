@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-import alphago.noughts_and_crosses_mxn as nacmn
+import alphago.games.noughts_and_crosses_mxn as nacmn
 
 sizes = [(3, 5), (4, 7), (5, 6), (9, 9)]
 

@@ -1,7 +1,7 @@
 import pytest
 
+import alphago.games.noughts_and_crosses as nac
 from alphago import mcts_tree
-import alphago.noughts_and_crosses as nac
 from alphago.evaluator import trivial_evaluator
 
 
