@@ -30,9 +30,7 @@ INITIAL_STATE:
 import numpy as np
 
 __all__ = ["INITIAL_STATE", "is_terminal", "which_player",
-           "compute_next_states",
-           "utility", "display"]
-
+           "compute_next_states", "utility", "display"]
 
 INITIAL_STATE = (np.nan, ) * 9
 
@@ -152,7 +150,7 @@ def utility(state):
                      "non-terminal state.")
 
 
-def compute_next_states(state):  # TODO: write a better docstring
+def compute_next_states(state):
     """Given a non-terminal state, generate a dictionary mapping legal
     actions onto their resulting game states.
 
