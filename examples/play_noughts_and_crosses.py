@@ -6,15 +6,13 @@ from alphago.evaluator import trivial_evaluator
 
 if __name__ == "__main__":
 
-    max_iters = 1000
+    max_iters = 5000
     c_puct = 1.0
 
     action_space = [(i, j) for i in range(3) for j in range(3)]
 
     def evaluator(state):
-        return trivial_evaluator(
-            state, nac.compute_next_states, action_space, nac.is_terminal,
-            nac.utility, nac.which_player)
+        return trivial_evaluator(state, nac.compute_next_states)
 
     state = nac.INITIAL_STATE
     computer = np.random.choice([1, 2])
@@ -25,9 +23,9 @@ if __name__ == "__main__":
         if player == computer:
             # Computer plays
             action_probs = mcts_tree.mcts(
-                mcts_tree.MCTSNode(None, state), evaluator,
-                nac.compute_next_states, nac.is_terminal, max_iters,
-                c_puct)
+                mcts_tree.MCTSNode(None, state, player), evaluator,
+                nac.compute_next_states, nac.utility, nac.which_player,
+                nac.is_terminal, max_iters, c_puct)
             actions = [a for a in action_probs]
             probs = [v for v in action_probs.values()]
             action_ix = np.random.choice(len(actions), p=probs)

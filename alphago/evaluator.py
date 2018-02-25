@@ -4,8 +4,7 @@ import tensorflow as tf
 from alphago.mcts_tree import compute_distribution
 
 
-def trivial_evaluator(state, next_states_function, action_space, is_terminal,
-                      utility, which_player):
+def trivial_evaluator(state, next_states_function):
     """Evaluates a game state for a game. It is trivial in the sense that it
     returns the uniform probability distribution over all actions in the game.
 
@@ -16,14 +15,6 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
     next_states_function: func
         Returns a dictionary from actions available in the current state to the
         resulting game states.
-    action_space: list
-        A list of all actions in the game.
-    is_terminal: func
-        Takes a game state and returns whether or not it is terminal.
-    utility: func
-        Given a terminal game state, returns an Outcome
-    which_player: func
-        Given a state, return whether it is player 1 or player 2 to play.
 
     Returns
     -------
@@ -34,12 +25,6 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
     value: float
         The evaluator's estimate of the value of the state 'state'.
     """
-
-    if is_terminal(state):
-        value = utility(state)
-        value = value[which_player(state)]
-        probs = {}
-        return probs, value
 
     next_states = next_states_function(state)
 
