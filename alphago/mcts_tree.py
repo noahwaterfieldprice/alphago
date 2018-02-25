@@ -35,15 +35,18 @@ class MCTSNode:
         This object holds sufficient information for the game object to
         understand the game -- in particular, given this state, the
         game object can return all the legal actions from this state.
+    player: int
+        The player to play at this node.
     """
 
-    __slots__ = "prior_prob Q W N children game_state".split()
+    __slots__ = "prior_prob Q W N children game_state player".split()
 
-    def __init__(self, prior_prob, game_state):
+    def __init__(self, prior_prob, game_state, player):
         self.prior_prob = prior_prob
         self.Q = 0.0
         self.W = 0.0
         self.N = 0.0
+        self.player = player
         self.children = {}
         self.game_state = game_state
 
@@ -51,7 +54,7 @@ class MCTSNode:
         """Returns whether or not the node in the tree is a leaf."""
         return len(self.children) == 0
 
-    def expand(self, prior_probs, children_states):
+    def expand(self, prior_probs, children_states, players):
         """Expands the tree at the leaf node with the given
         probabilities.
 
@@ -65,6 +68,10 @@ class MCTSNode:
             A dictionary where the keys are the available actions from
             the node and the values are the corresponding game states
             resulting from taking each action.
+        players: dict
+            A dictionary where the keys are the available actions from the node
+            and the values are the corresponding players to play in the child
+            node.
         """
         assert self.is_leaf()
 
@@ -72,7 +79,10 @@ class MCTSNode:
 
         # Initialise the relevant data for each child of the leaf node
         self.children = {
-            action: MCTSNode(prior_probs[action], children_states[action])
+            action: MCTSNode(
+                prior_probs[action],
+                children_states[action],
+                players[action])
             for action in children_states
         }
 
@@ -99,7 +109,11 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     upper_confidence_bounds: dict
         A dictionary mapping each child node to: Q(s,a) + U(s,a).
     """
-    num = np.sqrt(sum(action_counts.values()))
+    # TODO: Check if this is the right way to define this. Currently we ignore
+    # prior_probs if action_counts are 0. This is the case when we select
+    # children for the first time, which is exactly the time we want to be using
+    # prior_probs.
+    num = 1.0 + np.sqrt(sum(action_counts.values()))
     # assert num > 0
     upper_confidence_bounds = {
         k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *
@@ -168,13 +182,21 @@ def select(starting_node, c_puct):
 def backup(nodes, v):
     """Given the sequence of nodes (ending in the new expanded node) from
     the game tree, propagate back the Q-values and action counts.
+
+    Parameters
+    ----------
+    nodes: list
+        The list of nodes to backup.
+    v: dict
+        A dictionary with keys the players and values the value for that player.
+        In a zero sum game with players 1 and 2, we have v[1] = -v[2].
     """
     for node in nodes:
         # Increment the visit count
         node.N += 1.0
 
         # Update the cumulative and mean action values
-        node.W += v
+        node.W += v[node.player]
         node.Q = float(node.W) / float(node.N)
 
 
@@ -202,7 +224,7 @@ def compute_distribution(d):
     return prob_distribution
 
 
-def mcts(starting_node, evaluator, next_states_function,
+def mcts(starting_node, evaluator, next_states_function, utility, which_player,
          is_terminal, max_iters, c_puct):
     """Perform a MCTS from a given starting node
 
@@ -218,6 +240,12 @@ def mcts(starting_node, evaluator, next_states_function,
         A function that takes a state and returns a dictionary with
         keys the available actions in the state and values the
         resulting game states.
+    utility: func
+        Computes the utility of a terminal state.
+    which_player: func
+        Computes the player to play in a game state.
+    is_terminal: func
+        Returns True if the state is terminal, else returns False.
     max_iters: int
         The number of iterations of MCTS.
     c_puct: float
@@ -240,19 +268,39 @@ def mcts(starting_node, evaluator, next_states_function,
         nodes, actions = select(starting_node, c_puct)
         leaf = nodes[-1]
 
-        # Evaluate the leaf node to get the probabilities and value
-        # according to the net.
-        probs, value = evaluator(leaf.game_state)
-
         if not is_terminal(leaf.game_state):
+            # Evaluate the leaf node to get the probabilities and value
+            # according to the net.
+            probs, value = evaluator(leaf.game_state)
+
+            # Store this as a value for player 1 and a value for player 2.
+            # TODO: We could make this more general later.
+            player = which_player(leaf.game_state)
+            other_player = 1 if player == 2 else 2
+            value = {player: value,
+                     other_player: -value}
+
             # Compute the next possible states from the leaf node. This
             # returns a dictionary with keys the legal actions and
             # values the game states. Note that if the leaf is terminal
             # there will be no next_states.
             children_states = next_states_function(leaf.game_state)
 
+            # TODO: This should be replaced by a function that links the indices
+            # for the neural network output to the actions in the game.
+            probs = {a: probs[a] for a in children_states}
+
+            # Compute the players for the children states.
+            players = {a: which_player(child) for a, child in
+                       children_states.items()}
+
             # Expand the tree with the new leaf node
-            leaf.expand(probs, children_states)
+            leaf.expand(probs, children_states, players)
+        else:
+            # We don't need prior probs if the node is terminal, but we do still
+            # need the value of the node. The utility function computes the
+            # value for the player to play.
+            value = utility(leaf.game_state)
 
         # Backup the value up the tree.
         backup(nodes, value)
@@ -262,8 +310,8 @@ def mcts(starting_node, evaluator, next_states_function,
     return compute_distribution(action_counts)
 
 
-def self_play(next_states_function, evaluator, initial_state, is_terminal,
-              max_iters, c_puct):
+def self_play(next_states_function, evaluator, initial_state, utility,
+              which_player, is_terminal, max_iters, c_puct):
     """Plays a game using MCTS to choose actions for both players.
 
     Parameters
@@ -277,6 +325,10 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
     initial_state: object
         An initial state to start the game in. This must be compatible
         with next_states_function, but is otherwise arbitrary.
+    utility: func
+        A function that returns the utilities of terminal states.
+    which_player: func
+        Returns the player to play in a state.
     is_terminal: func
         A function that returns True if the state is terminal and
         otherwise returns False.
@@ -297,15 +349,15 @@ def self_play(next_states_function, evaluator, initial_state, is_terminal,
         action_probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
-    node = MCTSNode(None, initial_state)
+    node = MCTSNode(None, initial_state, which_player(initial_state))
 
     game_state_list = [node.game_state]
     action_probs_list = []
 
     while not is_terminal(node.game_state):
         # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, evaluator, next_states_function, is_terminal,
-                            max_iters, c_puct)
+        action_probs = mcts(node, evaluator, next_states_function, utility,
+                            which_player, is_terminal, max_iters, c_puct)
 
         # Choose the action according to the action probabilities.
         # TODO: * unpacking is fast but only works in > Python3.5 - good idea?

@@ -47,8 +47,33 @@ def trivial_evaluator(state, next_states_function, action_space, is_terminal,
 
 
 class BasicNACNet:
-    def __init__(self):
-        self.tensors = self._initialise_net()
+    def __init__(self, input_dim=None, output_dim=None):
+        if input_dim is not None:
+            self.tensors = self._initialise_feed_forward_net(
+                input_dim, output_dim)
+        else:
+            self.tensors = self._initialise_net()
+
+    def _initialise_feed_forward_net(self, input_dim, output_dim):
+        state_vector = tf.placeholder(tf.float32, shape=(input_dim,))
+
+        input_layer = tf.reshape(state_vector, [-1, input_dim])
+
+        dense1 = tf.layers.dense(inputs=input_layer, units=20,
+                                 activation=tf.nn.relu)
+
+        dense2 = tf.layers.dense(inputs=dense1, units=20,
+                                 activation=tf.nn.relu)
+
+        values = tf.layers.dense(inputs=dense2, units=1,
+                                 activation=tf.nn.tanh)
+
+        prob_logits = tf.layers.dense(inputs=dense2, units=output_dim)
+        probs = tf.nn.softmax(logits=prob_logits)
+
+        tensors = [state_vector, values, prob_logits, probs]
+        keys = "state_vector values prob_logits probs".split()
+        return dict(zip(keys, tensors))
 
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
@@ -74,23 +99,34 @@ class BasicNACNet:
                                  activation=tf.nn.tanh)
 
         prob_logits = tf.layers.dense(inputs=dense, units=9)
+        probs = tf.nn.softmax(logits=prob_logits)
 
         loss = tf.losses.mean_squared_error(outcomes, values) - \
             tf.tensordot(tf.transpose(pi), prob_logits, axes=1)
 
-        tensors = [state_vector, outcomes, pi, values, prob_logits, loss]
-        keys = "state_vector outcomes pi values prob_logits loss".split()
+        tensors = [state_vector, outcomes, pi, values, prob_logits, probs, loss]
+        keys = "state_vector outcomes pi values prob_logits probs loss".split()
         return dict(zip(keys, tensors))
 
     def evaluate(self, state):
+        """Returns the result of the neural net applied to the state. This is
+        'probs' and 'values'
+
+        Returns
+        -------
+        probs: np array
+            The probabilities returned by the net.
+        values: np array
+            The value returned by the net.
+        """
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             probs = sess.run(
-                self.tensors['prob_logits'],
+                self.tensors['probs'],
                 feed_dict={self.tensors['state_vector']: state})
             values = sess.run(
                 self.tensors['values'],
                 feed_dict={self.tensors['state_vector']: state})
 
-        return probs, values
+        return np.ravel(probs), values

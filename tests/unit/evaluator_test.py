@@ -18,6 +18,14 @@ def next_states_function(state):
         return {}
 
 
+def fake_which_player(state):
+    return 1 + (int(np.ceil(state/2)) % 2)
+
+
+def fake_utility(state):
+    return {1: state, 2: -state}
+
+
 @pytest.mark.parametrize("num_iters, expected", [
     (100, {0: 98.0 / 99.0, 1: 1.0 / 99.0}),
     (2, {0: 1.0, 1: 0.0}),
@@ -40,9 +48,10 @@ def test_trivial_evaluator(num_iters, expected):
             state, next_states_function, action_space, is_terminal,
             utility, which_player)
 
-    root = mcts_tree.MCTSNode(None, 0)
+    root = mcts_tree.MCTSNode(None, 0, player=1)
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, is_terminal, num_iters, 1.0
+        root, evaluator, next_states_function, utility, which_player,
+        is_terminal, num_iters, 1.0
     )
     assert action_probs == expected
 
@@ -60,16 +69,34 @@ def test_initialising_basic_net_with_random_parameters():
 
 
 def test_neural_net_evaluator():
-    def is_terminal(state):
-        return len(next_states_function(state)) == 0
-
     def next_states_function_(state):
-        return {action: (s,) * 9
-                for action, s in next_states_function(state).items()}
+        return {action: (s,) * 2
+                for action, s in next_states_function(state[0]).items()}
 
+    def fake_is_terminal(state):
+        return len(next_states_function_(state)) == 0
+
+    def fake_utility_(state):
+        return fake_utility(state[0])
+
+    def fake_which_player_(state):
+        return fake_which_player(state[0])
+
+    nnet = BasicNACNet(input_dim=2, output_dim=2)
+
+    # TODO THE PROBLEM IS THAT THE GAME AS DESCRIBED DOESN'T WORK.
+
+    root = mcts_tree.MCTSNode(None, (0,) * 2, player=1)
+    # pytest.set_trace()
+    action_probs = mcts_tree.mcts(
+        root, nnet.evaluate, next_states_function_, fake_utility_,
+        fake_which_player_, fake_is_terminal,
+        max_iters=2, c_puct=1.0)
+
+
+def test_neural_net_evaluate_game_state():
     nnet = BasicNACNet()
 
-    root = mcts_tree.MCTSNode(None, 0)
-    action_probs = mcts_tree.mcts(
-        root, nnet.evaluate, next_states_function_, is_terminal,
-        max_iters=2, c_puct=1.0)
+    test_game_state = (0,) * 9
+
+    computed = nnet.evaluate(test_game_state)
