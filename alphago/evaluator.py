@@ -76,7 +76,7 @@ class BasicNACNet:
         prob_logits = tf.layers.dense(inputs=dense, units=9)
 
         loss = tf.losses.mean_squared_error(outcomes, values) - \
-               tf.tensordot(tf.transpose(pi), prob_logits, axes=1)
+            tf.tensordot(tf.transpose(pi), prob_logits, axes=1)
 
         tensors = [state_vector, outcomes, pi, values, prob_logits, loss]
         keys = "state_vector outcomes pi values prob_logits loss".split()
@@ -86,9 +86,11 @@ class BasicNACNet:
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            probs = sess.run(self.tensors['prob_logits'],
-                     feed_dict={self.tensors['state_vector']: state})
-            values = sess.run(self.tensors['values'],
-                     feed_dict={self.tensors['state_vector']: state})
+            probs = sess.run(
+                self.tensors['prob_logits'],
+                feed_dict={self.tensors['state_vector']: state})
+            values = sess.run(
+                self.tensors['values'],
+                feed_dict={self.tensors['state_vector']: state})
 
         return probs, values
