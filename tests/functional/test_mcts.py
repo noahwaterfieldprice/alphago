@@ -131,7 +131,7 @@ def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
 @pytest.mark.parametrize(
     "next_states_function, evaluator, initial_state, max_iters,\
      c_puct, expected_length", [
-        (next_states_function_2, evaluator_1, 0, 5, 1.0, 4),
+        (next_states_function_2, evaluator_1, 0, 5, 1.0, 3),
         (next_states_function, evaluator_1, 0, 1000, 1.0, 3),
     ]
 )
