@@ -36,5 +36,3 @@ class NoughtsAndCrosses:
             return True
         # otherwise it is non-terminal
         return False
-
-
