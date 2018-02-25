@@ -6,7 +6,7 @@ from alphago import mcts_tree
 
 class TestMCTSNode:
     def test_mcts_tree_initial_tree(self):
-        root = mcts_tree.MCTSNode(None, None)
+        root = mcts_tree.MCTSNode(None, None, 1)
 
         # Check the root has prior_prob None
         assert root.prior_prob is None
@@ -19,18 +19,19 @@ class TestMCTSNode:
         assert root.game_state is None
 
     def test_mcts_tree_is_leaf(self):
-        leaf_node = mcts_tree.MCTSNode(None, None)
+        leaf_node = mcts_tree.MCTSNode(None, None, player=1)
         assert leaf_node.is_leaf()
 
     def test_mcts_tree_expand_root(self):
         # Check we can expand the root of the tree.
-        root = mcts_tree.MCTSNode(None, 1)
+        root = mcts_tree.MCTSNode(None, 1, player=1)
 
         children_states = {'a': 2, 'b': 3}
         prior_probs = {'a': 0.4, 'b': 0.6}
+        players = {'a': 2, 'b': 2}
 
         leaf = root
-        leaf.expand(prior_probs, children_states)
+        leaf.expand(prior_probs, children_states, players)
 
         assert leaf.children['a'].game_state == 2
         assert leaf.children['a'].prior_prob == 0.4
@@ -40,7 +41,7 @@ class TestMCTSNode:
 
 class TestSelectAndBackupFunctions:
     def test_mcts_tree_selects_root_as_leaf(self):
-        root = mcts_tree.MCTSNode(None, 1)
+        root = mcts_tree.MCTSNode(None, 1, player=1)
 
         nodes, actions = mcts_tree.select(root, 10)
         assert len(actions) == 0
@@ -48,16 +49,18 @@ class TestSelectAndBackupFunctions:
         assert nodes[0] == root
 
     backup_nodes = [
-        [mcts_tree.MCTSNode(None, 3)],
-        [mcts_tree.MCTSNode(None, None), mcts_tree.MCTSNode(None, None)],
-        [mcts_tree.MCTSNode({'a': 1.0}, 1), mcts_tree.MCTSNode({3: 0.5}, 2)],
+        [mcts_tree.MCTSNode(None, 3, player=1)],
+        [mcts_tree.MCTSNode(None, None, player=1),
+            mcts_tree.MCTSNode(None, None, player=1)],
+        [mcts_tree.MCTSNode({'a': 1.0}, 1, player=1),
+            mcts_tree.MCTSNode({3: 0.5}, 2, player=1)],
 
     ]
 
     backup_values = [
-        1.0,
-        2.0,
-        3.0,
+        {1: 1.0, 2: -1.0},
+        {1: 2.0, 2: -2.0},
+        {1: 3.0, 2: -3.0},
     ]
 
     @pytest.mark.parametrize("nodes, v", zip(backup_nodes, backup_values))
@@ -65,13 +68,15 @@ class TestSelectAndBackupFunctions:
         mcts_tree.backup(nodes, v)
         for node in nodes:
             assert node.N == 1.0
-            assert node.W == v
-            assert node.Q == v
+            assert node.W == v[node.player]
+            assert node.Q == v[node.player]
 
     backup_nodes_n_times = [
-        [mcts_tree.MCTSNode(None, 3)],
-        [mcts_tree.MCTSNode(None, None), mcts_tree.MCTSNode(None, None)],
-        [mcts_tree.MCTSNode({'a': 1.0}, 1), mcts_tree.MCTSNode({3: 0.5}, 2)],
+        [mcts_tree.MCTSNode(None, 3, player=1)],
+        [mcts_tree.MCTSNode(None, None, player=1),
+            mcts_tree.MCTSNode(None, None, player=1)],
+        [mcts_tree.MCTSNode({'a': 1.0}, 1, player=1),
+            mcts_tree.MCTSNode({3: 0.5}, 2, player=1)],
     ]
 
     backup_n = [
@@ -87,18 +92,20 @@ class TestSelectAndBackupFunctions:
             mcts_tree.backup(nodes, v)
         for node in nodes:
             assert node.N == float(n)
-            assert node.W == n*v
-            assert node.Q == v
+            assert node.W == n*v[node.player]
+            assert node.Q == v[node.player]
 
     def test_mcts_select(self):
-        root = mcts_tree.MCTSNode(None, 1)
+        root = mcts_tree.MCTSNode(None, 1, player=1)
 
         # Manually create a small tree below root.
-        root.children = {'a': mcts_tree.MCTSNode(0.2, 2), 'b': mcts_tree.MCTSNode(0.8, 3)}
+        root.children = {'a': mcts_tree.MCTSNode(0.2, 2, player=2),
+                         'b': mcts_tree.MCTSNode(0.8, 3, player=2)}
         root.prior_prob = 1.0
         root.N = 4
         childa = root.children['a']
-        childa.children = {'c': mcts_tree.MCTSNode(0.7, 4), 'd': mcts_tree.MCTSNode(0.3, 5)}
+        childa.children = {'c': mcts_tree.MCTSNode(0.7, 4, player=1),
+                           'd': mcts_tree.MCTSNode(0.3, 5, player=1)}
         childa.N = 2
 
         nodec = childa.children['c']
@@ -107,7 +114,8 @@ class TestSelectAndBackupFunctions:
         noded.N = 1
 
         childb = root.children['b']
-        childb.children = {'e': mcts_tree.MCTSNode(0.9, 6), 'f': mcts_tree.MCTSNode(0.1, 7)}
+        childb.children = {'e': mcts_tree.MCTSNode(0.9, 6, player=1),
+                           'f': mcts_tree.MCTSNode(0.1, 7, player=1)}
         childb.N = 1
 
         nodee = childb.children['e']
@@ -126,7 +134,7 @@ def test_compute_ucb():
     action_values = {'a': 1.0, 'b': 2.0, 'c': 3.0}
     prior_probs = {'a': 0.2, 'b': 0.5, 'c': 0.3}
     action_counts = {'a': 10, 'b': 20, 'c': 30}
-    num = np.sqrt(sum(action_counts.values()))
+    num = 1.0 + np.sqrt(sum(action_counts.values()))
     expected = {
         a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) *
         c_puct * num for a in action_values
@@ -158,9 +166,17 @@ def next_states_function(state):
         return {}
 
 
+def fake_which_player(state):
+    return 1 + (int(np.ceil(state/2)) % 2)
+
+
+def fake_utility(state):
+    return {1: state, 2: -state}
+
+
 def evaluator_1(state):
     probs = {0: 0.5, 1: 0.5}
-    value = 1.0
+    value = 1.0 if fake_which_player(state) == 1 else -1.0
     return probs, value
 
 
@@ -177,14 +193,15 @@ def evaluator_2(state):
     ]
 )
 def test_mcts_action_count_at_root(next_states_function, evaluator):
-    root = mcts_tree.MCTSNode(None, 0)
+    root = mcts_tree.MCTSNode(None, 0, player=1)
     assert root.N == 0
 
-    def is_terminal(state):
+    def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
 
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, is_terminal, 100, 1.0
+        root, evaluator, next_states_function, fake_utility, fake_which_player,
+        fake_is_terminal, 100, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
@@ -198,14 +215,18 @@ def test_mcts_action_count_at_root(next_states_function, evaluator):
 )
 def test_mcts_value_at_root(evaluator, num_iters, expected):
 
-    root = mcts_tree.MCTSNode(None, 0)
+    root = mcts_tree.MCTSNode(None, 0, player=1)
     assert root.N == 0
 
-    def is_terminal(state):
+    def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
 
+    def fake_utility(state):
+        return {1: 1.0, 2: -1.0}
+
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, is_terminal, num_iters, 1.0
+        root, evaluator, next_states_function, fake_utility, fake_which_player,
+        fake_is_terminal, num_iters, 1.0
     )
 
     # Each iteration of MCTS we should add 1 to N at the root.
@@ -219,16 +240,17 @@ def test_mcts_value_at_root(evaluator, num_iters, expected):
     ]
 )
 def test_mcts_does_not_expand_terminal_nodes(evaluator, num_iters, expected):
-    def is_terminal(state):
+    def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
 
     def next_states_wrapper(state):
-        assert not is_terminal(state)
+        assert not fake_is_terminal(state)
         return next_states_function(state)
 
-    root = mcts_tree.MCTSNode(None, 0)
+    root = mcts_tree.MCTSNode(None, 0, player=1)
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_wrapper, is_terminal, num_iters, 1.0
+        root, evaluator, next_states_wrapper, fake_utility, fake_which_player,
+        fake_is_terminal, num_iters, 1.0
     )
 
 
