@@ -109,7 +109,7 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     upper_confidence_bounds: dict
         A dictionary mapping each child node to: Q(s,a) + U(s,a).
     """
-    # TODO: Check if this is the right way to define this. Currently we ignore
+    # TODO: Check if this is the right way to define this. Currently we ignore
     # prior_probs if action_counts are 0. This is the case when we select
     # children for the first time, which is exactly the time we want to be using
     # prior_probs.
@@ -286,7 +286,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             # there will be no next_states.
             children_states = next_states_function(leaf.game_state)
 
-            # TODO: This should be replaced by a function that links the indices
+            # TODO: This should be replaced by a function that links the indices
             # for the neural network output to the actions in the game.
             probs = {a: probs[a] for a in children_states}
 
@@ -458,8 +458,8 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
     training_data = []
     for i in range(num_self_play):
         game_states_, action_probs_ = self_play(
-            next_states_function, evaluator, initial_state, is_terminal,
-            max_iters, c_puct)
+            next_states_function, evaluator, initial_state, utility,
+            which_player, is_terminal, max_iters, c_puct)
         training_data.append(build_training_data(
             game_states_, action_probs_, which_player, utility))
     return training_data
