@@ -7,15 +7,14 @@ from alphago.evaluator import trivial_evaluator
 
 
 def test_can_create_mcts_node():
-    prior_prob = None
     game_state = None
-    node = mcts_tree.MCTSNode(prior_prob, game_state, player=1)
+    node = mcts_tree.MCTSNode(game_state, player=1)
     assert node is not None
 
 
 def test_can_create_mcts_tree():
     game_state = None
-    tree = mcts_tree.MCTSNode(None, game_state, player=1)
+    tree = mcts_tree.MCTSNode(game_state, player=1)
     assert tree is not None
 
 
@@ -77,8 +76,7 @@ def evaluator_2(state):
     "next_states_function, evaluator, num_iters", [
         (next_states_function, evaluator_1, 100),
         (next_states_function, evaluator_1, 2),
-    ]
-)
+    ])
 def test_can_run_mcts_on_dummy_game(next_states_function, evaluator, num_iters):
     """ This test shows that we can run MCTS using a 'next_states' function and
     'evaluator' function.
@@ -86,7 +84,7 @@ def test_can_run_mcts_on_dummy_game(next_states_function, evaluator, num_iters):
     def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
 
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     action_probs = mcts_tree.mcts(
         root, evaluator, next_states_function, fake_utility, fake_which_player,
         fake_is_terminal, num_iters, 1.0
@@ -98,15 +96,14 @@ def test_can_run_mcts_on_dummy_game(next_states_function, evaluator, num_iters):
     "next_states_function, evaluator, max_iters, c_puct, expected", [
         (next_states_function, evaluator_1, 100, 1.0, [0, 1, 3]),
         (next_states_function_2, evaluator_1, 5, 1.0, [0, 1, 3, 8]),
-    ]
-)
+    ])
 def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
                                  c_puct, expected):
     # TODO: Check that expected [0, 1, 3, 8] in the second test is correct.
     def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
 
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     node = root
     nodes = [node]
 
@@ -133,8 +130,7 @@ def test_mcts_can_play_fake_game(next_states_function, evaluator, max_iters,
      c_puct, expected_length", [
         (next_states_function_2, evaluator_1, 0, 5, 1.0, 3),
         (next_states_function, evaluator_1, 0, 1000, 1.0, 3),
-    ]
-)
+    ])
 def test_mcts_can_self_play_fake_game(next_states_function, evaluator,
                                       initial_state, max_iters,
                                       c_puct, expected_length):
@@ -143,10 +139,11 @@ def test_mcts_can_self_play_fake_game(next_states_function, evaluator,
 
     states, action_probs = mcts_tree.self_play(
         next_states_function, evaluator, initial_state, fake_utility,
-        fake_which_player, fake_is_terminal, max_iters, c_puct
-    )
+        fake_which_player, fake_is_terminal, max_iters, c_puct)
+
     assert states[0] == initial_state
     assert len(states) == expected_length
+    # TODO: sometimes this fails on first set of inputs
     assert len(action_probs) == expected_length - 1
 
 
@@ -154,12 +151,8 @@ def test_mcts_can_self_play_noughts_and_crosses():
     max_iters = 1000
     c_puct = 1.0
 
-    action_space = [(i, j) for i in range(3) for j in range(3)]
-
     def evaluator(state):
-        return trivial_evaluator(
-            state, nac.compute_next_states, action_space, nac.is_terminal,
-            nac.utility, nac.which_player)
+        return trivial_evaluator(state, nac.compute_next_states)
 
     game_states_, action_probs_ = mcts_tree.self_play(
         nac.compute_next_states, evaluator, nac.INITIAL_STATE, nac.utility,

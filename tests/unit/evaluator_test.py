@@ -29,8 +29,7 @@ def fake_utility(state):
 @pytest.mark.parametrize("num_iters, expected", [
     (100, {0: 98.0 / 99.0, 1: 1.0 / 99.0}),
     (2, {0: 1.0, 1: 0.0}),
-]
-                         )
+])
 def test_trivial_evaluator(num_iters, expected):
     def is_terminal(state):
         return len(next_states_function(state)) == 0
@@ -41,14 +40,10 @@ def test_trivial_evaluator(num_iters, expected):
     def which_player(state):
         return 1
 
-    action_space = [0, 1]
-
     def evaluator(state):
-        return trivial_evaluator(
-            state, next_states_function, action_space, is_terminal,
-            utility, which_player)
+        return trivial_evaluator(state, next_states_function)
 
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     action_probs = mcts_tree.mcts(
         root, evaluator, next_states_function, utility, which_player,
         is_terminal, num_iters, 1.0
@@ -86,7 +81,7 @@ def test_neural_net_evaluator():
 
     # TODO THE PROBLEM IS THAT THE GAME AS DESCRIBED DOESN'T WORK.
 
-    root = mcts_tree.MCTSNode(None, (0,) * 2, player=1)
+    root = mcts_tree.MCTSNode((0,) * 2, player=1)
     # pytest.set_trace()
     action_probs = mcts_tree.mcts(
         root, nnet.evaluate, next_states_function_, fake_utility_,

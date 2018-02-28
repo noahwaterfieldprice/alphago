@@ -8,12 +8,8 @@ def test_self_play_multiple_can_play_nac():
     num_self_play = 10
     c_puct = 1.0
 
-    action_space = [(i, j) for i in range(3) for j in range(3)]
-
     def evaluator(state):
-        return trivial_evaluator(
-            state, nac.compute_next_states, action_space, nac.is_terminal,
-            nac.utility, nac.which_player)
+        return trivial_evaluator(state, nac.compute_next_states)
 
     training_data = mcts_tree.self_play_multiple(
         nac.compute_next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,

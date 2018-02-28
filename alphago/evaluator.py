@@ -57,8 +57,8 @@ class BasicNACNet:
         probs = tf.nn.softmax(logits=prob_logits)
 
         tensors = [state_vector, values, prob_logits, probs]
-        keys = "state_vector values prob_logits probs".split()
-        return dict(zip(keys, tensors))
+        names = "state_vector values prob_logits probs".split()
+        return {name: tensor for name, tensor in zip(names, tensors)}
 
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
@@ -90,8 +90,8 @@ class BasicNACNet:
             tf.tensordot(tf.transpose(pi), prob_logits, axes=1)
 
         tensors = [state_vector, outcomes, pi, values, prob_logits, probs, loss]
-        keys = "state_vector outcomes pi values prob_logits probs loss".split()
-        return dict(zip(keys, tensors))
+        names = "state_vector outcomes pi values prob_logits probs loss".split()
+        return {name: tensor for name, tensor in zip(names, tensors)}
 
     def evaluate(self, state):
         """Returns the result of the neural net applied to the state. This is
