@@ -6,25 +6,24 @@ from alphago import mcts_tree
 
 class TestMCTSNode:
     def test_mcts_tree_initial_tree(self):
-        root = mcts_tree.MCTSNode(None, None, 1)
+        root = mcts_tree.MCTSNode(None, 1)
 
-        # Check the root has prior_prob None
-        assert root.prior_prob is None
         assert root.Q == 0.0
         assert root.W == 0.0
         assert root.N == 0
 
         assert len(root.children) == 0
+        assert len(root.prior_probs) == 0
 
         assert root.game_state is None
 
     def test_mcts_tree_is_leaf(self):
-        leaf_node = mcts_tree.MCTSNode(None, None, player=1)
+        leaf_node = mcts_tree.MCTSNode(None, player=1)
         assert leaf_node.is_leaf()
 
     def test_mcts_tree_expand_root(self):
         # Check we can expand the root of the tree.
-        root = mcts_tree.MCTSNode(None, 1, player=1)
+        root = mcts_tree.MCTSNode(1, player=1)
 
         children_states = {'a': 2, 'b': 3}
         prior_probs = {'a': 0.4, 'b': 0.6}
@@ -34,14 +33,13 @@ class TestMCTSNode:
         leaf.expand(prior_probs, children_states, players)
 
         assert leaf.children['a'].game_state == 2
-        assert leaf.children['a'].prior_prob == 0.4
         assert leaf.children['b'].game_state == 3
-        assert leaf.children['b'].prior_prob == 0.6
+        assert leaf.prior_probs == prior_probs
 
 
 class TestSelectAndBackupFunctions:
     def test_mcts_tree_selects_root_as_leaf(self):
-        root = mcts_tree.MCTSNode(None, 1, player=1)
+        root = mcts_tree.MCTSNode(1, player=1)
 
         nodes, actions = mcts_tree.select(root, 10)
         assert len(actions) == 0
@@ -49,11 +47,11 @@ class TestSelectAndBackupFunctions:
         assert nodes[0] == root
 
     backup_nodes = [
-        [mcts_tree.MCTSNode(None, 3, player=1)],
-        [mcts_tree.MCTSNode(None, None, player=1),
-            mcts_tree.MCTSNode(None, None, player=1)],
-        [mcts_tree.MCTSNode({'a': 1.0}, 1, player=1),
-            mcts_tree.MCTSNode({3: 0.5}, 2, player=1)],
+        [mcts_tree.MCTSNode(3, player=1)],
+        [mcts_tree.MCTSNode(None, player=1),
+            mcts_tree.MCTSNode(None, player=1)],
+        [mcts_tree.MCTSNode(1, player=1),
+            mcts_tree.MCTSNode(2, player=1)],
 
     ]
 
@@ -72,11 +70,11 @@ class TestSelectAndBackupFunctions:
             assert node.Q == v[node.player]
 
     backup_nodes_n_times = [
-        [mcts_tree.MCTSNode(None, 3, player=1)],
-        [mcts_tree.MCTSNode(None, None, player=1),
-            mcts_tree.MCTSNode(None, None, player=1)],
-        [mcts_tree.MCTSNode({'a': 1.0}, 1, player=1),
-            mcts_tree.MCTSNode({3: 0.5}, 2, player=1)],
+        [mcts_tree.MCTSNode(3, player=1)],
+        [mcts_tree.MCTSNode(None, player=1),
+            mcts_tree.MCTSNode(None, player=1)],
+        [mcts_tree.MCTSNode(1, player=1),
+            mcts_tree.MCTSNode(2, player=1)],
     ]
 
     backup_n = [
@@ -96,16 +94,17 @@ class TestSelectAndBackupFunctions:
             assert node.Q == v[node.player]
 
     def test_mcts_select(self):
-        root = mcts_tree.MCTSNode(None, 1, player=1)
+        root = mcts_tree.MCTSNode(1, player=1)
 
         # Manually create a small tree below root.
-        root.children = {'a': mcts_tree.MCTSNode(0.2, 2, player=2),
-                         'b': mcts_tree.MCTSNode(0.8, 3, player=2)}
-        root.prior_prob = 1.0
+        root.children = {'a': mcts_tree.MCTSNode(2, player=2),
+                         'b': mcts_tree.MCTSNode(3, player=2)}
+        root.prior_probs = {'a': 0.2, 'b': 0.8}
         root.N = 4
         childa = root.children['a']
-        childa.children = {'c': mcts_tree.MCTSNode(0.7, 4, player=1),
-                           'd': mcts_tree.MCTSNode(0.3, 5, player=1)}
+        childa.children = {'c': mcts_tree.MCTSNode(4, player=1),
+                           'd': mcts_tree.MCTSNode(5, player=1)}
+        childa.prior_probs = {'c': 0.7, 'd': 0.3}
         childa.N = 2
 
         nodec = childa.children['c']
@@ -114,8 +113,9 @@ class TestSelectAndBackupFunctions:
         noded.N = 1
 
         childb = root.children['b']
-        childb.children = {'e': mcts_tree.MCTSNode(0.9, 6, player=1),
-                           'f': mcts_tree.MCTSNode(0.1, 7, player=1)}
+        childb.children = {'e': mcts_tree.MCTSNode(6, player=1),
+                           'f': mcts_tree.MCTSNode(7, player=1)}
+        childb.prior_probs = {'e': 0.9, 'f': 0.1}
         childb.N = 1
 
         nodee = childb.children['e']
@@ -190,10 +190,9 @@ def evaluator_2(state):
     "next_states_function, evaluator", [
         (next_states_function, evaluator_1),
         (next_states_function, evaluator_2),
-    ]
-)
+    ])
 def test_mcts_action_count_at_root(next_states_function, evaluator):
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
 
     def fake_is_terminal(state):
@@ -211,11 +210,10 @@ def test_mcts_action_count_at_root(next_states_function, evaluator):
 @pytest.mark.parametrize("evaluator, num_iters, expected", [
         (evaluator_1, 100, 100),
         (evaluator_1, 2, 2),
-    ]
-)
+    ])
 def test_mcts_value_at_root(evaluator, num_iters, expected):
 
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
 
     def fake_is_terminal(state):
@@ -237,8 +235,7 @@ def test_mcts_value_at_root(evaluator, num_iters, expected):
     "evaluator, num_iters, expected", [
         (evaluator_1, 100, 100),
         (evaluator_1, 2, 2),
-    ]
-)
+    ])
 def test_mcts_does_not_expand_terminal_nodes(evaluator, num_iters, expected):
     def fake_is_terminal(state):
         return len(next_states_function(state)) == 0
@@ -247,7 +244,7 @@ def test_mcts_does_not_expand_terminal_nodes(evaluator, num_iters, expected):
         assert not fake_is_terminal(state)
         return next_states_function(state)
 
-    root = mcts_tree.MCTSNode(None, 0, player=1)
+    root = mcts_tree.MCTSNode(0, player=1)
     action_probs = mcts_tree.mcts(
         root, evaluator, next_states_wrapper, fake_utility, fake_which_player,
         fake_is_terminal, num_iters, 1.0

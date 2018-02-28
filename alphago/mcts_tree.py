@@ -39,15 +39,15 @@ class MCTSNode:
         The player to play at this node.
     """
 
-    __slots__ = "prior_prob Q W N children game_state player".split()
+    __slots__ = "Q W N children prior_probs game_state player".split()
 
-    def __init__(self, prior_prob, game_state, player):
-        self.prior_prob = prior_prob
+    def __init__(self, game_state, player):
         self.Q = 0.0
         self.W = 0.0
         self.N = 0.0
         self.player = player
         self.children = {}
+        self.prior_probs = {}
         self.game_state = game_state
 
     def is_leaf(self):
@@ -75,14 +75,11 @@ class MCTSNode:
         """
         assert self.is_leaf()
 
-        prior_probs = compute_distribution(prior_probs)
+        #prior_probs = compute_distribution(prior_probs)
+        self.prior_probs = prior_probs
 
-        # Initialise the relevant data for each child of the leaf node
         self.children = {
-            action: MCTSNode(
-                prior_probs[action],
-                children_states[action],
-                players[action])
+            action: MCTSNode(children_states[action], players[action])
             for action in children_states
         }
 
@@ -117,8 +114,7 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     # assert num > 0
     upper_confidence_bounds = {
         k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *
-        c_puct * num for k in action_values
-    }
+        c_puct * num for k in action_values}
     return upper_confidence_bounds
 
 
@@ -154,15 +150,15 @@ def select(starting_node, c_puct):
         # The node is not a leaf, so has children. We select the one with
         # largest upper confidence bound.
         # TODO: maybe these should be arrays to vectorise compute_ucb
-        prior_probs = {action: child.prior_prob
-                       for action, child in node.children.items()}
+        # prior_probs = {action: child.prior_prob
+        #                for action, child in node.children.items()}
         action_values = {action: child.Q
                          for action, child in node.children.items()}
         action_counts = {action: child.N
                          for action, child in node.children.items()}
 
         # Compute the upper confidence bound values
-        upper_confidence_bounds = compute_ucb(action_values, prior_probs,
+        upper_confidence_bounds = compute_ucb(action_values, node.prior_probs,
                                               action_counts, c_puct)
 
         # Take action with largest ucb
@@ -197,7 +193,7 @@ def backup(nodes, v):
 
         # Update the cumulative and mean action values
         node.W += v[node.player]
-        node.Q = float(node.W) / float(node.N)
+        node.Q = node.W / node.N
 
 
 def compute_distribution(d):
@@ -271,7 +267,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
         if not is_terminal(leaf.game_state):
             # Evaluate the leaf node to get the probabilities and value
             # according to the net.
-            probs, value = evaluator(leaf.game_state)
+            prior_probs, value = evaluator(leaf.game_state)
 
             # Store this as a value for player 1 and a value for player 2.
             # TODO: We could make this more general later.
@@ -288,18 +284,18 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
 
             # TODO: This should be replaced by a function that links the indices
             # for the neural network output to the actions in the game.
-            probs = {a: probs[a] for a in children_states}
+            prior_probs = {a: prior_probs[a] for a in children_states}
 
             # Compute the players for the children states.
             players = {a: which_player(child) for a, child in
                        children_states.items()}
 
             # Expand the tree with the new leaf node
-            leaf.expand(probs, children_states, players)
+            leaf.expand(prior_probs, children_states, players)
         else:
-            # We don't need prior probs if the node is terminal, but we do still
-            # need the value of the node. The utility function computes the
-            # value for the player to play.
+            # We don't need prior probs if the node is terminal, but we
+            # do still need the value of the node. The utility function
+            # computes the value for the player to play.
             value = utility(leaf.game_state)
 
         # Backup the value up the tree.
@@ -349,7 +345,7 @@ def self_play(next_states_function, evaluator, initial_state, utility,
         action_probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
-    node = MCTSNode(None, initial_state, which_player(initial_state))
+    node = MCTSNode(initial_state, which_player(initial_state))
 
     game_state_list = [node.game_state]
     action_probs_list = []
