@@ -20,10 +20,12 @@ if __name__ == "__main__":
     while not nac.is_terminal(state):
         player = nac.which_player(state)
         if player == computer:
+            root = mcts_tree.MCTSNode(state, player)
             action_probs = mcts_tree.mcts(
-                mcts_tree.MCTSNode(state, player), evaluator,
+                root, evaluator,
                 nac.compute_next_states, nac.utility, nac.which_player,
                 nac.is_terminal, max_iters, c_puct)
+            mcts_tree.print_tree(root)
             actions, probs = zip(*action_probs.items())
             print(action_probs)
             action_ix = np.random.choice(range(len(actions)), p=probs)
