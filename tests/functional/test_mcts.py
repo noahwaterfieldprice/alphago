@@ -87,3 +87,26 @@ def test_mcts_can_self_play_noughts_and_crosses():
     assert len(action_probs_) == len(game_states_) - 1
     assert nac.is_terminal(game_states_[-1])
     assert game_states_[0] == nac.INITIAL_STATE
+
+
+def test_print_mcts():
+    terminal_state_values = [0.01 * i for i in range(12)]
+    print("Terminal state values", terminal_state_values)
+    mock_game = MockGame(terminal_state_values=terminal_state_values)
+
+    root = mcts_tree.MCTSNode(0, player=1)
+    action_probs = mcts_tree.mcts(
+        root, mock_evaluator, mock_game.compute_next_states, mock_game.utility,
+        mock_game.which_player, mock_game.is_terminal, 10, 1.0)
+    mcts_tree.print_tree(root)
+
+    action_probs = mcts_tree.mcts(
+        root, mock_evaluator, mock_game.compute_next_states, mock_game.utility,
+        mock_game.which_player, mock_game.is_terminal, 10, 1.0)
+    mcts_tree.print_tree(root)
+
+    action_probs = mcts_tree.mcts(
+        root, mock_evaluator, mock_game.compute_next_states, mock_game.utility,
+        mock_game.which_player, mock_game.is_terminal, 1000, 1.0)
+    mcts_tree.print_tree(root)
+    assert False

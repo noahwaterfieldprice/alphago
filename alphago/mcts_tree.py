@@ -55,7 +55,8 @@ class MCTSNode:
 
     def __repr__(self):
         return (f"{self.__class__.__name__}({self.game_state}, "
-                f"{self.player}, {self.is_terminal})")
+                f"{self.player}, {self.is_terminal}, "
+                f"{self.Q}, {self.W}, {self.N})")
 
     def is_leaf(self):
         """Returns whether or not the node in the tree is a leaf."""
@@ -187,25 +188,24 @@ def select(starting_node, c_puct):
     return nodes, actions
 
 
-def backup(nodes, values):
+def backup(nodes, value):
     """Given the sequence of nodes (ending in the new expanded node)
-    from the game tree, propagate back the Q-values and action counts.
+    from the game tree, propagate back the Q-value and action counts.
 
     Parameters
     ----------
     nodes: list
         The list of nodes to backup.
-    values: dict
-        A dictionary with keys the players and values the value for
-        that player. In a zero sum game with players 1 and 2, we have
-        v[1] = -v[2].
+    value: float
+        A float that represents the value to the player in the node selected by
+        the 'select' algorithm.
     """
     for node in nodes:
         # Increment the visit count
         node.N += 1.0
         if not node.is_terminal:
             # Update the cumulative and mean action values
-            node.W += values[node.player]
+            node.W += value
             node.Q = node.W / node.N
 
 
@@ -282,13 +282,6 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             # according to the net.
             prior_probs, value = evaluator(leaf.game_state)
 
-            # Store this as a value for player 1 and a value for player 2.
-            # TODO: We could make this more general later.
-            player = which_player(leaf.game_state)
-            other_player = 1 if player == 2 else 2
-            values = {player: value,
-                      other_player: -value}
-
             # Compute the next possible states from the leaf node. This
             # returns a dictionary with keys the legal actions and
             # values the game states. Note that if the leaf is terminal
@@ -315,8 +308,16 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             # computes the value for the player to play.
             values = utility(leaf.game_state)
 
+            # We treat the terminal state as belonging to the player who played
+            # to get there. This makes sense because we want to backpropagate
+            # the value for that player: if they win, then we want to add to
+            # player's W and subtract from other player's W on all nodes on the
+            # path to the terminal node.
+            previous_player = which_player(nodes[-2].game_state)
+            value = values[previous_player]
+
         # Backup the value up the tree.
-        backup(nodes, values)
+        backup(nodes, value)
 
     action_counts = {action: child.N
                      for action, child in starting_node.children.items()}
@@ -474,3 +475,16 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
         training_data.append(build_training_data(
             game_states_, action_probs_, which_player, utility))
     return training_data
+
+
+def print_tree(root):
+    """Prints the tree rooted at 'root' using breadth-first traversal.
+    """
+    queue = [root]
+    i = 0
+
+    while i < len(queue):
+        node = queue[i]
+        print(node)
+        queue.extend(node.children.values())
+        i += 1

@@ -44,5 +44,5 @@ class MockGame:
 def mock_evaluator(state):
     prior_probs = {action: 1 / 3 for action in range(3)}
 
-    value = 0
+    value = 0.0
     return prior_probs, value
