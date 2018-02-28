@@ -1,6 +1,8 @@
 class MockGame:
 
-    def __init__(self, terminal_state_values=range(12)):
+    initial_state = 0
+
+    def __init__(self, terminal_state_values=(1,) * 12):
         self.terminal_state_values = terminal_state_values
 
         player_1_states = [0, 3, 4, 5, 6]
@@ -44,18 +46,3 @@ def mock_evaluator(state):
 
     value = 0
     return prior_probs, value
-
-# Utility functions
-
-
-def get_terminal_nodes(root):
-    stack = [root]
-    terminal_nodes = []
-    while stack:
-        node = stack.pop()
-        if node.is_terminal:
-            terminal_nodes.append(node)
-        else:
-            stack.extend(node.children.values())
-
-    return terminal_nodes

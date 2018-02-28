@@ -4,31 +4,46 @@ import tensorflow as tf
 from alphago.mcts_tree import compute_distribution
 
 
-def trivial_evaluator(state, next_states_function):
-    """Evaluates a game state for a game. It is trivial in the sense that it
-    returns the uniform probability distribution over all actions in the game.
+def create_trivial_evaluator(next_states_function):
+    """Create a trivial evaluator function given a next states function
+    for a game.
 
     Parameters
     ----------
-    state: tuple
-        A state in the game.
     next_states_function: func
         Returns a dictionary from actions available in the current state to the
         resulting game states.
 
     Returns
     -------
-    probs: dict
-        A dictionary from actions to probabilities. Some actions might not be
-        legal in this game state, but the evaluator returns a probability for
-        choosing each one.
-    value: float
-        The evaluator's estimate of the value of the state 'state'.
+    trivial_evaluator: func
+        A function that returns a uniform probability distribution over all
+        possible actions and a value given an input state.
     """
 
-    next_states = next_states_function(state)
+    def trivial_evaluator(state):
+        """Evaluates a game state for a game. It is trivial in the sense
+        that it returns the uniform probability distribution over all
+        actions in the game.
 
-    return compute_distribution({a: 1.0 for a in next_states}), 0.0
+        Parameters
+        ----------
+        state: tuple
+            A state in the game.
+
+        Returns
+        -------
+        prior_probs: dict
+            A dictionary from actions to probabilities. Some actions might not be
+            legal in this game state, but the evaluator returns a probability for
+            choosing each one.
+        value: float
+            The evaluator's estimate of the value of the state 'state'.
+         """
+        next_states = next_states_function(state)
+        return {action: 1 / len(next_states) for action in next_states}, 0
+
+    return trivial_evaluator
 
 
 class BasicNACNet:
