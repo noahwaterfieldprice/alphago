@@ -39,12 +39,13 @@ class MCTSNode:
         The player to play at this node.
     """
 
-    __slots__ = "Q W N children prior_probs game_state player".split()
+    __slots__ = "Q W N is_terminal children prior_probs game_state player".split()
 
-    def __init__(self, game_state, player):
+    def __init__(self, game_state, player, is_terminal=False):
         self.Q = 0.0
         self.W = 0.0
         self.N = 0.0
+        self.is_terminal = is_terminal
         self.player = player
         self.children = {}
         self.prior_probs = {}
@@ -54,7 +55,8 @@ class MCTSNode:
         """Returns whether or not the node in the tree is a leaf."""
         return len(self.children) == 0
 
-    def expand(self, prior_probs, children_states, players):
+    def expand(self, prior_probs, child_states, child_players,
+               child_terminals):
         """Expands the tree at the leaf node with the given
         probabilities.
 
@@ -64,24 +66,28 @@ class MCTSNode:
             A dictionary where the keys are the available actions from
             the node and the values are the prior probabilities of
             taking each action.
-        children_states: dict
+        child_states: dict
             A dictionary where the keys are the available actions from
             the node and the values are the corresponding game states
             resulting from taking each action.
-        players: dict
+        child_players: dict
             A dictionary where the keys are the available actions from the node
             and the values are the corresponding players to play in the child
             node.
+        child_terminals: dict
+            A dictionary where the keys are the available actions from the node
+            and the values are booleans indicating whether the corresponding
+            nodes are terminal.
         """
         assert self.is_leaf()
 
-        #prior_probs = compute_distribution(prior_probs)
+        # TODO: Enforce that prior probs is a distribution somehow
         self.prior_probs = prior_probs
 
-        self.children = {
-            action: MCTSNode(children_states[action], players[action])
-            for action in children_states
-        }
+        self.children = {action: MCTSNode(
+            child_states[action], child_players[action],
+            child_terminals[action])
+            for action in child_states}
 
 
 def compute_ucb(action_values, prior_probs, action_counts, c_puct):
@@ -107,9 +113,9 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
         A dictionary mapping each child node to: Q(s,a) + U(s,a).
     """
     # TODO: Check if this is the right way to define this. Currently we ignore
-    # prior_probs if action_counts are 0. This is the case when we select
-    # children for the first time, which is exactly the time we want to be using
-    # prior_probs.
+    # prior_probs if action_counts are 0. This is the case when we
+    # select children for the first time, which is exactly the time
+    # we want to be using prior_probs.
     num = 1.0 + np.sqrt(sum(action_counts.values()))
     # assert num > 0
     upper_confidence_bounds = {
@@ -175,7 +181,7 @@ def select(starting_node, c_puct):
     return nodes, actions
 
 
-def backup(nodes, v):
+def backup(nodes, values):
     """Given the sequence of nodes (ending in the new expanded node) from
     the game tree, propagate back the Q-values and action counts.
 
@@ -183,17 +189,17 @@ def backup(nodes, v):
     ----------
     nodes: list
         The list of nodes to backup.
-    v: dict
+    values: dict
         A dictionary with keys the players and values the value for that player.
         In a zero sum game with players 1 and 2, we have v[1] = -v[2].
     """
     for node in nodes:
         # Increment the visit count
         node.N += 1.0
-
-        # Update the cumulative and mean action values
-        node.W += v[node.player]
-        node.Q = node.W / node.N
+        if not node.is_terminal:
+            # Update the cumulative and mean action values
+            node.W += values[node.player]
+            node.Q = node.W / node.N
 
 
 def compute_distribution(d):
@@ -273,33 +279,37 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             # TODO: We could make this more general later.
             player = which_player(leaf.game_state)
             other_player = 1 if player == 2 else 2
-            value = {player: value,
+            values = {player: value,
                      other_player: -value}
 
             # Compute the next possible states from the leaf node. This
             # returns a dictionary with keys the legal actions and
             # values the game states. Note that if the leaf is terminal
             # there will be no next_states.
-            children_states = next_states_function(leaf.game_state)
+            child_states = next_states_function(leaf.game_state)
 
             # TODO: This should be replaced by a function that links the indices
             # for the neural network output to the actions in the game.
-            prior_probs = {a: prior_probs[a] for a in children_states}
+            prior_probs = {action: prior_probs[action]
+                           for action in child_states}
 
             # Compute the players for the children states.
-            players = {a: which_player(child) for a, child in
-                       children_states.items()}
+            child_players = {action: which_player(child_state)
+                             for action, child_state in child_states.items()}
+
+            child_terminals = {action: is_terminal(child_state)
+                               for action, child_state in child_states.items()}
 
             # Expand the tree with the new leaf node
-            leaf.expand(prior_probs, children_states, players)
+            leaf.expand(prior_probs, child_states, child_players, child_terminals)
         else:
             # We don't need prior probs if the node is terminal, but we
             # do still need the value of the node. The utility function
             # computes the value for the player to play.
-            value = utility(leaf.game_state)
+            values = utility(leaf.game_state)
 
         # Backup the value up the tree.
-        backup(nodes, value)
+        backup(nodes, values)
 
     action_counts = {action: child.N
                      for action, child in starting_node.children.items()}

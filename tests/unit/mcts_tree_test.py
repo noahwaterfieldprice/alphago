@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from alphago import mcts_tree
+from .games.mock_game import MockGame, mock_evaluator, get_terminal_nodes
 
 
 class TestMCTSNode:
@@ -27,10 +28,11 @@ class TestMCTSNode:
 
         children_states = {'a': 2, 'b': 3}
         prior_probs = {'a': 0.4, 'b': 0.6}
-        players = {'a': 2, 'b': 2}
+        child_players = {'a': 2, 'b': 2}
+        child_terminals = {'a': False, 'b': False}
 
         leaf = root
-        leaf.expand(prior_probs, children_states, players)
+        leaf.expand(prior_probs, children_states, child_players, child_terminals)
 
         assert leaf.children['a'].game_state == 2
         assert leaf.children['b'].game_state == 3
@@ -77,11 +79,7 @@ class TestSelectAndBackupFunctions:
             mcts_tree.MCTSNode(2, player=1)],
     ]
 
-    backup_n = [
-        1,
-        2,
-        3,
-    ]
+    backup_n = [1, 2, 3]
 
     @pytest.mark.parametrize("nodes, v, n",
                              zip(backup_nodes_n_times, backup_values, backup_n))
@@ -154,101 +152,46 @@ def test_compute_distribution():
     assert computed == expected
 
 
-# We first create a dummy game
-def next_states_function(state):
-    if state == 0:
-        return {0: 1, 1: 2}
-    elif state == 1:
-        return {0: 3, 1: 4}
-    elif state == 2:
-        return {0: 5, 1: 6}
-    else:
-        return {}
-
-
-def fake_which_player(state):
-    return 1 + (int(np.ceil(state/2)) % 2)
-
-
-def fake_utility(state):
-    return {1: state, 2: -state}
-
-
-def evaluator_1(state):
-    probs = {0: 0.5, 1: 0.5}
-    value = 1.0 if fake_which_player(state) == 1 else -1.0
-    return probs, value
-
-
-def evaluator_2(state):
-    probs = {0: 0.5, 1: 0.5}
-    value = state
-    return probs, value
-
-
-@pytest.mark.parametrize(
-    "next_states_function, evaluator", [
-        (next_states_function, evaluator_1),
-        (next_states_function, evaluator_2),
-    ])
-def test_mcts_action_count_at_root(next_states_function, evaluator):
+def test_mcts_action_count_at_root():
+    mock_game = MockGame()
     root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
 
-    def fake_is_terminal(state):
-        return len(next_states_function(state)) == 0
-
     action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, fake_utility, fake_which_player,
-        fake_is_terminal, 100, 1.0
-    )
+        root, mock_evaluator, mock_game.compute_next_states, mock_game.utility,
+        mock_game.which_player, mock_game.is_terminal, 100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert root.N == 100
 
 
-@pytest.mark.parametrize("evaluator, num_iters, expected", [
-        (evaluator_1, 100, 100),
-        (evaluator_1, 2, 2),
-    ])
-def test_mcts_value_at_root(evaluator, num_iters, expected):
-
+def test_mcts_value_at_root():
+    mock_game = MockGame(terminal_state_values=(1,) * 12)
     root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
 
-    def fake_is_terminal(state):
-        return len(next_states_function(state)) == 0
+    mcts_tree.mcts(root, mock_evaluator, mock_game.compute_next_states,
+                   mock_game.utility, mock_game.which_player,
+                   mock_game.is_terminal, 100, 1.0)
 
-    def fake_utility(state):
-        return {1: 1.0, 2: -1.0}
-
-    action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_function, fake_utility, fake_which_player,
-        fake_is_terminal, num_iters, 1.0
-    )
-
+    terminal_nodes = get_terminal_nodes(root)
+    N_terminal_nodes = sum(node.N for node in terminal_nodes)
     # Each iteration of MCTS we should add 1 to N at the root.
-    assert root.W == expected
+    assert root.W == N_terminal_nodes
 
 
-@pytest.mark.parametrize(
-    "evaluator, num_iters, expected", [
-        (evaluator_1, 100, 100),
-        (evaluator_1, 2, 2),
-    ])
-def test_mcts_does_not_expand_terminal_nodes(evaluator, num_iters, expected):
-    def fake_is_terminal(state):
-        return len(next_states_function(state)) == 0
+def test_mcts_does_not_expand_terminal_nodes():
+    mock_game = MockGame()
 
     def next_states_wrapper(state):
-        assert not fake_is_terminal(state)
-        return next_states_function(state)
+        assert not mock_game.is_terminal(state)
+        return mock_game.compute_next_states(state)
 
     root = mcts_tree.MCTSNode(0, player=1)
-    action_probs = mcts_tree.mcts(
-        root, evaluator, next_states_wrapper, fake_utility, fake_which_player,
-        fake_is_terminal, num_iters, 1.0
-    )
+
+    mcts_tree.mcts(root, mock_evaluator, next_states_wrapper,
+                   mock_game.utility, mock_game.which_player,
+                   mock_game.is_terminal, 100, 1.0)
 
 
 TRAINING_DATA_STATES = [
