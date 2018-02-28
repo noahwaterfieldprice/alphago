@@ -2,17 +2,16 @@ import numpy as np
 
 import alphago.games.noughts_and_crosses as nac
 from alphago import mcts_tree
-from alphago.evaluator import trivial_evaluator
+from alphago.evaluator import create_trivial_evaluator
 
 if __name__ == "__main__":
 
     max_iters = 5000
-    c_puct = 1.0
+    c_puct = 0.5
 
     action_space = [(i, j) for i in range(3) for j in range(3)]
 
-    def evaluator(state):
-        return trivial_evaluator(state, nac.compute_next_states)
+    evaluator = create_trivial_evaluator(nac.compute_next_states)
 
     state = nac.INITIAL_STATE
     computer = np.random.choice([1, 2])
@@ -21,14 +20,13 @@ if __name__ == "__main__":
     while not nac.is_terminal(state):
         player = nac.which_player(state)
         if player == computer:
-            # Computer plays
             action_probs = mcts_tree.mcts(
-                mcts_tree.MCTSNode(None, state, player), evaluator,
+                mcts_tree.MCTSNode(state, player), evaluator,
                 nac.compute_next_states, nac.utility, nac.which_player,
                 nac.is_terminal, max_iters, c_puct)
-            actions = [a for a in action_probs]
-            probs = [v for v in action_probs.values()]
-            action_ix = np.random.choice(len(actions), p=probs)
+            actions, probs = zip(*action_probs.items())
+            print(action_probs)
+            action_ix = np.random.choice(range(len(actions)), p=probs)
             action = actions[action_ix]
             print("Taking action: {}".format(action))
         else:
@@ -41,6 +39,7 @@ if __name__ == "__main__":
 
         nac.display(state)
         print("\n")
+
     # The state is terminal, so let's see who won.
     utility = nac.utility(state)
     if utility[human] == 1:

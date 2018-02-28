@@ -14,9 +14,7 @@ class MCTSNode:
 
     Attributes
     ----------
-    prior_prob: float
-        The prior probability of visiting this node from the parent
-        node.
+
     Q: float
         The total action value of taking the action linking the parent
         node to this node.
@@ -30,6 +28,10 @@ class MCTSNode:
         the legal actions from this node and values the nodes
         corresponding to taking said actions. Before the node has been
         expanded, this is empty.
+    prior_probs: dict
+        A dictionary where the keys are the available actions from
+        the this node to the child nodes and the values are the prior
+        probabilities of taking each action.
     game_state: state
         An object describing the game state corresponding to this node.
         This object holds sufficient information for the game object to
@@ -186,16 +188,17 @@ def select(starting_node, c_puct):
 
 
 def backup(nodes, values):
-    """Given the sequence of nodes (ending in the new expanded node) from
-    the game tree, propagate back the Q-values and action counts.
+    """Given the sequence of nodes (ending in the new expanded node)
+    from the game tree, propagate back the Q-values and action counts.
 
     Parameters
     ----------
     nodes: list
         The list of nodes to backup.
     values: dict
-        A dictionary with keys the players and values the value for that player.
-        In a zero sum game with players 1 and 2, we have v[1] = -v[2].
+        A dictionary with keys the players and values the value for
+        that player. In a zero sum game with players 1 and 2, we have
+        v[1] = -v[2].
     """
     for node in nodes:
         # Increment the visit count
@@ -284,7 +287,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             player = which_player(leaf.game_state)
             other_player = 1 if player == 2 else 2
             values = {player: value,
-                     other_player: -value}
+                      other_player: -value}
 
             # Compute the next possible states from the leaf node. This
             # returns a dictionary with keys the legal actions and
@@ -370,11 +373,9 @@ def self_play(next_states_function, evaluator, initial_state, utility,
                             which_player, is_terminal, max_iters, c_puct)
 
         # Choose the action according to the action probabilities.
-        # TODO: * unpacking is fast but only works in > Python3.5 - good idea?
-        actions = [*action_probs]
-        probs = [*action_probs.values()]
-        ix = np.random.choice(len(actions), p=probs)
-        action = actions[ix]
+        actions, probs = zip(*action_probs.items())
+        action_ix = np.random.choice(len(actions), p=probs)
+        action = actions[action_ix]
 
         # Play the action
         node = node.children[action]
@@ -438,8 +439,8 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
     Parameters
     ----------
     next_states_function: func
-        Gives the next states from the given state as a dictionary with keys the
-        available actions and values the resulting states.
+        Gives the next states from the given state as a dictionary with
+        keys the available actions and values the resulting states.
     evaluator: func
         An evaluator.
     initial_state: object
