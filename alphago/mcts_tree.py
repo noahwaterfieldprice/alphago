@@ -51,6 +51,10 @@ class MCTSNode:
         self.prior_probs = {}
         self.game_state = game_state
 
+    def __repr__(self):
+        return (f"{self.__class__.__name__}({self.game_state}, "
+                f"{self.player}, {self.is_terminal})")
+
     def is_leaf(self):
         """Returns whether or not the node in the tree is a leaf."""
         return len(self.children) == 0

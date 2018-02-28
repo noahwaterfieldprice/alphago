@@ -2,7 +2,23 @@ import numpy as np
 import pytest
 
 from alphago import mcts_tree
-from .games.mock_game import MockGame, mock_evaluator, get_terminal_nodes
+from .games.mock_game import MockGame, mock_evaluator
+
+
+# Utility functions
+
+
+def get_terminal_nodes(root):
+    stack = [root]
+    terminal_nodes = []
+    while stack:
+        node = stack.pop()
+        if node.is_terminal:
+            terminal_nodes.append(node)
+        else:
+            stack.extend(node.children.values())
+
+    return terminal_nodes
 
 
 class TestMCTSNode:
@@ -165,8 +181,20 @@ def test_mcts_action_count_at_root():
     assert root.N == 100
 
 
+def test_mcts_action_count_at_root_children():
+    mock_game = MockGame()
+    root = mcts_tree.MCTSNode(0, player=1)
+
+    action_probs = mcts_tree.mcts(
+        root, mock_evaluator, mock_game.compute_next_states, mock_game.utility,
+        mock_game.which_player, mock_game.is_terminal, 100, 1.0)
+
+    # Each iteration of MCTS we should add 1 to N at the root.
+    assert sum(child.N for child in root.children.values()) == 99
+
+
 def test_mcts_value_at_root():
-    mock_game = MockGame(terminal_state_values=(1,) * 12)
+    mock_game = MockGame()
     root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
 
