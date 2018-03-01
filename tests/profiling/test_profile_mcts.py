@@ -12,6 +12,7 @@ def test_self_play_multiple_can_play_nac():
 
     training_data = mcts_tree.self_play_multiple(
         nac.compute_next_states, evaluator, nac.INITIAL_STATE, nac.is_terminal,
-        nac.utility, nac.which_player, max_iters, c_puct, num_self_play
+        nac.utility, nac.which_player, nac.ACTION_INDICES, max_iters, c_puct,
+        num_self_play
     )
     assert len(training_data) > 0
