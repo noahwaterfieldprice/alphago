@@ -394,11 +394,16 @@ def self_play(next_states_function, evaluator, initial_state, utility,
     return game_state_list, action_probs_list
 
 
-def build_training_data(states_, action_probs_, which_player, utility):
+def build_training_data(states_, action_probs_, which_player, utility,
+                        action_indices):
     """Takes a list of states and action probabilities, as returned by
     self_play, and creates training data from this. We build up a list
     consisting of (state, probs, z) tuples, where player is the player
     in state 'state', and 'z' is the utility to 'player' in 'last_state'.
+
+    We omit the terminal state from the list as there are no probabilities to
+    train. TODO: Potentially include the terminal state in order to train the
+    value.
 
     Parameters
     ----------
@@ -412,6 +417,10 @@ def build_training_data(states_, action_probs_, which_player, utility):
         A function taking a state to the player to play in that state.
     utility: func
         A function taking a terminal state to the outcome of the state.
+    action_indices: dict
+        A dictionary mapping actions (in the form of the compute_next_states
+        function) to action indices (to be used for training the neural
+        network).
 
     Returns
     -------
@@ -421,18 +430,26 @@ def build_training_data(states_, action_probs_, which_player, utility):
         'last_state'.
     """
 
-    training_data = []
     # Get the outcome for the game. This should be the last state in states_.
     last_state = states_.pop()
     outcome = utility(last_state)
 
     # Now action_probs_ and states_ are the same length.
+    training_data = []
     for state, probs in zip(states_, action_probs_):
         # Get the player in the state, and the value to this player of the
         # terminal state.
         player = which_player(state)
         z = outcome[player]
-        training_data.append((state, probs, z))
+
+        # Convert the probs dictionary to a numpy array using action_indices.
+        probs_vector = np.zeros(len(action_indices))
+        for action, prob in probs.items():
+            probs_vector[action_indices[action]] = prob
+
+        non_nan_state = np.nan_to_num(state)
+
+        training_data.append((non_nan_state, probs_vector, z))
 
     return training_data
 

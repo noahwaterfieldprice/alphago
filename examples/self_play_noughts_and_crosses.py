@@ -4,7 +4,7 @@ from alphago.evaluator import create_trivial_evaluator
 
 if __name__ == "__main__":
 
-    max_iters = 10000
+    max_iters = 1000
     c_puct = 1.0
 
     action_space = [(i, j) for i in range(3) for j in range(3)]
