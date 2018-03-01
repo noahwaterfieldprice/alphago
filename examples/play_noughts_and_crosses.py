@@ -1,3 +1,10 @@
+"""This program plays noughts and crosses using Monte Carlo Tree Search and a
+trivial evaluator. For nonterminal states, the evaluator returns the uniform
+probability distribution over available actions and a value of 0. In a terminal
+state, we back up the utility returned by the game.
+"""
+
+
 import numpy as np
 
 import alphago.games.noughts_and_crosses as nac
@@ -19,6 +26,7 @@ if __name__ == "__main__":
     print("You are player: {}".format(human))
     while not nac.is_terminal(state):
         player = nac.which_player(state)
+        next_states = nac.compute_next_states(state)
         if player == computer:
             root = mcts_tree.MCTSNode(state, player)
             action_probs = mcts_tree.mcts(
@@ -27,16 +35,17 @@ if __name__ == "__main__":
                 nac.is_terminal, max_iters, c_puct)
             mcts_tree.print_tree(root)
             actions, probs = zip(*action_probs.items())
-            print(action_probs)
+            print("Action probabilities: {}".format(action_probs))
             action_ix = np.random.choice(range(len(actions)), p=probs)
             action = actions[action_ix]
             print("Taking action: {}".format(action))
         else:
-            action = int(input("Your move (1-9 reading "
-                               "across the board): "))
-            assert (action >= 1) and (action <= 9)
-            action = action_space[action-1]
-        next_states = nac.compute_next_states(state)
+            action = None
+            while action not in next_states:
+                action = int(input("Your move (1-9 reading "
+                                   "across the board): "))
+                if 1 <= action and action <= 9:
+                    action = action_space[action-1]
         state = next_states[action]
 
         nac.display(state)
