@@ -25,12 +25,17 @@ def test_initialising_basic_net_with_random_parameters():
     nnet = BasicNACNet()
     tensor_dict = nnet._initialise_net()
 
+    # Initialise state of all 1s.
+    states = np.ones((7, 9))
+    pis = np.random.rand(7, 9)
+    outcomes = np.random.rand(7, 1)
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         sess.run(tensor_dict['loss'],
-                 feed_dict={tensor_dict['state_vector']: np.random.rand(9),
-                            tensor_dict['pi']: np.random.rand(1, 9),
-                            tensor_dict['outcomes']: np.random.rand(1, 1)})
+                 feed_dict={tensor_dict['state_vector']: states,
+                            tensor_dict['pi']: pis,
+                            tensor_dict['outcomes']: outcomes})
 
 
 def test_neural_net_evaluator():
@@ -47,6 +52,6 @@ def test_neural_net_evaluator():
 def test_neural_net_evaluate_game_state():
     nnet = BasicNACNet()
 
-    test_game_state = (0,) * 9
+    test_game_state = np.random.randn(7, 9)
 
     computed = nnet.evaluate(test_game_state)

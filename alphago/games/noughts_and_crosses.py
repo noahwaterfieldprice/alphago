@@ -29,10 +29,12 @@ INITIAL_STATE:
 
 import numpy as np
 
-__all__ = ["INITIAL_STATE", "is_terminal", "which_player",
-           "compute_next_states", "utility", "display"]
+__all__ = ["INITIAL_STATE", "ACTION_SPACE", "ACTION_INDICES", "is_terminal",
+           "which_player", "compute_next_states", "utility", "display"]
 
 INITIAL_STATE = (np.nan, ) * 9
+ACTION_SPACE = [(i, j) for i in range(3) for j in range(3)]
+ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
 
 
 def _calculate_line_sums(state):

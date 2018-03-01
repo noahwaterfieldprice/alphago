@@ -247,6 +247,11 @@ TRAINING_DATA_ACTION_PROBS = [
     [{1: 0.5, 2: 0.5}, {3: 0.7}, {2: 0.3, 5: 0.7}, {1: 1.0}],
 ]
 
+TRAINING_DATA_ACTION_INDICES = [
+    {1: 0, 2: 1, 3: 2, 4: 3, 5: 4},
+    {1: 0, 2: 1, 3: 2, 4: 3, 5: 4},
+]
+
 TRAINING_DATA_EXPECTED = [
     [(1, {1: 0.5, 2: 0.5}, -4), (2, {3: 0.7}, 4), (3, {2: 0.3, 5: 0.7}, -4)],
     [(1, {1: 0.5, 2: 0.5}, -7), (4, {3: 0.7}, 7), (3, {2: 0.3, 5: 0.7}, -7),
@@ -254,18 +259,30 @@ TRAINING_DATA_EXPECTED = [
 ]
 
 
-@pytest.mark.parametrize("states_, action_probs_, expected",
-                         zip(TRAINING_DATA_STATES, TRAINING_DATA_ACTION_PROBS,
-                             TRAINING_DATA_EXPECTED))
-def test_build_training_data(states_, action_probs_, expected):
+def test_build_training_data():
+    mock_game = MockGame(terminal_state_values=range(12))
 
-    def which_player(state):
-        return 1 + (state % 2)
+    states = [0, 1, 3, 8]
+    action_probs = [
+        {0: 1 / 3, 1: 2 / 3},
+        {0: 2 / 3, 1: 1 / 3},
+        {0: 1 / 3, 1: 1 / 3, 2: 1 / 3}]
 
-    def utility(state):
-        return {1: state, 2: -state}
+    action_indices = {0: 0, 1: 1, 2: 2}
 
-    training_data = mcts_tree.build_training_data(states_, action_probs_,
-                                                  which_player, utility)
+    training_data = mcts_tree.build_training_data(states, action_probs,
+                                                  mock_game.which_player,
+                                                  mock_game.utility,
+                                                  action_indices)
 
-    assert training_data == expected
+    # The utility in terminal state 8 is {1: 1, 2: -1} in the mock game.
+    expected = [(np.array(states[0]), np.array([1/3, 2/3, 0]), 1),
+                (np.array(states[1]), np.array([2/3, 1/3, 0]), -1),
+                (np.array(states[2]), np.array([1/3, 1/3, 1/3]), 1)]
+
+    assert len(training_data) == len(expected)
+
+    for comp, expec in zip(training_data, expected):
+        assert (comp[0] == expec[0]).all()
+        assert (comp[1] == expec[1]).all()
+        assert comp[2] == expec[2]

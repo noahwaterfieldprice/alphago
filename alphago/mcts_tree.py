@@ -241,7 +241,7 @@ def compute_distribution(d):
 
 
 def mcts(starting_node, evaluator, next_states_function, utility, which_player,
-         is_terminal, max_iters, c_puct):
+         is_terminal, mcts_iters, c_puct):
     """Perform a MCTS from a given starting node
 
     Parameters
@@ -262,7 +262,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
         Computes the player to play in a game state.
     is_terminal: func
         Returns True if the state is terminal, else returns False.
-    max_iters: int
+    mcts_iters: int
         The number of iterations of MCTS.
     c_puct: float
         A hyperparameter determining the level of exploration in the
@@ -276,7 +276,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
             probabilities.
     """
 
-    for i in range(max_iters):
+    for i in range(mcts_iters):
         # First select a leaf node from the MCTS tree. This actually
         # returns all nodes and actions taken, with the length of
         # actions being one less than the length of nodes. The last
@@ -331,7 +331,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
 
 
 def self_play(next_states_function, evaluator, initial_state, utility,
-              which_player, is_terminal, max_iters, c_puct):
+              which_player, is_terminal, mcts_iters, c_puct):
     """Plays a game using MCTS to choose actions for both players.
 
     Parameters
@@ -352,7 +352,7 @@ def self_play(next_states_function, evaluator, initial_state, utility,
     is_terminal: func
         A function that returns True if the state is terminal and
         otherwise returns False.
-    max_iters: int
+    mcts_iters: int
         Number of iterations to run MCTS for.
     c_puct: float
         Parameter for MCTS.
@@ -377,7 +377,7 @@ def self_play(next_states_function, evaluator, initial_state, utility,
     while not is_terminal(node.game_state):
         # First run MCTS to compute action probabilities.
         action_probs = mcts(node, evaluator, next_states_function, utility,
-                            which_player, is_terminal, max_iters, c_puct)
+                            which_player, is_terminal, mcts_iters, c_puct)
 
         # Choose the action according to the action probabilities.
         actions, probs = zip(*action_probs.items())
@@ -455,8 +455,8 @@ def build_training_data(states_, action_probs_, which_player, utility,
 
 
 def self_play_multiple(next_states_function, evaluator, initial_state,
-                       is_terminal, utility, which_player, max_iters, c_puct,
-                       num_self_play):
+                       is_terminal, utility, which_player, action_indices,
+                       mcts_iters, c_puct, num_self_play):
     """Combines self_play and build_training_data to generate training data
     given a game and an evaluator.
 
@@ -477,7 +477,9 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
         A function that returns the utility for terminal states.
     which_player: func
         A function that returns which player is to play in a given state.
-    max_iters: int
+    action_indices: dict
+        Dictionary with keys the actions and values an index for the action.
+    mcts_iters: int
         Number of iterations to run MCTS for.
     c_puct: float
         Parameter for MCTS.
@@ -494,9 +496,9 @@ def self_play_multiple(next_states_function, evaluator, initial_state,
     for i in range(num_self_play):
         game_states_, action_probs_ = self_play(
             next_states_function, evaluator, initial_state, utility,
-            which_player, is_terminal, max_iters, c_puct)
+            which_player, is_terminal, mcts_iters, c_puct)
         training_data.append(build_training_data(
-            game_states_, action_probs_, which_player, utility))
+            game_states_, action_probs_, which_player, utility, action_indices))
     return training_data
 
 
@@ -511,3 +513,54 @@ def print_tree(root):
         print(node)
         queue.extend(node.children.values())
         i += 1
+
+
+def alpha_go(evaluator, train_function, action_indices, compute_next_states,
+             initial_state, utility, which_player, is_terminal, self_play_iters,
+             mcts_iters, c_puct):
+    """Runs AlphaGo on the game.
+
+    Parameters
+    ----------
+    evaluator: func
+        An evaluator.
+    train_function: func
+        A function to train the evaluator. Takes in 'training_data' as input and
+        outputs the training loss.
+    action_indices: dict
+        Dictionary with keys the possible actions in the game, and values the
+        index of that action.
+    compute_next_states: func
+        Gives the next states from the given state as a dictionary with
+        keys the available actions and values the resulting states.
+    initial_state: object
+        An initial state to start the game in. This must be compatible with
+        next_states_function, but is otherwise arbitrary.
+    utility: func
+        A function that returns the utility for terminal states.
+    which_player: func
+        A function that returns which player is to play in a given state.
+    is_terminal: func
+        A function that returns True if the state is terminal and otherwise
+        returns False.
+    self_play_iters: int
+        Number of iterations of self-play to run.
+    mcts_iters: int
+        Number of iterations to run MCTS for.
+    c_puct: float
+        Parameter for MCTS.
+    """
+
+    all_training_data = []
+    for i in range(self_play_iters):
+        game_states, action_probs = self_play(
+            compute_next_states, evaluator, initial_state, utility,
+            which_player, is_terminal, mcts_iters, c_puct)
+
+        training_data = build_training_data(
+            game_states, action_probs, which_player, utility, action_indices)
+
+        all_training_data.extend(training_data)
+
+        loss = train_function(all_training_data)
+        print("Loss for evaluator: {}".format(loss))

@@ -77,8 +77,9 @@ class BasicNACNet:
         prob_logits = tf.layers.dense(inputs=dense, units=9)
         probs = tf.nn.softmax(logits=prob_logits)
 
-        loss = tf.reduce_mean(tf.losses.mean_squared_error(outcomes, values) - \
-            tf.tensordot(tf.transpose(pi), prob_logits, axes=1))
+        loss = tf.reduce_mean(tf.losses.mean_squared_error(outcomes, values) -
+                              tf.tensordot(tf.transpose(pi), prob_logits,
+                              axes=1))
 
         # Set up the training op
         self.train_op = \
@@ -113,7 +114,7 @@ class BasicNACNet:
             # keys the actions and values the probs.
             probs_dict = {action: probs[action_indices[action]] for action in
                           action_indices}
-        
+
             return probs_dict, values[0]
         return evaluate
 

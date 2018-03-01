@@ -16,8 +16,6 @@ if __name__ == "__main__":
     max_iters = 5000
     c_puct = 0.5
 
-    action_space = [(i, j) for i in range(3) for j in range(3)]
-
     evaluator = create_trivial_evaluator(nac.compute_next_states)
 
     state = nac.INITIAL_STATE
@@ -42,10 +40,10 @@ if __name__ == "__main__":
         else:
             action = None
             while action not in next_states:
-                action = int(input("Your move (1-9 reading "
-                                   "across the board): "))
-                if 1 <= action and action <= 9:
-                    action = action_space[action-1]
+                action_ix = int(input("Your move (0-8 reading "
+                                      "across the board): "))
+                if 0 <= action_ix and action_ix <= 8:
+                    action = nac.ACTION_INDICES[action_ix]
         state = next_states[action]
 
         nac.display(state)
