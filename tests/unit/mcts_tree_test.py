@@ -69,8 +69,15 @@ class TestSelectAndBackupFunctions:
         [mcts_tree.MCTSNode(None, player=1),
             mcts_tree.MCTSNode(None, player=1)],
         [mcts_tree.MCTSNode(1, player=1),
-            mcts_tree.MCTSNode(2, player=1)],
+            mcts_tree.MCTSNode(2, player=2),
+            mcts_tree.MCTSNode(3, player=1)],
 
+    ]
+
+    backup_expected_Q = [
+        [0.0],
+        [0.0, 2.0],
+        [0.0, 3.0, -3.0],
     ]
 
     backup_values = [
@@ -79,33 +86,39 @@ class TestSelectAndBackupFunctions:
         {1: 3.0, 2: -3.0},
     ]
 
-    @pytest.mark.parametrize("nodes, v", zip(backup_nodes, backup_values))
-    def test_mcts_backup(self, nodes, v):
-        mcts_tree.backup(nodes, v)
-        for node in nodes:
+    @pytest.mark.parametrize("nodes, expected_Q, values",
+                             zip(backup_nodes, backup_expected_Q,
+                                 backup_values))
+    def test_mcts_backup(self, nodes, expected_Q, values):
+        mcts_tree.backup(nodes, values)
+        for i, node in enumerate(nodes):
             assert node.N == 1.0
-            assert node.W == v[node.player]
-            assert node.Q == v[node.player]
+            assert node.W == expected_Q[i]
+            assert node.Q == expected_Q[i]
 
     backup_nodes_n_times = [
         [mcts_tree.MCTSNode(3, player=1)],
         [mcts_tree.MCTSNode(None, player=1),
             mcts_tree.MCTSNode(None, player=1)],
         [mcts_tree.MCTSNode(1, player=1),
-            mcts_tree.MCTSNode(2, player=1)],
+            mcts_tree.MCTSNode(2, player=2),
+            mcts_tree.MCTSNode(3, player=1)],
+
     ]
 
     backup_n = [1, 2, 3]
 
-    @pytest.mark.parametrize("nodes, v, n",
-                             zip(backup_nodes_n_times, backup_values, backup_n))
-    def test_mcts_backup_twice_n_times(self, nodes, v, n):
+    @pytest.mark.parametrize("nodes, expected_Q, values, n",
+                             zip(backup_nodes_n_times, backup_expected_Q,
+                                 backup_values, backup_n))
+    def test_mcts_backup_n_times(self, nodes, expected_Q, values, n):
         for i in range(n):
-            mcts_tree.backup(nodes, v)
-        for node in nodes:
-            assert node.N == float(n)
-            assert node.W == n*v[node.player]
-            assert node.Q == v[node.player]
+            mcts_tree.backup(nodes, values)
+
+        for i, node in enumerate(nodes):
+            assert node.N == n
+            assert node.W == n * expected_Q[i]
+            assert node.Q == expected_Q[i]
 
     def test_mcts_select(self):
         root = mcts_tree.MCTSNode(1, player=1)
@@ -193,7 +206,7 @@ def test_mcts_action_count_at_root_children():
     assert sum(child.N for child in root.children.values()) == 99
 
 
-def test_mcts_value_at_root():
+def test_mcts_value_at_children_of_root():
     mock_game = MockGame()
     root = mcts_tree.MCTSNode(0, player=1)
     assert root.N == 0
@@ -204,8 +217,10 @@ def test_mcts_value_at_root():
 
     terminal_nodes = get_terminal_nodes(root)
     N_terminal_nodes = sum(node.N for node in terminal_nodes)
-    # Each iteration of MCTS we should add 1 to N at the root.
-    assert root.W == N_terminal_nodes
+
+    # Each iteration of MCTS we should add 1 to W of one of the children of the
+    # root.
+    assert sum(child.W for child in root.children.values()) == N_terminal_nodes
 
 
 def test_mcts_does_not_expand_terminal_nodes():

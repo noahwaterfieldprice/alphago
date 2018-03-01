@@ -201,14 +201,19 @@ def backup(nodes, values):
         that player. In a zero sum game with players 1 and 2, we have
         v[1] = -v[2].
     """
+    parent_player = None
     for node in nodes:
         # Increment the visit count
         node.N += 1.0
-        if not node.is_terminal:
+
+        # We only set the W and Q values if the node has a parent.
+        if parent_player:
             # Update the cumulative and mean action values
-            parent_player = 1 if node.player == 2 else 2
             node.W += values[parent_player]
             node.Q = node.W / node.N
+
+        # Set the parent player as the player in the current node.
+        parent_player = node.player
 
 
 def compute_distribution(d):
