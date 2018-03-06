@@ -108,7 +108,18 @@ class BasicNACNet:
         return {name: tensor for name, tensor in zip(names, tensors)}
 
     def create_evaluator(self, action_indices):
-        """Returns an evaluator function corresponding to the neural network
+        """Returns an evaluator function corresponding to the neural network.
+
+        Parameters
+        ----------
+        action_indices: dict
+            Dictionary with keys the available actions and values the index of
+            that action. Indices must be unique in 0, 1, .., #actions-1.
+
+        Returns
+        -------
+        evaluate: func
+            A function that evaluates states.
         """
 
         def evaluate(state):
