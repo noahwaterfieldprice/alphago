@@ -30,12 +30,10 @@ def test_initialising_basic_net_with_random_parameters():
     pis = np.random.rand(7, 9)
     outcomes = np.random.rand(7, 1)
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        sess.run(tensor_dict['loss'],
-                 feed_dict={tensor_dict['state_vector']: states,
-                            tensor_dict['pi']: pis,
-                            tensor_dict['outcomes']: outcomes})
+    nnet.sess.run(tensor_dict['loss'],
+                  feed_dict={tensor_dict['state_vector']: states,
+                             tensor_dict['pi']: pis,
+                             tensor_dict['outcomes']: outcomes})
 
 
 def test_neural_net_evaluator():
@@ -55,3 +53,19 @@ def test_neural_net_evaluate_game_state():
     test_game_state = np.random.randn(7, 9)
 
     computed = nnet.evaluate(test_game_state)
+
+
+def test_can_use_two_neural_nets():
+    np.random.seed(0)
+    nnet1 = BasicNACNet()
+    nnet2 = BasicNACNet()
+
+    test_game_state = np.random.randn(7, 9)
+
+    computed1 = nnet1.evaluate(test_game_state)
+    computed2 = nnet2.evaluate(test_game_state)
+
+    # Check that the outputs are different. Since the input to both nets is the
+    # same, this tests whether the nets are different.
+    assert not (computed1[0] == computed2[0]).all()
+    assert not (computed1[1] == computed2[1]).all()
