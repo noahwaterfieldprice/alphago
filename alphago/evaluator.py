@@ -53,45 +53,55 @@ class BasicNACNet:
 
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
-        state_vector = tf.placeholder(tf.float32, shape=(None, 9,))
-        pi = tf.placeholder(tf.float32, shape=(None, 9))
-        outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
-        input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
+        # Initialise a graph, session and saver for the net. This is so we can
+        # use separate functions to run functions on the tensorflow graph. Using
+        # 'with sess:' means you start with a new net each time.
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
 
-        conv1 = tf.layers.conv2d(inputs=input_layer, filters=5,
-                                 kernel_size=[2, 2], padding='same',
-                                 activation=tf.nn.relu)
+        # Use the graph to create the tensors
+        with self.graph.as_default():
+            state_vector = tf.placeholder(tf.float32, shape=(None, 9,))
+            pi = tf.placeholder(tf.float32, shape=(None, 9))
+            outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
-        conv2 = tf.layers.conv2d(inputs=conv1, filters=5, kernel_size=[2, 2],
-                                 padding='same', activation=tf.nn.relu)
+            input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
-        conv2_flat = tf.contrib.layers.flatten(conv2)
+            conv1 = tf.layers.conv2d(inputs=input_layer, filters=5,
+                                     kernel_size=[2, 2], padding='same',
+                                     activation=tf.nn.relu)
 
-        dense = tf.layers.dense(inputs=conv2_flat, units=21,
-                                activation=tf.nn.relu)
+            conv2 = tf.layers.conv2d(inputs=conv1, filters=5, kernel_size=[2, 2],
+                                     padding='same', activation=tf.nn.relu)
 
-        values = tf.layers.dense(inputs=dense, units=1,
-                                 activation=tf.nn.tanh)
+            conv2_flat = tf.contrib.layers.flatten(conv2)
 
-        prob_logits = tf.layers.dense(inputs=dense, units=9)
-        probs = tf.nn.softmax(logits=prob_logits)
+            dense = tf.layers.dense(inputs=conv2_flat, units=21,
+                                    activation=tf.nn.relu)
 
-        loss = tf.reduce_mean(tf.losses.mean_squared_error(outcomes, values) -
-                              tf.tensordot(tf.transpose(pi), prob_logits,
-                              axes=1))
+            values = tf.layers.dense(inputs=dense, units=1,
+                                     activation=tf.nn.tanh)
 
-        # Set up the training op
-        self.train_op = \
-            tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+            prob_logits = tf.layers.dense(inputs=dense, units=9)
+            probs = tf.nn.softmax(logits=prob_logits)
 
-        # Set up the session. This is so we can use separate functions to run
-        # functions on the tensorflow graph. Using 'with sess:' means you start
-        # with a new net each time.
-        self.sess = tf.Session()
+            loss = tf.reduce_mean(tf.losses.mean_squared_error(outcomes, values) -
+                                  tf.tensordot(tf.transpose(pi), prob_logits,
+                                  axes=1))
 
-        # Initialise all variables
-        self.sess.run(tf.global_variables_initializer())
+            # Set up the training op
+            self.train_op = \
+                tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+
+            # Initialise all variables
+            self.sess.run(tf.global_variables_initializer())
+
+            # Create a saver.
+            self.saver = tf.train.Saver()
+
+        # Initialise global step (the number of training steps taken).
+        self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, values, prob_logits, probs, loss]
         names = "state_vector outcomes pi values prob_logits probs loss".split()
@@ -162,4 +172,18 @@ class BasicNACNet:
                     self.tensors['pi']: pis,
                     self.tensors['outcomes']: zs,
                     })
+
+        # Update the global step
+        self.global_step += 1
+
         return loss
+
+    def save(self, save_file):
+        """Saves the net to save_file.
+        """
+        self.saver.save(self.sess, save_file, global_step=self.global_step)
+
+    def restore(self, save_file):
+        """Restore the net from save_file.
+        """
+        self.saver.restore(self.sess, save_file)
