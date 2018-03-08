@@ -24,7 +24,6 @@ if __name__ == "__main__":
     human = 1 if computer == 2 else 2
     print("You are player: {}".format(human))
     while not cf.is_terminal(state):
-        #import pdb; pdb.set_trace()
         player = cf.which_player(state)
         next_states = cf.compute_next_states(state)
         if player == computer:

@@ -31,9 +31,8 @@ if __name__ == "__main__":
                 root, evaluator,
                 nac.compute_next_states, nac.utility, nac.which_player,
                 nac.is_terminal, max_iters, c_puct)
-            #mcts_tree.print_tree(root)
             actions, probs = zip(*action_probs.items())
-            #print("Action probabilities: {}".format(action_probs))
+            print("Action probabilities: {}".format(action_probs))
             action_ix = np.random.choice(range(len(actions)), p=probs)
             action = actions[action_ix]
             print("Taking action: {}".format(action))
