@@ -64,8 +64,7 @@ def _calculate_line_sums(state):
 
 
 def which_player(state):
-    """Given a state, return and int indicating the player whose turn it
-    is.
+    """Given a state, return an int indicating the player whose turn it is.
 
     Parameters
     ----------

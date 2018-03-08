@@ -180,8 +180,10 @@ def display(state):
     divider = "\n---+---+---+---+---+---+---\n"
     symbol_dict = {1: "x", -1: "o", 0: " "}
 
+    state = state.ravel()
+
     output_rows = []
-    for state_row in np.array_split(state, indices_or_sections=7):
+    for state_row in np.array_split(state, indices_or_sections=6):
         # convert nans to 0s for symbol lookup
         state_row[np.isnan(state_row)] = 0
         y = "|". join([" {} ".format(symbol_dict[x]) for x in state_row])
