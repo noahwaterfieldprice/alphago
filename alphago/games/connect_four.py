@@ -1,13 +1,14 @@
 """Implementation of Connect 4.
 
 Seven columns, six rows. On your turn you can play any of the columns (if it is
-not full). 
+not full).
 """
 
 import numpy as np
 
 
 INITIAL_STATE = np.full((6, 7), np.nan)
+ACTION_SPACE = [i for i in range(7)]
 
 
 def which_player(state):
@@ -18,7 +19,7 @@ def which_player(state):
     state: ndarray
         A 6x7 numpy array. +1 denotes a player 1 move; -1 denotes a player 2
         move; np.nan denotes a blank space.
-    
+
     Returns
     -------
     player: int
@@ -87,7 +88,7 @@ def is_terminal(state):
     # If all slots have been filled, then the game is over.
     if not np.any(np.isnan(state)):
         return True
-    
+
     # Check if there is a winner
     line_sums = _calculate_line_sums(state)
     if np.any(np.abs(line_sums) == 4):
@@ -120,7 +121,7 @@ def utility(state):
     # Player 2 wins
     if np.any(line_sums == -4):
         return {1: -1, 2: 1}
-    
+
     # Draw, if all squares are filled and no-one has four-in-a-row.
     if not np.any(np.isnan(state)):
         return {1: 0, 2: 0}
@@ -161,7 +162,7 @@ def compute_next_states(state):
         # Find the lowest open element in the column. Search from the bottom
         # until we find an np.nan.
         for row in reversed(range(6)):
-            if not np.isnan(state[row][col]):
+            if np.isnan(state[row][col]):
                 next_state[row][col] = marker
                 next_states[col] = next_state
                 break
@@ -180,7 +181,7 @@ def display(state):
     divider = "\n---+---+---+---+---+---+---\n"
     symbol_dict = {1: "x", -1: "o", 0: " "}
 
-    state = state.ravel()
+    state = state.copy().ravel()
 
     output_rows = []
     for state_row in np.array_split(state, indices_or_sections=6):
