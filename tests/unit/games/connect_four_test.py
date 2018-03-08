@@ -58,3 +58,31 @@ terminal_states = [
 @pytest.mark.parametrize("state", terminal_states)
 def test_is_terminal_returns_true_for_terminal_states(state):
     assert cf.is_terminal(state) is True
+
+
+states = [
+    np.array([[-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+              [np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, 1.0],
+              [np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan],
+              [1.0, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan],
+              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+              [np.nan, np.nan, np.nan, np.nan, np.nan, 1.0, np.nan]]),
+]
+div = "---+---+---+---+---+---+---"
+# additional newline character accounts for the one added to the output
+# by the print function itself
+outputs = [
+    "\n".join((" o |   |   |   |   |   |   ", div,
+               "   | o |   |   |   |   | x ", div,
+               "   |   | o |   |   |   |   ", div,
+               " x |   |   | o |   |   |   ", div,
+               "   |   |   |   |   |   |   ", div,
+               "   |   |   |   |   | x |   ")) + "\n",
+]
+
+
+@pytest.mark.parametrize("state, expected_output", zip(states, outputs))
+def test_display_function_outputs_correct_strings(state, expected_output, capsys):
+    cf.display(state)
+    output = capsys.readouterr().out
+    assert output == expected_output
