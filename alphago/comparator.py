@@ -58,8 +58,8 @@ def compare(compute_next_states, initial_state, utility, which_player,
                     evaluator1_wins += 1
 
             # Change evaluator player.
-            evaluator_player = {1: 2, 2: 1} if evaluator_player[1] == 1 else \
-                {1: 1, 2: 2}
+            #evaluator_player = {1: 2, 2: 1} if evaluator_player[1] == 1 else \
+            #    {1: 1, 2: 2}
 
             games_so_far = game_ix + 1
             evaluator2_wins = games_so_far - draws - evaluator1_wins
