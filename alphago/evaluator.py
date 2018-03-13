@@ -80,13 +80,16 @@ class BasicNACNet:
 
             conv3_flat = tf.contrib.layers.flatten(conv3)
 
-            dense = tf.layers.dense(inputs=conv3_flat, units=32,
+            dense1 = tf.layers.dense(inputs=conv3_flat, units=32,
                                     activation=tf.nn.relu)
 
-            values = tf.layers.dense(inputs=dense, units=1,
+            dense2 = tf.layers.dense(inputs=dense1, units=32,
+                                    activation=tf.nn.relu)
+
+            values = tf.layers.dense(inputs=dense2, units=1,
                                      activation=tf.nn.tanh)
 
-            prob_logits = tf.layers.dense(inputs=dense, units=9)
+            prob_logits = tf.layers.dense(inputs=dense2, units=9)
             probs = tf.nn.softmax(logits=prob_logits)
 
             # We want to compute log_probs = log(softmax(prob_logits)). This
@@ -97,7 +100,13 @@ class BasicNACNet:
 
             loss_value = tf.losses.mean_squared_error(outcomes, values)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
-            loss = loss_value + loss_probs
+
+            l2_weight = 1e-4
+            variables = tf.trainable_variables()
+            l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in variables
+                                if 'bias' not in v.name ]) * l2_weight
+
+            loss = loss_value + loss_probs + l2_loss
 
             # Set up the training op
             self.train_op = \
