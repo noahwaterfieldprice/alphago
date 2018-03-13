@@ -9,6 +9,7 @@ import numpy as np
 
 INITIAL_STATE = np.full((6, 7), np.nan)
 ACTION_SPACE = [i for i in range(7)]
+ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
 
 
 def which_player(state):
