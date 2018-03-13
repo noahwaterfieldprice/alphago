@@ -82,13 +82,25 @@ def test_basic_nac_net_tensor_shapes():
     pis = np.random.rand(batch_size, 9)
     zs = np.random.randn(batch_size, 1)
 
-    [loss, loss_probs, loss_value] = nnet.sess.run(
-        [nnet.tensors['loss'], nnet.tensors['loss_probs'],
-         nnet.tensors['loss_value']], feed_dict={
+    tensors = [
+        nnet.tensors['loss'],
+        nnet.tensors['loss_probs'],
+        nnet.tensors['loss_value'],
+        nnet.tensors['probs'],
+        nnet.tensors['values'],
+    ]
+
+    computed_tensors = nnet.sess.run(
+        tensors, feed_dict={
             nnet.tensors['state_vector']: states,
             nnet.tensors['pi']: pis,
             nnet.tensors['outcomes']: zs,
             })
+    loss = computed_tensors[0]
+    loss_probs = computed_tensors[1]
+    loss_value = computed_tensors[2]
+    probs = computed_tensors[3]
+    values = computed_tensors[4]
 
     # The loss should be positive
     assert loss_probs > 0
@@ -97,3 +109,5 @@ def test_basic_nac_net_tensor_shapes():
 
     # The loss should be a scalar.
     assert np.shape(loss) == ()
+    assert np.shape(probs) == (batch_size, 9)
+    assert np.shape(values) == (batch_size, 1)

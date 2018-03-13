@@ -5,7 +5,7 @@ from alphago import mcts_tree
 
 
 def compare(compute_next_states, initial_state, utility, which_player,
-            is_terminal, evaluator1, evaluator2, num_games):
+            is_terminal, evaluator1, evaluator2, mcts_iters, num_games):
     """Compare two evaluators. Returns the number of evaluator1 wins and number
     of draws in the games, as well as the total number of games.
     """
@@ -36,7 +36,7 @@ def compare(compute_next_states, initial_state, utility, which_player,
                 # Use MCTS to compute action probabilities
                 action_probs = mcts_tree.mcts(
                     root, evaluator, compute_next_states, utility, which_player,
-                    is_terminal, mcts_iters=100, c_puct=1.0)
+                    is_terminal, mcts_iters=mcts_iters, c_puct=1.0)
 
                 # Sample an action
                 actions, probs = zip(*action_probs.items())
@@ -60,7 +60,7 @@ def compare(compute_next_states, initial_state, utility, which_player,
             # Change evaluator player.
             evaluator_player = {1: 2, 2: 1} if evaluator_player[1] == 1 else \
                 {1: 1, 2: 2}
-        
+
             games_so_far = game_ix + 1
             evaluator2_wins = games_so_far - draws - evaluator1_wins
             pbar.update(1)
