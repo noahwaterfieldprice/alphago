@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     evaluator2 = create_trivial_evaluator(nac.compute_next_states)
 
-    mcts_iters = 50
+    mcts_iters = 20
 
     for i in range(50):
         # Train net 1, then compare against net 2.
@@ -20,10 +20,13 @@ if __name__ == "__main__":
                            nac.which_player, nac.is_terminal, self_play_iters=100,
                            mcts_iters=mcts_iters, c_puct=1.0)
 
-        print("Comparing evaluators")
-        evaluator1_wins, evaluator2_wins, draws = comparator.compare(
+        print("We are player 1.")
+        comparator.compare(
             nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
             nac.which_player, nac.is_terminal, evaluator1, evaluator2,
             mcts_iters=mcts_iters, num_games=50)
-        print("Evaluator 1 wins: {}, Evaluator 2 wins: {}, draws: "
-              "{}".format(evaluator1_wins, evaluator2_wins, draws))
+        print("We are player 2.")
+        comparator.compare(
+            nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
+            nac.which_player, nac.is_terminal, evaluator2, evaluator1,
+            mcts_iters=mcts_iters, num_games=50)
