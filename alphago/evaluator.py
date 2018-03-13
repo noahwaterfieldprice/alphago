@@ -47,7 +47,7 @@ def create_trivial_evaluator(next_states_function):
 
 
 class BasicNACNet:
-    def __init__(self, learning_rate=1e-3):
+    def __init__(self, learning_rate=1e-4):
         self.learning_rate = learning_rate
         self.tensors = self._initialise_net()
 
@@ -68,16 +68,19 @@ class BasicNACNet:
 
             input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
-            conv1 = tf.layers.conv2d(inputs=input_layer, filters=5,
+            conv1 = tf.layers.conv2d(inputs=input_layer, filters=8,
                                      kernel_size=[2, 2], padding='same',
                                      activation=tf.nn.relu)
 
-            conv2 = tf.layers.conv2d(inputs=conv1, filters=5, kernel_size=[2, 2],
+            conv2 = tf.layers.conv2d(inputs=conv1, filters=16, kernel_size=[2, 2],
                                      padding='same', activation=tf.nn.relu)
 
-            conv2_flat = tf.contrib.layers.flatten(conv2)
+            conv3 = tf.layers.conv2d(inputs=conv2, filters=16, kernel_size=[2, 2],
+                                     padding='same', activation=tf.nn.relu)
 
-            dense = tf.layers.dense(inputs=conv2_flat, units=21,
+            conv3_flat = tf.contrib.layers.flatten(conv3)
+
+            dense = tf.layers.dense(inputs=conv3_flat, units=32,
                                     activation=tf.nn.relu)
 
             values = tf.layers.dense(inputs=dense, units=1,
