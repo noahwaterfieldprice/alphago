@@ -8,10 +8,9 @@ if __name__ == "__main__":
     net1 = BasicNACNet()
     evaluator1 = net1.create_evaluator(nac.ACTION_INDICES)
 
-    net2 = BasicNACNet()
-    evaluator2 = net2.create_evaluator(nac.ACTION_INDICES)
+    evaluator2 = create_trivial_evaluator(nac.compute_next_states)
 
-    mcts_iters = 500
+    mcts_iters = 50
 
     for i in range(50):
         # Train net 1, then compare against net 2.
