@@ -9,6 +9,7 @@ name = "pypi"
 
 tensorflow = "*"
 numpy = "*"
+tqdm = "*"
 
 
 [dev-packages]
@@ -18,3 +19,4 @@ jupyter = "*"
 pytest-pycodestyle = "*"
 pytest-cov = "*"
 pytest-html = "*"
+"e1839a8" = {editable = true, path = "."}

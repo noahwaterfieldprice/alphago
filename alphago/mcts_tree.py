@@ -556,6 +556,7 @@ def alpha_go(evaluator, train_function, action_indices, compute_next_states,
     losses = []
     with tqdm(total=self_play_iters) as pbar:
         for i in range(self_play_iters):
+            # Collect training data
             game_states, action_probs = self_play(
                 compute_next_states, evaluator, initial_state, utility,
                 which_player, is_terminal, mcts_iters, c_puct)
@@ -563,10 +564,21 @@ def alpha_go(evaluator, train_function, action_indices, compute_next_states,
             training_data = build_training_data(
                 game_states, action_probs, which_player, utility, action_indices)
 
+            # Append to our current training data
             all_training_data.extend(training_data)
 
-            loss = train_function(all_training_data)
-            losses.append(loss)
+            # Train on the data
+            num_train_steps = 100
+            batch_size = 64
+            if len(all_training_data) >= batch_size:
+                for train_step in range(num_train_steps):
+                    batch_indices = np.random.choice(len(all_training_data),
+                                                     batch_size,
+                                                     replace=False)
+                    train_batch = [all_training_data[ix] for ix in batch_indices]
+                    loss = train_function(train_batch)
+                    losses.append(loss)
+                pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
+
+            # Update tqdm description
             pbar.update(1)
-            pbar.set_description("Loss: {0:.2f}".format(loss))
-    print("Average loss: {}".format(np.mean(np.array(losses))))

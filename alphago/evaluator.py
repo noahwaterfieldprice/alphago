@@ -47,7 +47,7 @@ def create_trivial_evaluator(next_states_function):
 
 
 class BasicNACNet:
-    def __init__(self, learning_rate=1e-5):
+    def __init__(self, learning_rate=1e-3):
         self.learning_rate = learning_rate
         self.tensors = self._initialise_net()
 

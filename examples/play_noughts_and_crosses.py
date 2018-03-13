@@ -13,7 +13,7 @@ from alphago.evaluator import create_trivial_evaluator
 
 if __name__ == "__main__":
 
-    max_iters = 5000
+    max_iters = 500
     c_puct = 0.5
 
     evaluator = create_trivial_evaluator(nac.compute_next_states)

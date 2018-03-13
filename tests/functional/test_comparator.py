@@ -23,7 +23,7 @@ def test_comparator_can_compare_two_trivial_evaluators():
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
         mock_game.compute_next_states, mock_game.initial_state,
         mock_game.utility, mock_game.which_player, mock_game.is_terminal,
-        evaluator1, evaluator2, num_games=100)
+        evaluator1, evaluator2, mcts_iters=100, num_games=100)
 
     assert evaluator1_wins == 50
     assert evaluator2_wins == 50
@@ -43,7 +43,7 @@ def test_comparator_on_noughts_and_crosses():
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
         nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
         nac.which_player, nac.is_terminal, evaluator1, evaluator2,
-        num_games=20)
+        mcts_iters=100, num_games=20)
 
     # Just for consistency -- there is no rationale here. Hopefully the number
     # of wins for player 1 and player 2 should be similar.
@@ -69,6 +69,7 @@ def test_comparator_on_noughts_and_crosses_with_nets():
 
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
         nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
-        nac.which_player, nac.is_terminal, evaluator1, evaluator2, num_games=6)
+        nac.which_player, nac.is_terminal, evaluator1, evaluator2,
+        mcts_iters=100, num_games=6)
 
     # TODO: This doesn't seem to be deterministic.
