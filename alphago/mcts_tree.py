@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 
 class MCTSNode:
@@ -552,15 +553,20 @@ def alpha_go(evaluator, train_function, action_indices, compute_next_states,
     """
 
     all_training_data = []
-    for i in range(self_play_iters):
-        game_states, action_probs = self_play(
-            compute_next_states, evaluator, initial_state, utility,
-            which_player, is_terminal, mcts_iters, c_puct)
+    losses = []
+    with tqdm(total=self_play_iters) as pbar:
+        for i in range(self_play_iters):
+            game_states, action_probs = self_play(
+                compute_next_states, evaluator, initial_state, utility,
+                which_player, is_terminal, mcts_iters, c_puct)
 
-        training_data = build_training_data(
-            game_states, action_probs, which_player, utility, action_indices)
+            training_data = build_training_data(
+                game_states, action_probs, which_player, utility, action_indices)
 
-        all_training_data.extend(training_data)
+            all_training_data.extend(training_data)
 
-        loss = train_function(all_training_data)
-        print("Loss for evaluator: {}".format(loss))
+            loss = train_function(all_training_data)
+            losses.append(loss)
+            pbar.update(1)
+            pbar.set_description("Loss: {0:.2f}".format(loss))
+    print("Average loss: {}".format(np.mean(np.array(losses))))

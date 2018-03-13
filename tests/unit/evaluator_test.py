@@ -69,3 +69,31 @@ def test_can_use_two_neural_nets():
     # same, this tests whether the nets are different.
     assert not (computed1[0] == computed2[0]).all()
     assert not (computed1[1] == computed2[1]).all()
+
+
+def test_basic_nac_net_tensor_shapes():
+    np.random.seed(0)
+    nnet = BasicNACNet()
+
+    batch_size = 5
+
+    # Set up the states, probs, zs arrays.
+    states = np.random.randn(batch_size, 9)
+    pis = np.random.rand(batch_size, 9)
+    zs = np.random.randn(batch_size, 1)
+
+    [loss, loss_probs, loss_value] = nnet.sess.run(
+        [nnet.tensors['loss'], nnet.tensors['loss_probs'],
+         nnet.tensors['loss_value']], feed_dict={
+            nnet.tensors['state_vector']: states,
+            nnet.tensors['pi']: pis,
+            nnet.tensors['outcomes']: zs,
+            })
+
+    # The loss should be positive
+    assert loss_probs > 0
+    assert loss_value > 0
+    assert loss > 0
+
+    # The loss should be a scalar.
+    assert np.shape(loss) == ()

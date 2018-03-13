@@ -47,7 +47,7 @@ def create_trivial_evaluator(next_states_function):
 
 
 class BasicNACNet:
-    def __init__(self, learning_rate=1e-4):
+    def __init__(self, learning_rate=1e-5):
         self.learning_rate = learning_rate
         self.tensors = self._initialise_net()
 
@@ -85,10 +85,11 @@ class BasicNACNet:
 
             prob_logits = tf.layers.dense(inputs=dense, units=9)
             probs = tf.nn.softmax(logits=prob_logits)
+            log_probs = tf.log(probs)
 
-            loss = tf.reduce_mean(tf.losses.mean_squared_error(outcomes, values) -
-                                  tf.tensordot(tf.transpose(pi), prob_logits,
-                                  axes=1))
+            loss_value = tf.losses.mean_squared_error(outcomes, values)
+            loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
+            loss = loss_value + loss_probs
 
             # Set up the training op
             self.train_op = \
@@ -103,8 +104,10 @@ class BasicNACNet:
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, values, prob_logits, probs, loss]
-        names = "state_vector outcomes pi values prob_logits probs loss".split()
+        tensors = [state_vector, outcomes, pi, values, prob_logits, probs,
+                   loss, loss_value, loss_probs]
+        names = "state_vector outcomes pi values prob_logits probs loss " \
+                "loss_value loss_probs".split()
         return {name: tensor for name, tensor in zip(names, tensors)}
 
     def create_evaluator(self, action_indices):
