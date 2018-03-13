@@ -85,7 +85,12 @@ class BasicNACNet:
 
             prob_logits = tf.layers.dense(inputs=dense, units=9)
             probs = tf.nn.softmax(logits=prob_logits)
-            log_probs = tf.log(probs)
+
+            # We want to compute log_probs = log(softmax(prob_logits)). This
+            # simplifies to log_probs = prob_logits -
+            # log(sum(exp(prob_logits))).
+            log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
+            log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
 
             loss_value = tf.losses.mean_squared_error(outcomes, values)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
