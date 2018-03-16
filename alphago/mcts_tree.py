@@ -1,5 +1,88 @@
 import numpy as np
-from tqdm import tqdm
+
+__all__ = ["mcts", "MCTSNode"]
+
+
+def mcts(starting_node, evaluator, game, mcts_iters, c_puct):
+    # TODO: write a better docstring!
+    """Perform a MCTS from a given starting node
+
+    Parameters
+    ----------
+    starting_node: MCTSNode
+        The root of a subtree of the game. We take actions at the root.
+    evaluator: func
+        A function from states to probs, value. probs is a dictionary
+        with keys the actions in the state and value given by the
+        estimate of the value of the state.
+    game: Game
+        An object representing the game to be played.
+    mcts_iters: int
+        The number of iterations of MCTS.
+    c_puct: float
+        A hyperparameter determining the level of exploration in the
+        select algorithm.
+
+    Returns
+    -------
+    action_probs: dict
+            A probability distribution over actions available in the
+            root node, given as a dictionary from actions to
+            probabilities.
+    """
+
+    for i in range(mcts_iters):
+        # First select a leaf node from the MCTS tree. This actually
+        # returns all nodes and actions taken, with the length of
+        # actions being one less than the length of nodes. The last
+        # element of nodes is the leaf node.
+        nodes, actions = select(starting_node, c_puct)
+        leaf = nodes[-1]
+
+        if not leaf.is_terminal:
+            # Evaluate the leaf node to get the probabilities and value
+            # according to the net.
+            prior_probs, value = evaluator(leaf.game_state)
+
+            # Store this as a value for player 1 and a value for player 2.
+            # TODO: We could make this more general later.
+            player = game.which_player(leaf.game_state)
+            other_player = 1 if player == 2 else 2
+            values = {player: value,
+                      other_player: -value}
+
+            # Compute the next possible states from the leaf node. This
+            # returns a dictionary with keys the legal actions and
+            # values the game states. Note that if the leaf is terminal
+            # there will be no next_states.
+            child_states = game.compute_next_states(leaf.game_state)
+
+            # TODO: This should be replaced by a function that links the indices
+            # for the neural network output to the actions in the game.
+            prior_probs = {action: prior_probs[action]
+                           for action in child_states}
+
+            # Compute the players for the children states.
+            child_players = {action: game.which_player(child_state)
+                             for action, child_state in child_states.items()}
+
+            child_terminals = {action: game.is_terminal(child_state)
+                               for action, child_state in child_states.items()}
+
+            # Expand the tree with the new leaf node
+            leaf.expand(prior_probs, child_states, child_players, child_terminals)
+        else:
+            # We don't need prior probs if the node is terminal, but we
+            # do still need the value of the node. The utility function
+            # computes the value for the player to play.
+            values = game.utility(leaf.game_state)
+
+        # Backup the value up the tree.
+        backup(nodes, values)
+
+    action_counts = {action: child.N
+                     for action, child in starting_node.children.items()}
+    return compute_distribution(action_counts)
 
 
 class MCTSNode:
@@ -56,9 +139,12 @@ class MCTSNode:
 
     def __repr__(self):
         return (f"{self.__class__.__name__}({self.game_state}, "
+                f"{self.player}, {self.is_terminal})")
+
+    def __str__(self):
+        return (f"{self.__class__.__name__}({self.game_state}, "
                 f"{self.player}, {self.is_terminal}, "
                 f"{self.Q}, {self.W}, {self.N})")
-
 
     def is_leaf(self):
         """Returns whether or not the node in the tree is a leaf."""
@@ -242,268 +328,6 @@ def compute_distribution(d):
     return prob_distribution
 
 
-def mcts(starting_node, evaluator, next_states_function, utility, which_player,
-         is_terminal, mcts_iters, c_puct):
-    """Perform a MCTS from a given starting node
-
-    Parameters
-    ----------
-    starting_node: MCTSNode
-        The root of a subtree of the game. We take actions at the root.
-    evaluator: func
-        A function from states to probs, value. probs is a dictionary
-        with keys the actions in the state and value given by the
-        estimate of the value of the state.
-    next_states_function: func
-        A function that takes a state and returns a dictionary with
-        keys the available actions in the state and values the
-        resulting game states.
-    utility: func
-        Computes the utility of a terminal state.
-    which_player: func
-        Computes the player to play in a game state.
-    is_terminal: func
-        Returns True if the state is terminal, else returns False.
-    mcts_iters: int
-        The number of iterations of MCTS.
-    c_puct: float
-        A hyperparameter determining the level of exploration in the
-        select algorithm.
-
-    Returns
-    -------
-    action_probs: dict
-            A probability distribution over actions available in the
-            root node, given as a dictionary from actions to
-            probabilities.
-    """
-
-    for i in range(mcts_iters):
-        # First select a leaf node from the MCTS tree. This actually
-        # returns all nodes and actions taken, with the length of
-        # actions being one less than the length of nodes. The last
-        # element of nodes is the leaf node.
-        nodes, actions = select(starting_node, c_puct)
-        leaf = nodes[-1]
-
-        if not leaf.is_terminal:
-            # Evaluate the leaf node to get the probabilities and value
-            # according to the net.
-            prior_probs, value = evaluator(leaf.game_state)
-
-            # Store this as a value for player 1 and a value for player 2.
-            # TODO: We could make this more general later.
-            player = which_player(leaf.game_state)
-            other_player = 1 if player == 2 else 2
-            values = {player: value,
-                      other_player: -value}
-
-            # Compute the next possible states from the leaf node. This
-            # returns a dictionary with keys the legal actions and
-            # values the game states. Note that if the leaf is terminal
-            # there will be no next_states.
-            child_states = next_states_function(leaf.game_state)
-
-            # TODO: This should be replaced by a function that links the indices
-            # for the neural network output to the actions in the game.
-            prior_probs = {action: prior_probs[action]
-                           for action in child_states}
-
-            # Compute the players for the children states.
-            child_players = {action: which_player(child_state)
-                             for action, child_state in child_states.items()}
-
-            child_terminals = {action: is_terminal(child_state)
-                               for action, child_state in child_states.items()}
-
-            # Expand the tree with the new leaf node
-            leaf.expand(prior_probs, child_states, child_players, child_terminals)
-        else:
-            # We don't need prior probs if the node is terminal, but we
-            # do still need the value of the node. The utility function
-            # computes the value for the player to play.
-            values = utility(leaf.game_state)
-
-        # Backup the value up the tree.
-        backup(nodes, values)
-
-    action_counts = {action: child.N
-                     for action, child in starting_node.children.items()}
-    return compute_distribution(action_counts)
-
-
-def self_play(next_states_function, evaluator, initial_state, utility,
-              which_player, is_terminal, mcts_iters, c_puct):
-    """Plays a game using MCTS to choose actions for both players.
-
-    Parameters
-    ----------
-    next_states_function: func
-        Gives the next states from the given state as a dictionary
-        with keys the available actions and values the resulting
-        states.
-    evaluator: func
-        An evaluator.
-    initial_state: object
-        An initial state to start the game in. This must be compatible
-        with next_states_function, but is otherwise arbitrary.
-    utility: func
-        A function that returns the utilities of terminal states.
-    which_player: func
-        Returns the player to play in a state.
-    is_terminal: func
-        A function that returns True if the state is terminal and
-        otherwise returns False.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS.
-
-    Returns
-    -------
-    game_state_list: list
-        A list of game states encountered in the self-play game. Starts
-        with the initial state and ends with a terminal state.
-    action_probs_list: list
-        A list of action probability dictionaries, as returned by MCTS
-        each time the algorithm has to take an action. The ith action
-        probabilities dictionary corresponds to the ith game_state, and
-        action_probs_list has length one less than game_state_list,
-        since we don't have to move in a terminal state.
-    """
-    node = MCTSNode(initial_state, which_player(initial_state))
-
-    game_state_list = [node.game_state]
-    action_probs_list = []
-
-    while not is_terminal(node.game_state):
-        # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, evaluator, next_states_function, utility,
-                            which_player, is_terminal, mcts_iters, c_puct)
-
-        # Choose the action according to the action probabilities.
-        actions, probs = zip(*action_probs.items())
-        action_ix = np.random.choice(len(actions), p=probs)
-        action = actions[action_ix]
-
-        # Play the action
-        node = node.children[action]
-
-        # Add the action probabilities and game state to the list.
-        action_probs_list.append(action_probs)
-        game_state_list.append(node.game_state)
-
-    return game_state_list, action_probs_list
-
-
-def build_training_data(states_, action_probs_, which_player, utility,
-                        action_indices):
-    """Takes a list of states and action probabilities, as returned by
-    self_play, and creates training data from this. We build up a list
-    consisting of (state, probs, z) tuples, where player is the player
-    in state 'state', and 'z' is the utility to 'player' in 'last_state'.
-
-    We omit the terminal state from the list as there are no probabilities to
-    train. TODO: Potentially include the terminal state in order to train the
-    value.
-
-    Parameters
-    ----------
-    states_: list
-        A list of n states, with the last being terminal.
-    action_probs_: list
-        A list of n-1 dictionaries containing action probabilities. The ith
-        dictionary applies to the ith state, representing the probabilities
-        returned by self_play of taking each available action in the state.
-    which_player: func
-        A function taking a state to the player to play in that state.
-    utility: func
-        A function taking a terminal state to the outcome of the state.
-    action_indices: dict
-        A dictionary mapping actions (in the form of the compute_next_states
-        function) to action indices (to be used for training the neural
-        network).
-
-    Returns
-    -------
-    training_data: list
-        A list consisting of (state, probs, z) tuples, where player is the
-        player in state 'state', and 'z' is the utility to 'player' in
-        'last_state'.
-    """
-
-    # Get the outcome for the game. This should be the last state in states_.
-    last_state = states_.pop()
-    outcome = utility(last_state)
-
-    # Now action_probs_ and states_ are the same length.
-    training_data = []
-    for state, probs in zip(states_, action_probs_):
-        # Get the player in the state, and the value to this player of the
-        # terminal state.
-        player = which_player(state)
-        z = outcome[player]
-
-        # Convert the probs dictionary to a numpy array using action_indices.
-        probs_vector = np.zeros(len(action_indices))
-        for action, prob in probs.items():
-            probs_vector[action_indices[action]] = prob
-
-        non_nan_state = np.nan_to_num(state)
-
-        training_data.append((non_nan_state, probs_vector, z))
-
-    return training_data
-
-
-def self_play_multiple(next_states_function, evaluator, initial_state,
-                       is_terminal, utility, which_player, action_indices,
-                       mcts_iters, c_puct, num_self_play):
-    """Combines self_play and build_training_data to generate training data
-    given a game and an evaluator.
-
-    Parameters
-    ----------
-    next_states_function: func
-        Gives the next states from the given state as a dictionary with
-        keys the available actions and values the resulting states.
-    evaluator: func
-        An evaluator.
-    initial_state: object
-        An initial state to start the game in. This must be compatible with
-        next_states_function, but is otherwise arbitrary.
-    is_terminal: func
-        A function that returns True if the state is terminal and otherwise
-        returns False.
-    utility: func
-        A function that returns the utility for terminal states.
-    which_player: func
-        A function that returns which player is to play in a given state.
-    action_indices: dict
-        Dictionary with keys the actions and values an index for the action.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS.
-    num_self_play: int
-        Number of games to play in 'self-play'
-
-    Returns
-    -------
-    training_data: list
-        A list of training data tuples. See 'build_training_data'.
-    """
-
-    training_data = []
-    for i in range(num_self_play):
-        game_states_, action_probs_ = self_play(
-            next_states_function, evaluator, initial_state, utility,
-            which_player, is_terminal, mcts_iters, c_puct)
-        training_data.append(build_training_data(
-            game_states_, action_probs_, which_player, utility, action_indices))
-    return training_data
-
-
 def print_tree(root):
     """Prints the tree rooted at 'root'. Prints in pre-order.
     """
@@ -515,74 +339,3 @@ def print_tree(root):
         print(node)
         queue.extend(node.children.values())
         i += 1
-
-
-def alpha_go(evaluator, train_function, action_indices, compute_next_states,
-             initial_state, utility, which_player, is_terminal, self_play_iters,
-             mcts_iters, c_puct):
-    """Runs AlphaGo on the game.
-
-    Parameters
-    ----------
-    evaluator: func
-        An evaluator.
-    train_function: func
-        A function to train the evaluator. Takes in 'training_data' as input and
-        outputs the training loss.
-    action_indices: dict
-        Dictionary with keys the possible actions in the game, and values the
-        index of that action.
-    compute_next_states: func
-        Gives the next states from the given state as a dictionary with
-        keys the available actions and values the resulting states.
-    initial_state: object
-        An initial state to start the game in. This must be compatible with
-        next_states_function, but is otherwise arbitrary.
-    utility: func
-        A function that returns the utility for terminal states.
-    which_player: func
-        A function that returns which player is to play in a given state.
-    is_terminal: func
-        A function that returns True if the state is terminal and otherwise
-        returns False.
-    self_play_iters: int
-        Number of iterations of self-play to run.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS.
-    """
-
-    all_training_data = []
-    losses = []
-    with tqdm(total=self_play_iters) as pbar:
-        for i in range(self_play_iters):
-            # Collect training data
-            game_states, action_probs = self_play(
-                compute_next_states, evaluator, initial_state, utility,
-                which_player, is_terminal, mcts_iters, c_puct)
-
-            training_data = build_training_data(
-                game_states, action_probs, which_player, utility, action_indices)
-
-            # Append to our current training data
-            all_training_data.extend(training_data)
-
-            # Only keep the most recent training data
-            all_training_data = all_training_data[-10000:]
-
-            # Train on the data
-            num_train_steps = 100
-            batch_size = 8
-            if len(all_training_data) >= batch_size:
-                for train_step in range(num_train_steps):
-                    batch_indices = np.random.choice(len(all_training_data),
-                                                     batch_size,
-                                                     replace=False)
-                    train_batch = [all_training_data[ix] for ix in batch_indices]
-                    loss = train_function(train_batch)
-                    losses.append(loss)
-                pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
-
-            # Update tqdm description
-            pbar.update(1)

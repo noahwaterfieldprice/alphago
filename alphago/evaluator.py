@@ -1,8 +1,6 @@
 import numpy as np
 import tensorflow as tf
 
-from alphago.mcts_tree import compute_distribution
-
 
 def create_trivial_evaluator(next_states_function):
     """Create a trivial evaluator function given a next states function
