@@ -1,9 +1,7 @@
 import numpy as np
-import pytest
 
-from alphago import mcts_tree
 import alphago.games.noughts_and_crosses as nac
-from ..unit.games.mock_game import MockGame, mock_evaluator
+from ..unit.games import mock_game
 from alphago.evaluator import create_trivial_evaluator, BasicNACNet
 from alphago import comparator
 
@@ -12,8 +10,6 @@ def test_comparator_can_compare_two_trivial_evaluators():
     # Seed the random number generator.
     np.random.seed(0)
 
-    mock_game = MockGame()
-
     evaluator1 = create_trivial_evaluator(mock_game.compute_next_states)
     evaluator2 = create_trivial_evaluator(mock_game.compute_next_states)
 
@@ -21,9 +17,7 @@ def test_comparator_can_compare_two_trivial_evaluators():
     assert evaluator1 != evaluator2
 
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
-        mock_game.compute_next_states, mock_game.initial_state,
-        mock_game.utility, mock_game.which_player, mock_game.is_terminal,
-        evaluator1, evaluator2, mcts_iters=100, num_games=100)
+        mock_game, evaluator1, evaluator2, mcts_iters=100, num_games=100)
 
     assert evaluator1_wins == 100
     assert evaluator2_wins == 0
@@ -41,9 +35,7 @@ def test_comparator_on_noughts_and_crosses():
     assert evaluator1 != evaluator2
 
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
-        nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
-        nac.which_player, nac.is_terminal, evaluator1, evaluator2,
-        mcts_iters=100, num_games=20)
+        nac, evaluator1, evaluator2, mcts_iters=100, num_games=20)
 
     # Just for consistency -- there is no rationale here. Hopefully the number
     # of wins for player 1 and player 2 should be similar.
@@ -68,8 +60,6 @@ def test_comparator_on_noughts_and_crosses_with_nets():
     assert net1 != net2
 
     evaluator1_wins, evaluator2_wins, draws = comparator.compare(
-        nac.compute_next_states, nac.INITIAL_STATE, nac.utility,
-        nac.which_player, nac.is_terminal, evaluator1, evaluator2,
-        mcts_iters=100, num_games=6)
+        nac, evaluator1, evaluator2, mcts_iters=100, num_games=6)
 
     # TODO: This doesn't seem to be deterministic.

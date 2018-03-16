@@ -7,7 +7,6 @@ back up the utility returned by the game.
 
 import numpy as np
 
-import alphago.games.noughts_and_crosses as nac
 import alphago.games.connect_four as cf
 from alphago import mcts_tree
 from alphago.evaluator import create_trivial_evaluator
@@ -42,7 +41,7 @@ if __name__ == "__main__":
             while action not in next_states:
                 action_ix = int(input("Your move (0-6 reading "
                                       "across the board): "))
-                if 0 <= action_ix and action_ix < len(cf.ACTION_SPACE):
+                if 0 <= action_ix < len(cf.ACTION_SPACE):
                     action = cf.ACTION_SPACE[action_ix]
         state = next_states[action]
 
