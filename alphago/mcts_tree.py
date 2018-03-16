@@ -59,6 +59,7 @@ class MCTSNode:
                 f"{self.player}, {self.is_terminal}, "
                 f"{self.Q}, {self.W}, {self.N})")
 
+
     def is_leaf(self):
         """Returns whether or not the node in the tree is a leaf."""
         return len(self.children) == 0
@@ -285,7 +286,7 @@ def mcts(starting_node, evaluator, next_states_function, utility, which_player,
         nodes, actions = select(starting_node, c_puct)
         leaf = nodes[-1]
 
-        if not is_terminal(leaf.game_state):
+        if not leaf.is_terminal:
             # Evaluate the leaf node to get the probabilities and value
             # according to the net.
             prior_probs, value = evaluator(leaf.game_state)

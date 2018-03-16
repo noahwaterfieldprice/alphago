@@ -25,8 +25,8 @@ def test_comparator_can_compare_two_trivial_evaluators():
         mock_game.utility, mock_game.which_player, mock_game.is_terminal,
         evaluator1, evaluator2, mcts_iters=100, num_games=100)
 
-    assert evaluator1_wins == 50
-    assert evaluator2_wins == 50
+    assert evaluator1_wins == 100
+    assert evaluator2_wins == 0
     assert draws == 0
 
 
