@@ -6,7 +6,7 @@ from alphago.evaluator import BasicConnectFourNet
 from alphago import comparator
 
 if __name__ == "__main__":
-    if False:
+    if True:
         game = nac
         net1 = BasicNACNet()
     else:

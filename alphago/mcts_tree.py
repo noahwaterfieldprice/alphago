@@ -567,9 +567,12 @@ def alpha_go(evaluator, train_function, action_indices, compute_next_states,
             # Append to our current training data
             all_training_data.extend(training_data)
 
+            # Only keep the most recent training data
+            all_training_data = all_training_data[-10000:]
+
             # Train on the data
             num_train_steps = 100
-            batch_size = 64
+            batch_size = 8
             if len(all_training_data) >= batch_size:
                 for train_step in range(num_train_steps):
                     batch_indices = np.random.choice(len(all_training_data),
