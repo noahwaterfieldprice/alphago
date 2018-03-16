@@ -7,11 +7,25 @@ not full).
 import numpy as np
 
 
-INITIAL_STATE = np.full((6, 7), np.nan)
+INITIAL_STATE = (np.nan, ) * 42
 ACTION_SPACE = [i for i in range(7)]
 ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
 
 
+def memoize(func):
+    cache = dict()
+
+    def memoized_func(*args):
+        if args in cache:
+            return cache[args]
+        result = func(*args)
+        cache[args] = result
+        return result
+
+    return memoized_func
+
+
+@memoize
 def which_player(state):
     """Returns the player to play in the current state.
 
@@ -29,7 +43,8 @@ def which_player(state):
     return (np.sum(~np.isnan(state)) % 2) + 1
 
 
-def _calculate_line_sums_4_by_4(grid):
+@memoize
+def _calculate_line_sums_4_by_4(state):
     """Calculates the line sums for a 4x4 grid.
 
     Parameters
@@ -43,6 +58,7 @@ def _calculate_line_sums_4_by_4(grid):
     line_sums: ndarray
         An array of sums along all the possible lines on the grid.
     """
+    grid = np.array(state).reshape(4, 4)
     horizontals = np.nansum(grid, axis=1)
     verticals = np.nansum(grid, axis=0)
     major_diagonal = np.nansum(grid.diagonal()),
@@ -54,6 +70,7 @@ def _calculate_line_sums_4_by_4(grid):
     return line_sums
 
 
+@memoize
 def _calculate_line_sums(state):
     """Calculates the line sums for the connect four game state.
 
@@ -68,11 +85,15 @@ def _calculate_line_sums(state):
         An array of sums along all possible length 4 lines on the board.
     """
     # Extract all 4x4 subarrays of the state, and compute their line sums.
-    grids = [state[i:i+4, j:j+4] for i in range(3) for j in range(4)]
-    line_sums_list = [_calculate_line_sums_4_by_4(grid) for grid in grids]
+    grid = np.array(state).reshape(6, 7)
+    subgrids = (grid[i:i+4, j:j+4] for i in range(3) for j in range(4))
+    tuple_subgrids = (tuple(subgrid.flatten()) for subgrid in subgrids)
+    line_sums_list = [_calculate_line_sums_4_by_4(subgrid)
+                      for subgrid in tuple_subgrids]
     return np.concatenate(line_sums_list)
 
 
+@memoize
 def is_terminal(state):
     """Returns whether the state is terminal or not.
 
@@ -99,6 +120,7 @@ def is_terminal(state):
     return False
 
 
+@memoize
 def utility(state):
     """Compute the utility of a terminal state.
 
@@ -132,6 +154,7 @@ def utility(state):
                      "non-terminal state.")
 
 
+@memoize
 def compute_next_states(state):
     """Computes the next states possible from this state.
 
@@ -153,7 +176,7 @@ def compute_next_states(state):
 
     # Consider each column in turn.
     for col in range(7):
-        next_state = state.copy()
+        next_state = tuple(state)
 
         # If the top element in the column is open, then this column is an
         # available action.
@@ -182,10 +205,8 @@ def display(state):
     divider = "\n---+---+---+---+---+---+---\n"
     symbol_dict = {1: "x", -1: "o", 0: " "}
 
-    state = state.copy().ravel()
-
     output_rows = []
-    for state_row in np.array_split(state, indices_or_sections=6):
+    for state_row in np.array_split(tuple(state), indices_or_sections=6):
         # convert nans to 0s for symbol lookup
         state_row[np.isnan(state_row)] = 0
         y = "|". join([" {} ".format(symbol_dict[x]) for x in state_row])

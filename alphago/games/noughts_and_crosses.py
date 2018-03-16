@@ -37,6 +37,20 @@ ACTION_SPACE = [(i, j) for i in range(3) for j in range(3)]
 ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
 
 
+def memoize(func):
+    cache = dict()
+
+    def memoized_func(*args):
+        if args in cache:
+            return cache[args]
+        result = func(*args)
+        cache[args] = result
+        return result
+
+    return memoized_func
+
+
+@memoize
 def _calculate_line_sums(state):
     """Calculate line sums along horizontal and vertical directions
     and along major and minor diagonals.
@@ -63,6 +77,7 @@ def _calculate_line_sums(state):
     return line_sums
 
 
+@memoize
 def which_player(state):
     """Given a state, return an int indicating the player whose turn it is.
 
@@ -80,6 +95,7 @@ def which_player(state):
     return (np.sum(~np.isnan(state)) % 2) + 1
 
 
+@memoize
 def is_terminal(state):
     """Given a state, returns whether it is terminal.
 
@@ -110,6 +126,7 @@ def is_terminal(state):
     return False
 
 
+@memoize
 def utility(state):
     """Given a terminal noughts and crosses state, calculates the
     outcomes for both players. These outcomes are given by +1, -1
@@ -151,6 +168,7 @@ def utility(state):
                      "non-terminal state.")
 
 
+@memoize
 def compute_next_states(state):
     """Given a non-terminal state, generate a dictionary mapping legal
     actions onto their resulting game states.

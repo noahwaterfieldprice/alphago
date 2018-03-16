@@ -5,17 +5,12 @@ from alphago.games import connect_four as cf
 
 
 def test_connect_four_initial_state():
-    assert np.shape(cf.INITIAL_STATE) == (6, 7)
+    assert np.shape(cf.INITIAL_STATE) == (42,)
     assert np.isnan(cf.INITIAL_STATE).all()
 
 
-grids_4_4 = [
-    np.array([[1, 1, 0, 0],
-              [0, 1, -1, 0],
-              [np.nan, 1, 0, 1],
-              [1, np.nan, 0, 1]]),
-    np.full((4, 4), np.nan)
-]
+sub_grids = [(1, 1, 0, 0, 0, 1, -1, 0, np.nan, 1, 0, 1, 1, np.nan, 0, 1),
+             (np.nan,) * 16]
 
 expected_line_sums = [
     [2, 0, 2, 2, 2, 3, -1, 2, 3, 1],
@@ -23,7 +18,7 @@ expected_line_sums = [
 ]
 
 
-@pytest.mark.parametrize("grid, expected_line_sums", zip(grids_4_4,
+@pytest.mark.parametrize("grid, expected_line_sums", zip(sub_grids,
                          expected_line_sums))
 def test_connect_four_line_sums_4_by_4(grid, expected_line_sums):
     line_sums = cf._calculate_line_sums_4_by_4(grid)
@@ -31,27 +26,30 @@ def test_connect_four_line_sums_4_by_4(grid, expected_line_sums):
 
 
 terminal_states = [
-    np.full((6, 7), 1),      # All 1s
-    np.full((6, 7), -1),     # All -1s
-    np.array([(-1)**i for i in range(6*7)]).reshape(6, 7),
-    np.array([[np.nan, np.nan, np.nan, np.nan, 1.0, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, 1.0, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, 1.0, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, 1.0, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]]),
-    np.array([[-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]]),
-    np.array([[np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [1.0, 1.0, 1.0, 1.0, np.nan, np.nan, np.nan]]),
+    (1,) * 42,      # All 1s
+    (-1,) * 42,     # All -1s
+    tuple(-1 ** i for i in range(42)),
+
+    (np.nan, np.nan, np.nan, np.nan, 1.0, np.nan, np.nan,
+     np.nan, np.nan, np.nan, 1.0, np.nan, np.nan, np.nan,
+     np.nan, np.nan, 1.0, np.nan, np.nan, np.nan, np.nan,
+     np.nan, 1.0, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+
+    (-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+
+    (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     1.0, 1.0, 1.0, 1.0, np.nan, np.nan, np.nan),
 ]
 
 
@@ -61,13 +59,13 @@ def test_is_terminal_returns_true_for_terminal_states(state):
 
 
 states = [
-    np.array([[-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, 1.0],
-              [np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan],
-              [1.0, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-              [np.nan, np.nan, np.nan, np.nan, np.nan, 1.0, np.nan]]),
-]
+    (-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, 1.0,
+     np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan,
+     1.0, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+     np.nan, np.nan, np.nan, np.nan, np.nan, 1.0, np.nan)]
+
 div = "---+---+---+---+---+---+---"
 # additional newline character accounts for the one added to the output
 # by the print function itself
