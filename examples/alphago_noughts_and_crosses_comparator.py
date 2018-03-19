@@ -11,7 +11,8 @@ from alphago import comparator
 from alphago.backwards_induction import solve_game
 
 
-def compare_against_optimal(evaluator, game, num_games, best_actions):
+def compare_against_optimal(evaluator, game, num_games, best_actions,
+                            mcts_iters):
     player1_wins = 0
     player2_wins = 0
     draws = 0
@@ -56,7 +57,7 @@ def compare_against_optimal(evaluator, game, num_games, best_actions):
                 player1_wins += 1
             else:
                 player2_wins += 1
-                
+
             pbar.update(1)
             pbar.set_description("Win1/Win2/Draw: {}/{}/{}".format(
                 player1_wins, player2_wins, draws))
@@ -81,19 +82,20 @@ if __name__ == "__main__":
     evaluator1 = net1.create_evaluator(game.ACTION_INDICES)
     evaluator2 = create_trivial_evaluator(game.compute_next_states)
 
-    mcts_iters = 500
+    mcts_iters = 100
 
     for i in range(50):
         if use_nac:
             print("Comparing against optimal")
             num_games = 200
-            compare_against_optimal(evaluator1, game, num_games, best_actions)
+            compare_against_optimal(evaluator1, game, num_games, best_actions,
+                                    mcts_iters=mcts_iters)
 
         # Train net 1, then compare against net 2.
         print("Training net 1")
         alphago.alphago(evaluator1, net1.train, game.ACTION_INDICES, game,
-                        self_play_iters=600, mcts_iters=mcts_iters,
-                        c_puct=1.0)
+                        self_play_iters=200, num_train_steps=1000,
+                        mcts_iters=mcts_iters, c_puct=1.0)
 
         print("We are player 1.")
         comparator.compare(game, evaluator1, evaluator2,
