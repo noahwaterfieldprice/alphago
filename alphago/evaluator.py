@@ -45,7 +45,7 @@ def create_trivial_evaluator(next_states_function):
 
 
 class BasicNACNet:
-    def __init__(self, learning_rate=1e-2):
+    def __init__(self, learning_rate=1e-3):
         self.learning_rate = learning_rate
         self.tensors = self._initialise_net()
 
@@ -116,7 +116,8 @@ class BasicNACNet:
 
             # Set up the training op
             self.train_op = \
-                tf.train.GradientDescentOptimizer(self.learning_rate).minimize(loss)
+                tf.train.MomentumOptimizer(self.learning_rate,
+                                           momentum=0.9).minimize(loss)
 
             # Initialise all variables
             self.sess.run(tf.global_variables_initializer())
@@ -298,7 +299,8 @@ class BasicConnectFourNet:
 
             # Set up the training op
             self.train_op = \
-                tf.train.GradientDescentOptimizer(self.learning_rate).minimize(loss)
+                tf.train.MomentumOptimizer(self.learning_rate,
+                                           momentum=0.9).minimize(loss)
 
             # Initialise all variables
             self.sess.run(tf.global_variables_initializer())
