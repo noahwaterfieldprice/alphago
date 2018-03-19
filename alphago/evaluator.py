@@ -53,8 +53,8 @@ class BasicNACNet:
         # TODO: test reshape recreates game properly
 
         # Initialise a graph, session and saver for the net. This is so we can
-        # use separate functions to run functions on the tensorflow graph. Using
-        # 'with sess:' means you start with a new net each time.
+        # use separate functions to run functions on the tensorflow graph.
+        # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
 
@@ -68,30 +68,36 @@ class BasicNACNet:
 
             l2_weight = 1e-4
             regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
+            normalizer_fn = tf.contrib.layers.batch_norm
 
             conv1 = tf.contrib.layers.conv2d(
                 inputs=input_layer, num_outputs=8, kernel_size=[2, 2],
-                padding='SAME', weights_regularizer=regularizer,
+                stride=1, padding='SAME', weights_regularizer=regularizer,
+                normalizer_fn=normalizer_fn,
                 activation_fn=tf.nn.relu)
 
             conv2 = tf.contrib.layers.conv2d(
                 inputs=conv1, num_outputs=16, kernel_size=[2, 2],
-                padding='SAME', weights_regularizer=regularizer,
+                stride=1, padding='SAME', weights_regularizer=regularizer,
+                normalizer_fn=normalizer_fn,
                 activation_fn=tf.nn.relu)
 
             conv3 = tf.contrib.layers.conv2d(
                 inputs=conv2, num_outputs=16, kernel_size=[2, 2],
-                padding='SAME', weights_regularizer=regularizer,
+                stride=1, padding='SAME', weights_regularizer=regularizer,
+                normalizer_fn=normalizer_fn,
                 activation_fn=tf.nn.relu)
 
             conv3_flat = tf.contrib.layers.flatten(conv3)
 
             dense1 = tf.contrib.layers.fully_connected(
                 inputs=conv3_flat, num_outputs=32,
-                weights_regularizer=regularizer, activation_fn=tf.nn.relu)
+                weights_regularizer=regularizer,
+                normalizer_fn=normalizer_fn, activation_fn=tf.nn.relu)
 
             dense2 = tf.contrib.layers.fully_connected(
                 inputs=dense1, num_outputs=32, weights_regularizer=regularizer,
+                normalizer_fn=normalizer_fn,
                 activation_fn=tf.nn.relu)
 
             values = tf.contrib.layers.fully_connected(
