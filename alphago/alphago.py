@@ -6,8 +6,8 @@ from . import mcts, MCTSNode
 __all__ = ["alphago", "self_play", "self_play_multiple", "build_training_data"]
 
 
-def alphago(evaluator, train_function, action_indices, game, self_play_iters,
-            mcts_iters, c_puct):
+def alphago(evaluator, train_function, action_indices, game,
+            self_play_iters, num_train_steps, mcts_iters, c_puct):
     # TODO: write better docstring
     """Runs AlphaGo on the game.
 
@@ -25,6 +25,8 @@ def alphago(evaluator, train_function, action_indices, game, self_play_iters,
         An object representing the game to be played.
     self_play_iters: int
         Number of iterations of self-play to run.
+    num_train_steps: int
+        Number of training steps to take.
     mcts_iters: int
         Number of iterations to run MCTS for.
     c_puct: float
@@ -48,18 +50,26 @@ def alphago(evaluator, train_function, action_indices, game, self_play_iters,
             # Only keep the most recent training data
             all_training_data = all_training_data[-10000:]
 
+            # Update tqdm description
+            pbar.update(1)
+
+    # Don't train if we don't have enough training data for a batch.
+    if len(all_training_data) < batch_size:
+        return
+
+    with tqdm.tqdm(total=num_train_steps) as pbar:
+
+        for i in range(num_train_steps):
             # Train on the data
-            num_train_steps = 100
             batch_size = 8
-            if len(all_training_data) >= batch_size:
-                for train_step in range(num_train_steps):
-                    batch_indices = np.random.choice(len(all_training_data),
-                                                     batch_size,
-                                                     replace=False)
-                    train_batch = [all_training_data[ix] for ix in batch_indices]
-                    loss = train_function(train_batch)
-                    losses.append(loss)
-                pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
+            batch_indices = np.random.choice(len(all_training_data),
+                                             batch_size,
+                                             replace=False)
+            train_batch = [all_training_data[ix] for ix in
+                           batch_indices]
+            loss = train_function(train_batch)
+            losses.append(loss)
+            pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
 
             # Update tqdm description
             pbar.update(1)
