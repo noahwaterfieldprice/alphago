@@ -7,7 +7,8 @@ __all__ = ["alphago", "self_play", "self_play_multiple", "build_training_data"]
 
 
 def alphago(evaluator, train_function, action_indices, game,
-            self_play_iters, num_train_steps, mcts_iters, c_puct):
+            self_play_iters, num_train_steps, mcts_iters, c_puct,
+            batch_size=32):
     # TODO: write better docstring
     """Runs AlphaGo on the game.
 
@@ -54,17 +55,17 @@ def alphago(evaluator, train_function, action_indices, game,
             pbar.update(1)
 
     # Don't train if we don't have enough training data for a batch.
+    # TODO: Move batch_size to training function.
     if len(all_training_data) < batch_size:
         return
 
     with tqdm.tqdm(total=num_train_steps) as pbar:
-
+        
         for i in range(num_train_steps):
             # Train on the data
-            batch_size = 8
             batch_indices = np.random.choice(len(all_training_data),
                                              batch_size,
-                                             replace=False)
+                                             replace=True)
             train_batch = [all_training_data[ix] for ix in
                            batch_indices]
             loss = train_function(train_batch)
@@ -72,7 +73,8 @@ def alphago(evaluator, train_function, action_indices, game,
             pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
 
             # Update tqdm description
-            pbar.update(1)
+            if i % 100 == 0:
+                pbar.update(100)
 
 
 def self_play(game, evaluator, mcts_iters, c_puct):
