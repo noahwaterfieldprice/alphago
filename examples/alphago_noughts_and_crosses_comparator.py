@@ -19,8 +19,8 @@ def compare_against_optimal(evaluator, game, num_games, best_actions):
     evaluator_player = 1
     with tqdm(total=num_games) as pbar:
         for game_ix in range(num_games):
-            # Start the game at the initial state. Player 1 in the game goes first.
-            # This can either be evaluator1 or evaluator2.
+            # Start the game at the initial state. Player 1 in the game goes
+            #  first. This can either be evaluator1 or evaluator2.
             game_state = game.INITIAL_STATE
 
             while not game.is_terminal(game_state):
@@ -42,8 +42,8 @@ def compare_against_optimal(evaluator, game, num_games, best_actions):
                 else:
                     action = best_actions[game_state]
 
-                # The action_probs already incorporate the legal actions. Move to
-                # the next game state.
+                # The action_probs already incorporate the legal actions.
+                # Move to the next game state.
                 child_states = game.compute_next_states(game_state)
                 game_state = child_states[action]
 
@@ -62,9 +62,10 @@ def compare_against_optimal(evaluator, game, num_games, best_actions):
                 player1_wins, player2_wins, draws))
 
             # Switch evaluator player
-            evaluator_player == 1 if evaluator_player == 2 else 2
+            evaluator_player = 1 if evaluator_player == 2 else 2
 
     return player1_wins, player2_wins, draws
+
 
 if __name__ == "__main__":
     use_nac = True
