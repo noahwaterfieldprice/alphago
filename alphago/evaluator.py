@@ -45,7 +45,7 @@ def create_trivial_evaluator(next_states_function):
 
 
 class BasicNACNet:
-    def __init__(self, learning_rate=1e-3):
+    def __init__(self, learning_rate=1e-2):
         self.learning_rate = learning_rate
         self.tensors = self._initialise_net()
 
@@ -82,30 +82,19 @@ class BasicNACNet:
                 normalizer_fn=normalizer_fn,
                 activation_fn=tf.nn.relu)
 
-            conv3 = tf.contrib.layers.conv2d(
-                inputs=conv2, num_outputs=16, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer,
-                normalizer_fn=normalizer_fn,
-                activation_fn=tf.nn.relu)
-
-            conv3_flat = tf.contrib.layers.flatten(conv3)
+            conv2_flat = tf.contrib.layers.flatten(conv2)
 
             dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv3_flat, num_outputs=32,
+                inputs=conv2_flat, num_outputs=32,
                 weights_regularizer=regularizer,
                 normalizer_fn=normalizer_fn, activation_fn=tf.nn.relu)
 
-            dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=32, weights_regularizer=regularizer,
-                normalizer_fn=normalizer_fn,
-                activation_fn=tf.nn.relu)
-
             values = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=1, weights_regularizer=regularizer,
+                inputs=dense1, num_outputs=1, weights_regularizer=regularizer,
                 activation_fn=tf.nn.tanh)
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=9, weights_regularizer=regularizer,
+                inputs=dense1, num_outputs=9, weights_regularizer=regularizer,
                 activation_fn=None)
             probs = tf.nn.softmax(logits=prob_logits)
 
