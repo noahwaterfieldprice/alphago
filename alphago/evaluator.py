@@ -68,26 +68,30 @@ class BasicNACNet:
 
             l2_weight = 1e-4
             regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
-            normalizer_fn = tf.contrib.layers.batch_norm
+            is_training = tf.placeholder(tf.bool)
 
             conv1 = tf.contrib.layers.conv2d(
                 inputs=input_layer, num_outputs=8, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer,
-                normalizer_fn=normalizer_fn,
-                activation_fn=tf.nn.relu)
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            conv1 = tf.contrib.layers.batch_norm(
+                conv1, is_training=is_training)
+            conv1 = tf.nn.relu(conv1)
 
             conv2 = tf.contrib.layers.conv2d(
                 inputs=conv1, num_outputs=16, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer,
-                normalizer_fn=normalizer_fn,
-                activation_fn=tf.nn.relu)
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            conv2 = tf.contrib.layers.batch_norm(
+                conv2, is_training=is_training)
+            conv2 = tf.nn.relu(conv2)
 
             conv2_flat = tf.contrib.layers.flatten(conv2)
 
             dense1 = tf.contrib.layers.fully_connected(
                 inputs=conv2_flat, num_outputs=32,
-                weights_regularizer=regularizer,
-                normalizer_fn=normalizer_fn, activation_fn=tf.nn.relu)
+                weights_regularizer=regularizer)
+            dense1 = tf.contrib.layers.batch_norm(
+                dense1, is_training=is_training)
+            dense1 = tf.nn.relu(dense1)
 
             values = tf.contrib.layers.fully_connected(
                 inputs=dense1, num_outputs=1, weights_regularizer=regularizer,
@@ -124,9 +128,9 @@ class BasicNACNet:
         self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, values, prob_logits, probs,
-                   loss, loss_value, loss_probs]
+                   loss, loss_value, loss_probs, is_training]
         names = "state_vector outcomes pi values prob_logits probs loss " \
-                "loss_value loss_probs".split()
+                "loss_value loss_probs is_training".split()
         return {name: tensor for name, tensor in zip(names, tensors)}
 
     def create_evaluator(self, action_indices):
@@ -175,10 +179,14 @@ class BasicNACNet:
 
         probs = self.sess.run(
             self.tensors['probs'],
-            feed_dict={self.tensors['state_vector']: state})
+            feed_dict={
+                self.tensors['state_vector']: state,
+                self.tensors['is_training']: False})
         values = self.sess.run(
             self.tensors['values'],
-            feed_dict={self.tensors['state_vector']: state})
+            feed_dict={
+                self.tensors['state_vector']: state,
+                self.tensors['is_training']: False})
 
         return np.ravel(probs), values
 
@@ -204,6 +212,7 @@ class BasicNACNet:
                     self.tensors['state_vector']: states,
                     self.tensors['pi']: pis,
                     self.tensors['outcomes']: zs,
+                    self.tensors['is_training']: True
                     })
 
         # Update the global step
