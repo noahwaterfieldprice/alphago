@@ -69,19 +69,22 @@ class BasicNACNet:
             l2_weight = 1e-4
             regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
             is_training = tf.placeholder(tf.bool)
+            use_batch_norm = False
 
             conv1 = tf.contrib.layers.conv2d(
                 inputs=input_layer, num_outputs=8, kernel_size=[2, 2],
                 stride=1, padding='SAME', weights_regularizer=regularizer)
-            conv1 = tf.contrib.layers.batch_norm(
-                conv1, is_training=is_training)
+            if use_batch_norm:
+                conv1 = tf.contrib.layers.batch_norm(
+                    conv1, is_training=is_training)
             conv1 = tf.nn.relu(conv1)
 
             conv2 = tf.contrib.layers.conv2d(
                 inputs=conv1, num_outputs=16, kernel_size=[2, 2],
                 stride=1, padding='SAME', weights_regularizer=regularizer)
-            conv2 = tf.contrib.layers.batch_norm(
-                conv2, is_training=is_training)
+            if use_batch_norm:
+                conv2 = tf.contrib.layers.batch_norm(
+                    conv2, is_training=is_training)
             conv2 = tf.nn.relu(conv2)
 
             conv2_flat = tf.contrib.layers.flatten(conv2)
@@ -89,8 +92,9 @@ class BasicNACNet:
             dense1 = tf.contrib.layers.fully_connected(
                 inputs=conv2_flat, num_outputs=32,
                 weights_regularizer=regularizer)
-            dense1 = tf.contrib.layers.batch_norm(
-                dense1, is_training=is_training)
+            if use_batch_norm:
+                dense1 = tf.contrib.layers.batch_norm(
+                    dense1, is_training=is_training)
             dense1 = tf.nn.relu(dense1)
 
             values = tf.contrib.layers.fully_connected(
