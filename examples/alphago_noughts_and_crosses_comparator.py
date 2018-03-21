@@ -94,7 +94,7 @@ if __name__ == "__main__":
         # Train net 1, then compare against net 2.
         print("Training net 1")
         alphago.alphago(evaluator1, net1.train, game.ACTION_INDICES, game,
-                        self_play_iters=200, num_train_steps=100000,
+                        self_play_iters=200, num_train_steps=10000,
                         mcts_iters=mcts_iters, c_puct=1.0)
 
         print("We are player 1.")
