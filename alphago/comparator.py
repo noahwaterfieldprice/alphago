@@ -35,7 +35,7 @@ def compare(game, evaluator1, evaluator2, mcts_iters, num_games):
 
                 # Use MCTS to compute action probabilities
                 action_probs = mcts(
-                    root, evaluator, game, mcts_iters=mcts_iters, c_puct=1.0)
+                    root, game, evaluator, mcts_iters=mcts_iters, c_puct=1.0)
 
                 # Sample an action
                 actions, probs = zip(*action_probs.items())

@@ -20,3 +20,4 @@ pytest-pycodestyle = "*"
 pytest-cov = "*"
 pytest-html = "*"
 "e1839a8" = {editable = true, path = "."}
+pytest-mock = "*"

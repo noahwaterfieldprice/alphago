@@ -3,7 +3,7 @@ import numpy as np
 __all__ = ["mcts", "MCTSNode"]
 
 
-def mcts(starting_node, evaluator, game, mcts_iters, c_puct):
+def mcts(starting_node, game, evaluator, mcts_iters, c_puct):
     # TODO: write a better docstring!
     """Perform a MCTS from a given starting node
 
@@ -11,12 +11,12 @@ def mcts(starting_node, evaluator, game, mcts_iters, c_puct):
     ----------
     starting_node: MCTSNode
         The root of a subtree of the game. We take actions at the root.
+    game: Game
+        An object representing the game to be played.
     evaluator: func
         A function from states to probs, value. probs is a dictionary
         with keys the actions in the state and value given by the
         estimate of the value of the state.
-    game: Game
-        An object representing the game to be played.
     mcts_iters: int
         The number of iterations of MCTS.
     c_puct: float
@@ -94,7 +94,13 @@ class MCTSNode:
 
     Parameters
     ----------
-    prior_prob: float
+    game_state: state
+        An object describing the game state corresponding to this node.
+    player: int
+        The player to play at this node.
+    is_terminal: bool
+        A boolean indicating if the node is terminal.
+
 
     Attributes
     ----------
@@ -123,6 +129,8 @@ class MCTSNode:
         game object can return all the legal actions from this state.
     player: int
         The player to play at this node.
+    is_terminal: bool
+        A boolean indicating if the node is terminal.
     """
 
     __slots__ = "Q W N is_terminal children prior_probs game_state player".split()
