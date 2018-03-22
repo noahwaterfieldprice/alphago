@@ -3,10 +3,10 @@ import tqdm
 
 from . import mcts, MCTSNode
 
-__all__ = ["alphago", "self_play", "self_play_multiple", "build_training_data"]
+__all__ = ["train", "self_play", "self_play_multiple", "build_training_data"]
 
 
-def alphago(evaluator, train_function, action_indices, game,
+def train(evaluator, train_function, action_indices, game,
             self_play_iters, num_train_steps, mcts_iters, c_puct,
             batch_size=32):
     # TODO: write better docstring
@@ -110,7 +110,7 @@ def self_play(game, evaluator, mcts_iters, c_puct):
 
     while not node.is_terminal:
         # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, evaluator, game, mcts_iters, c_puct)
+        action_probs = mcts(node, game, evaluator, mcts_iters, c_puct)
 
         # Choose the action according to the action probabilities.
         actions, probs = zip(*action_probs.items())

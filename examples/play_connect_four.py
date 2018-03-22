@@ -28,9 +28,7 @@ if __name__ == "__main__":
         if player == computer:
             root = mcts_tree.MCTSNode(state, player)
             action_probs = mcts_tree.mcts(
-                root, evaluator,
-                cf.compute_next_states, cf.utility, cf.which_player,
-                cf.is_terminal, max_iters, c_puct)
+                root, evaluator, cf,  max_iters, c_puct)
             actions, probs = zip(*action_probs.items())
             print("Action probabilities: {}".format(action_probs))
             action_ix = np.random.choice(range(len(actions)), p=probs)

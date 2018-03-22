@@ -31,7 +31,7 @@ def test_neural_net_evaluator():
     nnet = MockNet(input_dim=1, output_dim=3)
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, nnet.evaluate, mock_game, 100, 1.0)
+    action_probs = mcts(root, mock_game, nnet.evaluate, 100, 1.0)
 
 
 def test_neural_net_evaluate_game_state():
