@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-from .alphago import self_play
+from .alphago import play
 
 
 def evaluate(game, players, num_games):
@@ -14,7 +14,7 @@ def evaluate(game, players, num_games):
 
     with tqdm(total=num_games) as pbar:
         for game_no in range(num_games):
-            game_state_list, _ = self_play(game, players)
+            game_state_list, _ = play(game, players)
 
             utility = game.utility(game_state_list[-1])
             player1_result = utility[1]

@@ -2,7 +2,7 @@ import numpy as np
 
 import alphago.games.noughts_and_crosses as nac
 from ..unit.games import mock_game
-from alphago.estimator import create_trivial_estimator, BasicNACNet
+from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer
 from alphago import evaluator
 

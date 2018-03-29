@@ -1,5 +1,6 @@
 from . import mcts, MCTSNode
 from .backwards_induction import backwards_induction
+from .utilities import sample_distribution
 
 
 class AbstractPlayer:
@@ -8,7 +9,7 @@ class AbstractPlayer:
         self.player_no = player_no  # TODO: do Players need to know this
         self.game = game
 
-    def action_probabilities(self, game_state):
+    def choose_action(self, game_state):
         raise NotImplementedError
 
     def __repr__(self):
@@ -17,10 +18,14 @@ class AbstractPlayer:
 
 class RandomPlayer(AbstractPlayer):
 
-    def action_probabilities(self, game_state):
+    def choose_action(self, game_state):
         next_states = self.game.compute_next_states(game_state)
+        action_probs = {action: 1 / len(next_states)
+                        for action in next_states.keys()}
 
-        return {action: 1 / len(next_states) for action in next_states.keys()}
+        action = sample_distribution(action_probs)
+
+        return action, action_probs
 
 
 class MCTSPlayer(AbstractPlayer):
@@ -31,15 +36,23 @@ class MCTSPlayer(AbstractPlayer):
         self.mcts_iters = mcts_iters
         self.c_puct = c_puct
 
-    def action_probabilities(self, game_state):
-        current_node = MCTSNode(game_state, self.player_no)
+    def choose_action(self, game_state, current_node=None):
+        # TODO: need to test using existing MCTS tree vs creating new one
+        if current_node is None:
+            current_node = MCTSNode(game_state, self.player_no)
+
+        assert current_node.game_state == game_state
+
         action_probs = mcts(current_node, self.game, self.estimator,
                             self.mcts_iters, self.c_puct)
-        return action_probs
+        action = sample_distribution(action_probs)
+
+        return action, action_probs
 
 
 class OptimalPlayer(AbstractPlayer):  # TODO: Add UTs
 
-    def action_probabilities(self, game_state):
+    def choose_action(self, game_state):
         value, action = backwards_induction(self.game, game_state)
-        return {action: 1}
+
+        return action, {action: 1}

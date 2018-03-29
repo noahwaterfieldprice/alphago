@@ -1,3 +1,5 @@
+import abc
+
 import numpy as np
 import tensorflow as tf
 
@@ -44,10 +46,128 @@ def create_trivial_estimator(next_states_function):
     return trivial_estimator
 
 
-class BasicNACNet:
+class AbstractNeuralNetEstimator(abc.ABC):
+
     def __init__(self, learning_rate=1e-2):
         self.learning_rate = learning_rate
-        self.tensors = self._initialise_net()
+        self._initialise_net()
+
+    @abc.abstractmethod
+    def _initialise_net(self):
+        pass
+
+    def __call__(self, state):
+        """Returns the result of the neural net applied to the state. This is
+        'probs' and 'values'
+
+        Returns
+        -------
+        probs: np array
+            The probabilities returned by the net.
+        values: np array
+            The value returned by the net.
+        """
+
+        probs = self.sess.run(
+            self.tensors['probs'],
+            feed_dict={
+                self.tensors['state_vector']: state,
+                self.tensors['is_training']: False})
+        values = self.sess.run(
+            self.tensors['values'],
+            feed_dict={
+                self.tensors['state_vector']: state,
+                self.tensors['is_training']: False})
+
+        return np.ravel(probs), values
+
+    def train(self, training_data, batch_size, training_iters):
+        """Trains the net on the training data.
+
+        Parameters
+        ----------
+        training_data: list
+            A list consisting of (state, probs, z) tuples, where player is the
+            player in the state and z is the utility to player in the last state
+            from the corresponding self-play game.
+        batch_size: int
+        training_iters: int
+        """
+
+        assert len(training_data) > batch_size
+
+        for _ in range(training_iters):
+            batch_indices = np.random.choice(len(training_data), batch_size,
+                                             replace=True)
+            batch_data = training_data[batch_indices]
+
+            # Set up the states, probs, zs arrays.
+            states = np.array([x[0] for x in batch_data])
+            pis = np.array([x[1] for x in batch_data])
+            zs = np.array([x[2] for x in batch_data])
+            zs = zs[:, np.newaxis]
+
+            values, probs, loss, _ = self.sess.run(
+                [self.tensors['values'], self.tensors['probs'],
+                    self.tensors['loss'], self.train_op], feed_dict={
+                        self.tensors['state_vector']: states,
+                        self.tensors['pi']: pis,
+                        self.tensors['outcomes']: zs,
+                        self.tensors['is_training']: True
+                        })
+
+            # Update the global step
+            self.global_step += 1
+
+        return loss
+
+    def create_estimator(self, action_indices):
+        """Returns an evaluator function corresponding to the neural network.
+
+        Parameters
+        ----------
+        action_indices: dict
+            Dictionary with keys the available actions and values the index of
+            that action. Indices must be unique in 0, 1, .., #actions-1.
+
+        Returns
+        -------
+        estimate: func
+            A function that evaluates states.
+        """
+
+        def estimator(state):
+            # Reshape the state if necessary so that it's 1 x 9. We should
+            # only be evaluating one state at a time in this function.
+            state = np.reshape(state, self.game_state_shape)
+            state = np.nan_to_num(state)
+
+            # Evaluate the network at the state
+            probs, values = self.estimate(state)
+
+            # probs is currently an np array. Put the values into a
+            # dictionary with keys the actions and values the probs.
+            probs_dict = {action: probs[action_indices[action]] for action in
+                          action_indices}
+
+            return probs_dict, values[0]
+
+        return estimator
+
+    def save(self, save_file):
+        """Saves the net to save_file.
+        """
+        self.saver.save(self.sess, save_file, global_step=self.global_step)
+
+    def restore(self, save_file):
+        """Restore the net from save_file.
+        """
+        self.saver.restore(self.sess, save_file)
+
+
+class NACNetEstimator(AbstractNeuralNetEstimator):
+
+    game_state_shape = (1, 9)
 
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
@@ -135,117 +255,18 @@ class BasicNACNet:
                    loss, loss_value, loss_probs, is_training]
         names = "state_vector outcomes pi values prob_logits probs loss " \
                 "loss_value loss_probs is_training".split()
-        return {name: tensor for name, tensor in zip(names, tensors)}
-
-    def create_estimator(self, action_indices):
-        """Returns an evaluator function corresponding to the neural network.
-
-        Parameters
-        ----------
-        action_indices: dict
-            Dictionary with keys the available actions and values the index of
-            that action. Indices must be unique in 0, 1, .., #actions-1.
-
-        Returns
-        -------
-        estimate: func
-            A function that evaluates states.
-        """
-
-        def estimator(state):
-            # Reshape the state if necessary so that it's 1 x 9. We should
-            # only be evaluating one state at a time in this function.
-            state = np.reshape(state, (1, 9))
-            state = np.nan_to_num(state)
-
-            # Evaluate the network at the state
-            probs, values = self.estimate(state)
-
-            # probs is currently an np array. Put the values into a
-            # dictionary with keys the actions and values the probs.
-            probs_dict = {action: probs[action_indices[action]] for action in
-                          action_indices}
-
-            return probs_dict, values[0]
-        return estimator
-
-    def estimate(self, state):
-        """Returns the result of the neural net applied to the state. This is
-        'probs' and 'values'
-
-        Returns
-        -------
-        probs: np array
-            The probabilities returned by the net.
-        values: np array
-            The value returned by the net.
-        """
-
-        probs = self.sess.run(
-            self.tensors['probs'],
-            feed_dict={
-                self.tensors['state_vector']: state,
-                self.tensors['is_training']: False})
-        values = self.sess.run(
-            self.tensors['values'],
-            feed_dict={
-                self.tensors['state_vector']: state,
-                self.tensors['is_training']: False})
-
-        return np.ravel(probs), values
-
-    def train(self, training_data):
-        """Trains the net on the training data.
-
-        Parameters
-        ----------
-        training_data: list
-            A list consisting of (state, probs, z) tuples, where player is the
-            player in the state and z is the utility to player in the last state
-            from the corresponding self-play game.
-        """
-        # Set up the states, probs, zs arrays.
-        states = np.array([x[0] for x in training_data])
-        pis = np.array([x[1] for x in training_data])
-        zs = np.array([x[2] for x in training_data])
-        zs = zs.reshape((-1, 1))
-
-        values, probs, loss, _ = self.sess.run(
-            [self.tensors['values'], self.tensors['probs'],
-                self.tensors['loss'], self.train_op], feed_dict={
-                    self.tensors['state_vector']: states,
-                    self.tensors['pi']: pis,
-                    self.tensors['outcomes']: zs,
-                    self.tensors['is_training']: True
-                    })
-
-        # Update the global step
-        self.global_step += 1
-
-        return loss
-
-    def save(self, save_file):
-        """Saves the net to save_file.
-        """
-        self.saver.save(self.sess, save_file, global_step=self.global_step)
-
-    def restore(self, save_file):
-        """Restore the net from save_file.
-        """
-        self.saver.restore(self.sess, save_file)
+        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
 
-class BasicConnectFourNet:
-    def __init__(self, learning_rate=1e-4):
-        self.learning_rate = learning_rate
-        self.tensors = self._initialise_net()
+class ConnectFourNet(AbstractNeuralNetEstimator):
+    game_state_shape = (1, 42)
 
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
 
         # Initialise a graph, session and saver for the net. This is so we can
-        # use separate functions to run functions on the tensorflow graph. Using
-        # 'with sess:' means you start with a new net each time.
+        # use separate functions to run functions on the tensorflow graph.
+        # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
 
@@ -323,96 +344,4 @@ class BasicConnectFourNet:
                    loss, loss_value, loss_probs]
         names = "state_vector outcomes pi values prob_logits probs loss " \
                 "loss_value loss_probs".split()
-        return {name: tensor for name, tensor in zip(names, tensors)}
-
-    def create_estimator(self, action_indices):
-        """Returns an evaluator function corresponding to the neural network.
-
-        Parameters
-        ----------
-        action_indices: dict
-            Dictionary with keys the available actions and values the index of
-            that action. Indices must be unique in 0, 1, .., #actions-1.
-
-        Returns
-        -------
-        estimate: func
-            A function that evaluates states.
-        """
-
-        def estimator(state):
-            # Reshape the state if necessary so that it's 1 x 9. We should
-            # only be evaluating one state at a time in this function.
-            state = np.reshape(state, (1, 6, 7))
-            state = np.nan_to_num(state)
-
-            # Evaluate the network at the state
-            probs, values = self.estimate(state)
-
-            # probs is currently an np array. Put the values into a
-            # dictionary with keys the actions and values the probs.
-            probs_dict = {action: probs[action_indices[action]] for action in
-                          action_indices}
-
-            return probs_dict, values[0]
-        return estimator
-
-    def estimate(self, state):
-        """Returns the result of the neural net applied to the state. This is
-        'probs' and 'values'
-
-        Returns
-        -------
-        probs: np array
-            The probabilities returned by the net.
-        values: np array
-            The value returned by the net.
-        """
-
-        probs = self.sess.run(
-            self.tensors['probs'],
-            feed_dict={self.tensors['state_vector']: state})
-        values = self.sess.run(
-            self.tensors['values'],
-            feed_dict={self.tensors['state_vector']: state})
-
-        return np.ravel(probs), values
-
-    def train(self, training_data):
-        """Trains the net on the training data.
-
-        Parameters
-        ----------
-        training_data: list
-            A list consisting of (state, probs, z) tuples, where player is the
-            player in the state and z is the utility to player in the last state
-            from the corresponding self-play game.
-        """
-        # Set up the states, probs, zs arrays.
-        states = np.array([x[0] for x in training_data])
-        pis = np.array([x[1] for x in training_data])
-        zs = np.array([x[2] for x in training_data])
-        zs = zs.reshape((-1, 1))
-
-        values, probs, loss, _ = self.sess.run(
-            [self.tensors['values'], self.tensors['probs'],
-                self.tensors['loss'], self.train_op], feed_dict={
-                    self.tensors['state_vector']: states,
-                    self.tensors['pi']: pis,
-                    self.tensors['outcomes']: zs,
-                    })
-
-        # Update the global step
-        self.global_step += 1
-
-        return loss
-
-    def save(self, save_file):
-        """Saves the net to save_file.
-        """
-        self.saver.save(self.sess, save_file, global_step=self.global_step)
-
-    def restore(self, save_file):
-        """Restore the net from save_file.
-        """
-        self.saver.restore(self.sess, save_file)
+        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}

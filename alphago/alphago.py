@@ -3,44 +3,36 @@ import tqdm
 
 from .utilities import sample_distribution
 
-__all__ = ["train", "self_play", "self_play_multiple", "build_training_data"]
+__all__ = ["train", "play", "self_play_multiple", "build_training_data"]
 
 
-def train(evaluator, train_function, action_indices, game,
-            self_play_iters, num_train_steps, mcts_iters, c_puct,
-            batch_size=32):
-    # TODO: write better docstring and test this
-    """Runs AlphaGo on the game.
+def train(game, players, action_indices, self_play_iters,
+          training_iters, batch_size=32):
+    """Runs AlphaGo on the game. 
 
     Parameters
     ----------
-    evaluator: func
-        An evaluator.
-    train_function: func
-        A function to train the evaluator. Takes in 'training_data' as input and
-        outputs the training loss.
+
+    game: Game
+        An object representing the game to be played.
+    players: dict of Player
+        An dictionary with keys the player numbers and values the players.
     action_indices: dict
         Dictionary with keys the possible actions in the game, and values the
         index of that action.
-    game: Game
-        An object representing the game to be played.
     self_play_iters: int
         Number of iterations of self-play to run.
-    num_train_steps: int
+    training_iters: int
         Number of training steps to take.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS.
-    """
+    batch_size: int
+    """  # TODO: write better docstring and test this
 
     all_training_data = []
     losses = []
     with tqdm.tqdm(total=self_play_iters) as pbar:
         for i in range(self_play_iters):
             # Collect training data
-            game_states, action_probs = self_play(
-                game, evaluator, mcts_iters, c_puct)
+            game_states, action_probs = play(game, players)
 
             training_data = build_training_data(
                 game_states, action_probs, game, action_indices)
@@ -54,30 +46,41 @@ def train(evaluator, train_function, action_indices, game,
             # Update tqdm description
             pbar.update(1)
 
-    # Don't train if we don't have enough training data for a batch.
-    # TODO: Move batch_size to training function.
-    if len(all_training_data) < batch_size:
-        return
-
-    with tqdm.tqdm(total=num_train_steps) as pbar:
-        
-        for i in range(num_train_steps):
-            # Train on the data
-            batch_indices = np.random.choice(len(all_training_data),
-                                             batch_size,
-                                             replace=True)
-            train_batch = [all_training_data[ix] for ix in
-                           batch_indices]
-            loss = train_function(train_batch)
-            losses.append(loss)
-            pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
-
-            # Update tqdm description
-            if i % 100 == 0:
-                pbar.update(100)
+    players[0].estimator.train(all_training_data, batch_size, training_iters)
 
 
-def self_play(game, players):
+#
+# def train_alphago_estimator(num_train_steps, training_data, batch_size):
+#     # Don't train if we don't have enough training data for a batch.
+#     # TODO: Move batch_size to training function.
+#     if len(all_training_data) < batch_size:
+#         return
+#
+#     with tqdm.tqdm(total=num_train_steps) as pbar:
+#
+#         for i in range(num_train_steps):
+#             # Train on the data
+#             batch_indices = np.random.choice(len(all_training_data),
+#                                              batch_size,
+#                                              replace=True)
+#             train_batch = [all_training_data[ix] for ix in
+#                            batch_indices]
+#             loss = train_function(train_batch)
+#             losses.append(loss)
+#             pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
+#
+#             # Update tqdm description
+#             if i % 100 == 0:
+#                 pbar.update(100)
+
+
+def self_play(game, player):
+    pass
+
+
+
+
+def play(game, players):
     """Plays a two player game.
 
     Parameters
@@ -124,7 +127,7 @@ def self_play(game, players):
 
 def build_training_data(states_, action_probs_, game, action_indices):
     """Takes a list of states and action probabilities, as returned by
-    self_play, and creates training data from this. We build up a list
+    play, and creates training data from this. We build up a list
     consisting of (state, probs, z) tuples, where player is the player
     in state 'state', and 'z' is the utility to 'player' in 'last_state'.
 
@@ -139,7 +142,7 @@ def build_training_data(states_, action_probs_, game, action_indices):
     action_probs_: list
         A list of n-1 dictionaries containing action probabilities. The ith
         dictionary applies to the ith state, representing the probabilities
-        returned by self_play of taking each available action in the state.
+        returned by play of taking each available action in the state.
     game: Game
         An object representing the game to be played.
     action_indices: dict
@@ -181,7 +184,7 @@ def build_training_data(states_, action_probs_, game, action_indices):
 
 def self_play_multiple(game, evaluator, action_indices, mcts_iters,
                        c_puct, num_self_play):
-    """Combines self_play and build_training_data to generate training data
+    """Combines play and build_training_data to generate training data
     given a game and an evaluator.
 
     Parameters
@@ -207,7 +210,7 @@ def self_play_multiple(game, evaluator, action_indices, mcts_iters,
 
     training_data = []
     for i in range(num_self_play):
-        game_states_, action_probs_ = self_play(
+        game_states_, action_probs_ = play(
             game, evaluator, mcts_iters, c_puct)
         training_data.append(build_training_data(
             game_states_, action_probs_, game, action_indices))
