@@ -178,7 +178,7 @@ def test_mcts_action_count_at_root():
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
-    action_probs = mcts(root, mock_game, mock_game.mock_evaluator,  100, 1.0)
+    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert root.N == 100
@@ -188,7 +188,7 @@ def test_mcts_action_count_at_root_children():
     root = MCTSNode(0, player=1)
 
     action_probs = mcts(
-        root, mock_game, mock_game.mock_evaluator,  100, 1.0)
+        root, mock_game, mock_game.mock_estimator,  100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert sum(child.N for child in root.children.values()) == 99
@@ -198,7 +198,7 @@ def test_mcts_value_at_children_of_root():
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
-    mcts(root, mock_game, mock_game.mock_evaluator, 100, 1.0)
+    mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     terminal_nodes = get_terminal_nodes(root)
     N_terminal_nodes = sum(node.N for node in terminal_nodes)
@@ -219,6 +219,6 @@ def test_mcts_value_at_children_of_root():
 #
 #     root = MCTSNode(0, player=1)
 #
-#     mcts(root, mock_evaluator, next_states_wrapper,
+#     mcts(root, mock_estimator, next_states_wrapper,
 #                    mock_game.utility, mock_game.which_player,
 #                    mock_game.is_terminal, 100, 1.0)

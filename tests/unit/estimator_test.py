@@ -1,15 +1,15 @@
 import numpy as np
 
-from alphago.evaluator import create_trivial_evaluator, BasicNACNet
+from alphago.estimator import create_trivial_estimator, BasicNACNet
 from alphago import mcts, MCTSNode
 from .games import mock_game
-from .mock_evaluator import MockNet
+from .mock_estimator import MockNet
 
 
-def test_trivial_evaluator():
-    trivial_evaluator = create_trivial_evaluator(mock_game.compute_next_states)
+def test_trivial_estimator():
+    trivial_estimator = create_trivial_estimator(mock_game.compute_next_states)
 
-    assert trivial_evaluator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
+    assert trivial_estimator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
 
 
 def test_initialising_basic_net_with_random_parameters():
@@ -27,19 +27,19 @@ def test_initialising_basic_net_with_random_parameters():
                              tensor_dict['outcomes']: outcomes})
 
 
-def test_neural_net_evaluator():
+def test_neural_net_estimator():
     nnet = MockNet(input_dim=1, output_dim=3)
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, nnet.evaluate, 100, 1.0)
+    action_probs = mcts(root, mock_game, nnet.estimate, 100, 1.0)
 
 
-def test_neural_net_evaluate_game_state():
+def test_neural_net_estimate_game_state():
     nnet = BasicNACNet()
 
     test_game_state = np.random.randn(7, 9)
 
-    computed = nnet.evaluate(test_game_state)
+    computed = nnet.estimate(test_game_state)
 
 
 def test_can_use_two_neural_nets():
@@ -49,8 +49,8 @@ def test_can_use_two_neural_nets():
 
     test_game_state = np.random.randn(7, 9)
 
-    computed1 = nnet1.evaluate(test_game_state)
-    computed2 = nnet2.evaluate(test_game_state)
+    computed1 = nnet1.estimate(test_game_state)
+    computed2 = nnet2.estimate(test_game_state)
 
     # Check that the outputs are different. Since the input to both nets is the
     # same, this tests whether the nets are different.

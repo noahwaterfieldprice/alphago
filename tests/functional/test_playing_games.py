@@ -3,7 +3,7 @@ import pytest
 
 from alphago.player import MCTSPlayer, RandomPlayer
 from alphago.games import noughts_and_crosses as nac
-from alphago.evaluator import create_trivial_evaluator
+from alphago.estimator import create_trivial_estimator
 
 
 def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
@@ -26,8 +26,8 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
 
 ])
 def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_action):
-    evaluator = create_trivial_evaluator(nac.compute_next_states)
-    player = MCTSPlayer(game=nac, player_no=1, evaluator=evaluator,
+    estimator = create_trivial_estimator(nac.compute_next_states)
+    player = MCTSPlayer(game=nac, player_no=1, estimator=estimator,
                         mcts_iters=100, c_puct=0.5)
     action_probs = player.action_probabilities(state)
 

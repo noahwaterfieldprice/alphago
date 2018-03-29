@@ -1,10 +1,11 @@
 from . import mcts, MCTSNode
+from .backwards_induction import backwards_induction
 
 
 class AbstractPlayer:
 
     def __init__(self, player_no, game):
-        self.player_no = player_no
+        self.player_no = player_no  # TODO: do Players need to know this
         self.game = game
 
     def action_probabilities(self, game_state):
@@ -24,14 +25,21 @@ class RandomPlayer(AbstractPlayer):
 
 class MCTSPlayer(AbstractPlayer):
 
-    def __init__(self, player_no, game, evaluator, mcts_iters, c_puct):
+    def __init__(self, player_no, game, estimator, mcts_iters, c_puct):
         super().__init__(player_no, game)
-        self.evaluator = evaluator
+        self.estimator = estimator
         self.mcts_iters = mcts_iters
         self.c_puct = c_puct
 
     def action_probabilities(self, game_state):
         current_node = MCTSNode(game_state, self.player_no)
-        action_probs = mcts(current_node, self.game, self.evaluator,
+        action_probs = mcts(current_node, self.game, self.estimator,
                             self.mcts_iters, self.c_puct)
         return action_probs
+
+
+class OptimalPlayer(AbstractPlayer):  # TODO: Add UTs
+
+    def action_probabilities(self, game_state):
+        value, action = backwards_induction(self.game, game_state)
+        return {action: 1}

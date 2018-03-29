@@ -9,14 +9,14 @@ import numpy as np
 
 import alphago.games.connect_four as cf
 from alphago import mcts_tree
-from alphago.evaluator import create_trivial_evaluator
+from alphago.estimator import create_trivial_estimator
 
 if __name__ == "__main__":
 
     max_iters = 1000
     c_puct = 0.5
 
-    evaluator = create_trivial_evaluator(cf.compute_next_states)
+    evaluator = create_trivial_estimator(cf.compute_next_states)
 
     state = cf.INITIAL_STATE
     computer = np.random.choice([1, 2])

@@ -22,7 +22,7 @@ def test_can_run_mcts_on_fake_game():
     function and 'evaluator' function.
     """
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, mock_game.mock_evaluator,  100, 1.0)
+    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     assert action_probs is not None
 
@@ -65,6 +65,6 @@ def test_print_mcts():
     mock_game.TERMINAL_STATE_VALUES = [0.01 * i for i in range(12)]
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, mock_game.mock_evaluator, 10, 1.0)
+    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 10, 1.0)
     print_tree(root)
     mock_game.TERMINAL_STATE_VALUES = (1,) * 12

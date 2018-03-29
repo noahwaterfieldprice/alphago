@@ -1,9 +1,11 @@
 import numpy as np
 
+from .utilities import compute_distribution
+
 __all__ = ["mcts", "MCTSNode"]
 
 
-def mcts(starting_node, game, evaluator, mcts_iters, c_puct):
+def mcts(starting_node, game, estimator, mcts_iters, c_puct):
     # TODO: write a better docstring!
     """Perform a MCTS from a given starting node
 
@@ -13,7 +15,7 @@ def mcts(starting_node, game, evaluator, mcts_iters, c_puct):
         The root of a subtree of the game. We take actions at the root.
     game: Game
         An object representing the game to be played.
-    evaluator: func
+    estimator: func
         A function from states to probs, value. probs is a dictionary
         with keys the actions in the state and value given by the
         estimate of the value of the state.
@@ -42,7 +44,7 @@ def mcts(starting_node, game, evaluator, mcts_iters, c_puct):
         if not leaf.is_terminal:
             # Evaluate the leaf node to get the probabilities and value
             # according to the net.
-            prior_probs, value = evaluator(leaf.game_state)
+            prior_probs, value = estimator(leaf.game_state)
 
             # Store this as a value for player 1 and a value for player 2.
             # TODO: We could make this more general later.
@@ -312,28 +314,7 @@ def backup(nodes, values):
         parent_player = node.player
 
 
-def compute_distribution(d):
-    """Calculate a probability distribution with probabilities
-    proportional to the values in a dictionary
 
-    Parameters
-    ----------
-    d: dict
-        A dictionary with values equal to positive floats.
-
-    Returns
-    -------
-    prob_distribution: dict:
-        A probability distribution proportional to the values of d,
-        given as a dictionary with keys equal to those of d and values
-        the probability corresponding to the value.
-    """
-    total = sum(d.values())
-    assert min(d.values()) >= 0
-    assert total > 0
-    prob_distribution = {k: float(v) / float(total)
-                         for k, v in d.items()}
-    return prob_distribution
 
 
 def print_tree(root):
