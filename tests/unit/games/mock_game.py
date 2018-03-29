@@ -39,7 +39,7 @@ def utility(state):
     return {1: player1_value, 2: -player1_value}
 
 
-def mock_evaluator(state):
+def mock_estimator(state):
     prior_probs = {action: 1 / 3 for action in range(3)}
 
     value = 0.0

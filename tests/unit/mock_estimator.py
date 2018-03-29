@@ -31,7 +31,7 @@ class MockNet:
         names = "state_vector values prob_logits probs".split()
         return {name: tensor for name, tensor in zip(names, tensors)}
 
-    def evaluate(self, state):
+    def estimate(self, state):
         """Returns the result of the neural net applied to the state. This is
         'probs' and 'values'
 

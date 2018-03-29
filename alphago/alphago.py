@@ -1,7 +1,7 @@
 import numpy as np
 import tqdm
 
-from . import mcts, MCTSNode
+from .utilities import sample_distribution
 
 __all__ = ["train", "self_play", "self_play_multiple", "build_training_data"]
 
@@ -9,7 +9,7 @@ __all__ = ["train", "self_play", "self_play_multiple", "build_training_data"]
 def train(evaluator, train_function, action_indices, game,
             self_play_iters, num_train_steps, mcts_iters, c_puct,
             batch_size=32):
-    # TODO: write better docstring
+    # TODO: write better docstring and test this
     """Runs AlphaGo on the game.
 
     Parameters
@@ -77,20 +77,16 @@ def train(evaluator, train_function, action_indices, game,
                 pbar.update(100)
 
 
-def self_play(game, evaluator, mcts_iters, c_puct):
-    """Plays a game using MCTS to choose actions for both players.
+def self_play(game, players):
+    """Plays a two player game.
 
     Parameters
     ----------
     game: Game
         An object representing the game to be played.
-    evaluator: func
-        An evaluator.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS.
-
+    players: dict of Player
+        An dictionary with keys the player numbers and values the players.
+        
     Returns
     -------
     game_state_list: list
@@ -103,26 +99,25 @@ def self_play(game, evaluator, mcts_iters, c_puct):
         action_probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
-    node = MCTSNode(game.INITIAL_STATE, game.which_player(game.INITIAL_STATE))
-
-    game_state_list = [node.game_state]
+    game_state = game.INITIAL_STATE
+    game_state_list = [game_state]
     action_probs_list = []
 
-    while not node.is_terminal:
+    while not game.is_terminal(game_state):
         # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, game, evaluator, mcts_iters, c_puct)
+        player_no = game.which_player(game_state)
+        action_probs = players[player_no].action_probabilities(game_state)
 
         # Choose the action according to the action probabilities.
-        actions, probs = zip(*action_probs.items())
-        action_ix = np.random.choice(len(actions), p=probs)
-        action = actions[action_ix]
+        action = sample_distribution(action_probs)
 
         # Play the action
-        node = node.children[action]
+        next_states = game.compute_next_states(game_state)
+        game_state = next_states[action]
 
         # Add the action probabilities and game state to the list.
         action_probs_list.append(action_probs)
-        game_state_list.append(node.game_state)
+        game_state_list.append(game_state)
 
     return game_state_list, action_probs_list
 
