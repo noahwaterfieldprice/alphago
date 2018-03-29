@@ -1,6 +1,6 @@
 import numpy as np
 
-from alphago.alphago import build_training_data, self_play
+from alphago.alphago import build_training_data, play
 from alphago.estimator import create_trivial_estimator
 from alphago.games import noughts_and_crosses as nac
 from alphago.player import MCTSPlayer
@@ -16,7 +16,7 @@ def test_mcts_can_self_play_fake_game():
     player2 = MCTSPlayer(2, mock_game, mock_game.mock_estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
-    states, action_probs = self_play(mock_game, players)
+    states, action_probs = play(mock_game, players)
 
     assert states[0] == mock_game.INITIAL_STATE
     assert len(states) == 4
@@ -29,7 +29,7 @@ def test_mcts_can_self_play_noughts_and_crosses():
     player2 = MCTSPlayer(2, nac, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
-    game_states, action_probs = self_play(nac, players)
+    game_states, action_probs = play(nac, players)
 
     assert len(action_probs) == len(game_states) - 1
     assert nac.is_terminal(game_states[-1])

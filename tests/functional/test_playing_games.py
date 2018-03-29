@@ -23,7 +23,6 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
     (nac.INITIAL_STATE, (0, 0)),
     ((1, 1, np.nan, np.nan, np.nan, np.nan, -1, -1, np.nan), (0, 2)),
     ((1, -1, 1, 1, np.nan, -1, np.nan, 1, np.nan), (2, 0)),
-
 ])
 def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_action):
     estimator = create_trivial_estimator(nac.compute_next_states)

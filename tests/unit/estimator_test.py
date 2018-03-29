@@ -1,9 +1,9 @@
 import numpy as np
 
-from alphago.estimator import create_trivial_estimator, BasicNACNet
+from alphago.estimator import create_trivial_estimator, NACNetEstimator
 from alphago import mcts, MCTSNode
 from .games import mock_game
-from .mock_estimator import MockNet
+from .mock_estimator import MockNetEstimator
 
 
 def test_trivial_estimator():
@@ -13,44 +13,43 @@ def test_trivial_estimator():
 
 
 def test_initialising_basic_net_with_random_parameters():
-    nnet = BasicNACNet()
-    tensor_dict = nnet._initialise_net()
+    nnet = NACNetEstimator()
 
     # Initialise state of all 1s.
     states = np.ones((7, 9))
     pis = np.random.rand(7, 9)
     outcomes = np.random.rand(7, 1)
 
-    nnet.sess.run(tensor_dict['loss'],
-                  feed_dict={tensor_dict['state_vector']: states,
-                             tensor_dict['pi']: pis,
-                             tensor_dict['outcomes']: outcomes})
+    nnet.sess.run(nnet.tensors['loss'],
+                  feed_dict={nnet.tensors['state_vector']: states,
+                             nnet.tensors['pi']: pis,
+                             nnet.tensors['outcomes']: outcomes})
 
 
 def test_neural_net_estimator():
-    nnet = MockNet(input_dim=1, output_dim=3)
+    nnet = MockNetEstimator(input_dim=1, output_dim=3)
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, nnet.estimate, 100, 1.0)
+    action_probs = mcts(root, mock_game, nnet, 100, 1.0)
 
 
 def test_neural_net_estimate_game_state():
-    nnet = BasicNACNet()
+    nnet = NACNetEstimator()
 
     test_game_state = np.random.randn(7, 9)
 
-    computed = nnet.estimate(test_game_state)
+    computed = nnet(test_game_state)
 
 
 def test_can_use_two_neural_nets():
     np.random.seed(0)
-    nnet1 = BasicNACNet()
-    nnet2 = BasicNACNet()
+    nnet1 = NACNetEstimator()
+    nnet2 = NACNetEstimator()
 
     test_game_state = np.random.randn(7, 9)
 
-    computed1 = nnet1.estimate(test_game_state)
-    computed2 = nnet2.estimate(test_game_state)
+    computed1 = nnet1(test_game_state)
+    computed2 = nnet2(test_game_state)
 
     # Check that the outputs are different. Since the input to both nets is the
     # same, this tests whether the nets are different.
@@ -60,7 +59,7 @@ def test_can_use_two_neural_nets():
 
 def test_basic_nac_net_tensor_shapes():
     np.random.seed(0)
-    nnet = BasicNACNet()
+    nnet = NACNetEstimator()
 
     batch_size = 5
 

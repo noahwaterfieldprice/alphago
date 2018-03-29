@@ -1,5 +1,5 @@
 import alphago.games.noughts_and_crosses as nac
-from alphago import self_play
+from alphago import play
 from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer, RandomPlayer
 
@@ -15,9 +15,9 @@ if __name__ == "__main__":
 
     # I think this doesn't work because before the nodes were explicitly
     # expanded by the MCTS algorithm before - now this is called contained
-    # inside the player object so maybe they dont interact in the self_play
+    # inside the player object so maybe they dont interact in the play
     # function?
-    game_states_list, _ = self_play(nac, players)
+    game_states_list, _ = play(nac, players)
 
     for state in game_states_list:
         nac.display(state)

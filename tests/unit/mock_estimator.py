@@ -2,11 +2,11 @@ import numpy as np
 import tensorflow as tf
 
 
-class MockNet:
+class MockNetEstimator:
     def __init__(self, input_dim, output_dim):
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.tensors = self._initialise_net()
+        self._initialise_net()
 
     def _initialise_net(self):
         """Initiliase a 4-layer dense neural network for arbitrary
@@ -29,9 +29,9 @@ class MockNet:
 
         tensors = [state_vector, values, prob_logits, probs]
         names = "state_vector values prob_logits probs".split()
-        return {name: tensor for name, tensor in zip(names, tensors)}
+        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
-    def estimate(self, state):
+    def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
         'probs' and 'values'
 
