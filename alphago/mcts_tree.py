@@ -314,9 +314,6 @@ def backup(nodes, values):
         parent_player = node.player
 
 
-
-
-
 def print_tree(root):
     """Prints the tree rooted at 'root'. Prints in pre-order.
     """

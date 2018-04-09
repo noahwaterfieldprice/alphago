@@ -8,7 +8,7 @@ from alphago.estimator import create_trivial_estimator
 
 def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
     player = RandomPlayer(game=nac, player_no=1)
-    action_probs = player.action_probabilities(nac.INITIAL_STATE)
+    action, action_probs = player.choose_action(nac.INITIAL_STATE)
 
     next_states = nac.compute_next_states(nac.INITIAL_STATE)
     expected_action_probs = {action: 1 / len(next_states)
@@ -28,6 +28,6 @@ def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_acti
     estimator = create_trivial_estimator(nac.compute_next_states)
     player = MCTSPlayer(game=nac, player_no=1, estimator=estimator,
                         mcts_iters=100, c_puct=0.5)
-    action_probs = player.action_probabilities(state)
+    action, action_probs = player.choose_action(state)
 
     assert optimal_action == max(action_probs, key=action_probs.get)
