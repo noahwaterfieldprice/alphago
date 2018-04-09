@@ -38,9 +38,7 @@ def test_evaluator_on_noughts_and_crosses():
 
     player1_results = evaluator.evaluate(nac, players, 20)
 
-    # Just for consistency -- there is no rationale here. Hopefully the number
-    # of wins for player 1 and player 2 should be similar.
-    assert player1_results == {1: 9, -1: 4, 0: 7}
+    # TODO: Test something here!
 
 
 # def test_evaluator_on_noughts_and_crosses_with_nets():

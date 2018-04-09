@@ -8,7 +8,7 @@ __all__ = ["train", "play", "self_play_multiple", "build_training_data"]
 
 def train(game, players, action_indices, self_play_iters,
           training_iters, batch_size=32):
-    """Runs AlphaGo on the game. 
+    """Runs AlphaGo on the game.
 
     Parameters
     ----------
@@ -78,8 +78,6 @@ def self_play(game, player):
     pass
 
 
-
-
 def play(game, players):
     """Plays a two player game.
 
@@ -89,7 +87,7 @@ def play(game, players):
         An object representing the game to be played.
     players: dict of Player
         An dictionary with keys the player numbers and values the players.
-        
+
     Returns
     -------
     game_state_list: list
@@ -109,7 +107,7 @@ def play(game, players):
     while not game.is_terminal(game_state):
         # First run MCTS to compute action probabilities.
         player_no = game.which_player(game_state)
-        action_probs = players[player_no].action_probabilities(game_state)
+        action, action_probs = players[player_no].choose_action(game_state)
 
         # Choose the action according to the action probabilities.
         action = sample_distribution(action_probs)

@@ -25,7 +25,8 @@ def compute_distribution(d):
     return prob_distribution
 
 
-def sample_distribution(distribution): # TODO: write docstring and UTs
+def sample_distribution(distribution):
+    # TODO: write docstring and UTs
     """
 
     Parameters
