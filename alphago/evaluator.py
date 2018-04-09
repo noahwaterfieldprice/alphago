@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-from .alphago import play
+from alphago.utilities import sample_distribution
 
 
 def evaluate(game, players, num_games):
@@ -27,3 +27,48 @@ def evaluate(game, players, num_games):
                 player1_results[draw]))
 
     return player1_results
+
+
+def play(game, players):
+    """Plays a two player game.
+
+    Parameters
+    ----------
+    game: Game
+        An object representing the game to be played.
+    players: dict of Player
+        An dictionary with keys the player numbers and values the players.
+
+    Returns
+    -------
+    game_state_list: list
+        A list of game states encountered in the self-play game. Starts
+        with the initial state and ends with a terminal state.
+    action_probs_list: list
+        A list of action probability dictionaries, as returned by MCTS
+        each time the algorithm has to take an action. The ith action
+        probabilities dictionary corresponds to the ith game_state, and
+        action_probs_list has length one less than game_state_list,
+        since we don't have to move in a terminal state.
+    """
+    game_state = game.INITIAL_STATE
+    game_state_list = [game_state]
+    action_probs_list = []
+
+    while not game.is_terminal(game_state):
+        # First run MCTS to compute action probabilities.
+        player_no = game.which_player(game_state)
+        action, action_probs = players[player_no].choose_action(game_state)
+
+        # Choose the action according to the action probabilities.
+        action = sample_distribution(action_probs)
+
+        # Play the action
+        next_states = game.compute_next_states(game_state)
+        game_state = next_states[action]
+
+        # Add the action probabilities and game state to the list.
+        action_probs_list.append(action_probs)
+        game_state_list.append(game_state)
+
+    return game_state_list, action_probs_list
