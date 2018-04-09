@@ -2,6 +2,10 @@ import abc
 
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm
+
+from .games import noughts_and_crosses as nac
+from .games import connect_four as cf
 
 
 def create_trivial_estimator(next_states_function):
@@ -93,13 +97,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
         batch_size: int
         training_iters: int
         """
-
-        assert len(training_data) > batch_size
-
-        for _ in range(training_iters):
+        losses = []
+        for _ in tqdm(range(training_iters)):
             batch_indices = np.random.choice(len(training_data), batch_size,
                                              replace=True)
-            batch_data = training_data[batch_indices]
+            batch_data = [training_data[i] for i in batch_indices]
 
             # Set up the states, probs, zs arrays.
             states = np.array([x[0] for x in batch_data])
@@ -118,17 +120,16 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
             # Update the global step
             self.global_step += 1
+            losses.append(loss)
 
-        return loss
+        return losses
 
-    def create_estimator(self, action_indices):
+    def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
 
-        Parameters
-        ----------
-        action_indices: dict
-            Dictionary with keys the available actions and values the index of
-            that action. Indices must be unique in 0, 1, .., #actions-1.
+        Note that we expect self.action_indices to be a dictionary with keys
+        the available actions and values the index of that action. Indices
+        must be unique in 0, 1, .., #actions-1.
 
         Returns
         -------
@@ -136,28 +137,28 @@ class AbstractNeuralNetEstimator(abc.ABC):
             A function that evaluates states.
         """
 
-        def estimator(state):
+        def estimate_fn(state):
             # Reshape the state if necessary so that it's 1 x 9. We should
             # only be evaluating one state at a time in this function.
             state = np.reshape(state, self.game_state_shape)
             state = np.nan_to_num(state)
 
             # Evaluate the network at the state
-            probs, values = self.estimate(state)
+            probs, values = self(state)
 
             # probs is currently an np array. Put the values into a
             # dictionary with keys the actions and values the probs.
-            probs_dict = {action: probs[action_indices[action]] for action in
-                          action_indices}
+            probs_dict = {action: probs[self.action_indices[action]] for
+                          action in self.action_indices}
 
             return probs_dict, values[0]
 
-        return estimator
+        return estimate_fn
 
     def save(self, save_file):
         """Saves the net to save_file.
         """
-        self.saver.save(self.sess, save_file, global_step=self.global_step)
+        self.saver.save(self.sess, save_file)
 
     def restore(self, save_file):
         """Restore the net from save_file.
@@ -177,6 +178,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
+        self.action_indices = nac.ACTION_INDICES
 
         # Use the graph to create the tensors
         with self.graph.as_default():
@@ -269,10 +271,11 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
+        self.action_indices = cf.ACTION_INDICES
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 6, 7,))
+            state_vector = tf.placeholder(tf.float32, shape=(None, 42,))
             pi = tf.placeholder(tf.float32, shape=(None, 7))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
@@ -280,6 +283,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
 
             l2_weight = 1e-4
             regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
+            is_training = tf.placeholder(tf.bool)
 
             conv1 = tf.contrib.layers.conv2d(
                 inputs=input_layer, num_outputs=8, kernel_size=[3, 3],
@@ -341,7 +345,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, values, prob_logits, probs,
-                   loss, loss_value, loss_probs]
+                   loss, loss_value, loss_probs, is_training]
         names = "state_vector outcomes pi values prob_logits probs loss " \
-                "loss_value loss_probs".split()
+                "loss_value loss_probs is_training".split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
