@@ -1,7 +1,5 @@
 import numpy as np
 
-from .utilities import compute_distribution
-
 __all__ = ["mcts", "MCTSNode"]
 
 
@@ -312,6 +310,32 @@ def backup(nodes, values):
 
         # Set the parent player as the player in the current node.
         parent_player = node.player
+
+
+def compute_distribution(d):
+    """Calculate a probability distribution with probabilities
+    proportional to the values in a dictionary
+
+    Parameters
+    ----------
+    d: dict
+        A dictionary with values equal to positive floats.
+
+    Returns
+    -------
+    prob_distribution: dict:
+        A probability distribution proportional to the values of d,
+        given as a dictionary with keys equal to those of d and values
+        the probability corresponding to the value.
+    """
+    total = sum(d.values())
+    assert min(d.values()) >= 0
+    assert total > 0
+    prob_distribution = {k: float(v) / float(total)
+                         for k, v in d.items()}
+    return prob_distribution
+
+
 
 
 def print_tree(root):

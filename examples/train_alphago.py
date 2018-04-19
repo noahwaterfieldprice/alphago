@@ -1,4 +1,3 @@
-
 import argparse
 
 from alphago.games import noughts_and_crosses as nac

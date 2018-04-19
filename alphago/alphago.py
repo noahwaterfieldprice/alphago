@@ -5,6 +5,7 @@ from alphago.evaluator import play
 from .player import MCTSPlayer
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
+from .utilities import sample_distribution
 
 __all__ = ["train_alphago", "train", "self_play", "build_training_data"]
 
@@ -249,9 +250,10 @@ def self_play(game, estimator, mcts_iters, c_puct):
         action_probs = mcts(node, game, estimator, mcts_iters, c_puct)
 
         # Choose the action according to the action probabilities.
-        actions, probs = zip(*action_probs.items())
-        action_ix = np.random.choice(len(actions), p=probs)
-        action = actions[action_ix]
+        action = sample_distribution(action_probs)
+        # actions, probs = zip(*action_probs.items())
+        # action_ix = np.random.choice(len(actions), p=probs)
+        # action = actions[action_ix]
 
         # Play the action
         node = node.children[action]

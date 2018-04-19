@@ -29,25 +29,14 @@ INITIAL_STATE:
 
 import numpy as np
 
+from ..utilities import memoize
+
 __all__ = ["INITIAL_STATE", "ACTION_SPACE", "ACTION_INDICES", "is_terminal",
            "which_player", "compute_next_states", "utility", "display"]
 
 INITIAL_STATE = (np.nan, ) * 9
 ACTION_SPACE = [(i, j) for i in range(3) for j in range(3)]
 ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
-
-
-def memoize(func):
-    cache = dict()
-
-    def memoized_func(*args):
-        if args in cache:
-            return cache[args]
-        result = func(*args)
-        cache[args] = result
-        return result
-
-    return memoized_func
 
 
 @memoize
