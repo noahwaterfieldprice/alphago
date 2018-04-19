@@ -25,6 +25,7 @@ if __name__ == "__main__":
 
         def create_estimator():
             return NACNetEstimator(learning_rate=learning_rate)
+
     elif args.game == "connect_four":
         game = cf
 
@@ -34,7 +35,7 @@ if __name__ == "__main__":
         raise ValueError("Game not implemented.")
 
     action_indices = game.ACTION_INDICES
-    self_play_iters = 1000
+    self_play_iters = 100
     training_iters = 10000
     evaluate_every = 2
     alphago_steps = 1000
