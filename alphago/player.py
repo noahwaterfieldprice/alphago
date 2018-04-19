@@ -12,7 +12,7 @@ class AbstractPlayer:
         self.player_no = player_no  # TODO: do Players need to know this
         self.game = game
 
-    def choose_action(self, game_state, return_probabilities=False):
+    def choose_action(self, game_state):
         raise NotImplementedError
 
     def __repr__(self):
@@ -35,14 +35,15 @@ class RandomPlayer(AbstractPlayer):
 
 class MCTSPlayer(AbstractPlayer):
 
-    def __init__(self, player_no, game, estimator, mcts_iters, c_puct):
+    def __init__(self, player_no, game, estimator, mcts_iters, c_puct, tau=1):
         super().__init__(player_no, game)
         self.estimator = estimator
         self.mcts_iters = mcts_iters
         self.c_puct = c_puct
+        self.tau = tau
 
-    def choose_action(self, game_state, return_probabilities=False,
-                      current_node=None):
+    def choose_action(self, game_state, current_node=None,
+                      return_probabilities=False):
         # TODO: need to test using existing MCTS tree vs creating new one
         if current_node is None:
             current_node = MCTSNode(game_state, self.player_no)
@@ -50,12 +51,10 @@ class MCTSPlayer(AbstractPlayer):
         assert current_node.game_state == game_state
 
         action_probs = mcts(current_node, self.game, self.estimator,
-                            self.mcts_iters, self.c_puct)
+                            self.mcts_iters, self.c_puct, self.tau)
 
         action = sample_distribution(action_probs)
 
-        if return_probabilities:
-            return action, action_probs
         return action
 
 
@@ -67,6 +66,6 @@ class OptimalPlayer(AbstractPlayer):  # TODO: Add UTs
         if return_probabilities:
             action_probs = {action: 1}
             return action, action_probs
-        return action,
+        return action
 
 

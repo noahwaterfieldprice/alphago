@@ -1,13 +1,12 @@
 import numpy as np
 from tqdm import tqdm
 
-from alphago.evaluator import play
 from .player import MCTSPlayer
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
 from .utilities import sample_distribution
 
-__all__ = ["train_alphago", "train", "self_play", "build_training_data"]
+__all__ = ["train_alphago", "self_play", "build_training_data"]
 
 
 def train_alphago(game, create_estimator, self_play_iters, training_iters,
@@ -147,51 +146,51 @@ def evaluate_in_both_positions(game, estimator1, estimator2, mcts_iters,
 
     return wins1, wins2, draws
 
-
-def train(game, players, action_indices, self_play_iters,
-          training_iters, batch_size=32):
-    """Runs AlphaGo on the game.
-
-    Parameters
-    ----------
-
-    game: Game
-        An object representing the game to be played.
-    players: dict of Player
-        An dictionary with keys the player numbers and values the players.
-    action_indices: dict
-        Dictionary with keys the possible actions in the game, and values the
-        index of that action.
-    self_play_iters: int
-        Number of iterations of self-play to run.
-    training_iters: int
-        Number of training steps to take.
-    batch_size: int
-    """  # TODO: write better docstring and test this
-
-    all_training_data = []
-    losses = []
-    with tqdm(total=self_play_iters) as pbar:
-        for i in range(self_play_iters):
-            # Collect training data
-            game_states, action_probs = play(game, players)
-
-            training_data = build_training_data(
-                game_states, action_probs, game, action_indices)
-
-            # Append to our current training data
-            all_training_data.extend(training_data)
-
-            # Only keep the most recent training data
-            all_training_data = all_training_data[-10000:]
-
-            # Update tqdm description
-            pbar.update(1)
-
-    players[0].estimator.train(all_training_data, batch_size, training_iters)
-
-
 #
+# def train(game, players, action_indices, self_play_iters,
+#           training_iters, batch_size=32):
+#     """Runs AlphaGo on the game.
+#
+#     Parameters
+#     ----------
+#
+#     game: Game
+#         An object representing the game to be played.
+#     players: dict of Player
+#         An dictionary with keys the player numbers and values the players.
+#     action_indices: dict
+#         Dictionary with keys the possible actions in the game, and values the
+#         index of that action.
+#     self_play_iters: int
+#         Number of iterations of self-play to run.
+#     training_iters: int
+#         Number of training steps to take.
+#     batch_size: int
+#     """  # TODO: write better docstring and test this
+#
+#     all_training_data = []
+#     losses = []
+#     with tqdm(total=self_play_iters) as pbar:
+#         for i in range(self_play_iters):
+#             # Collect training data
+#             game_states, action_probs = play(game, players)
+#
+#             training_data = build_training_data(
+#                 game_states, action_probs, game, action_indices)
+#
+#             # Append to our current training data
+#             all_training_data.extend(training_data)
+#
+#             # Only keep the most recent training data
+#             all_training_data = all_training_data[-10000:]
+#
+#             # Update tqdm description
+#             pbar.update(1)
+#
+#     players[0].estimator.train(all_training_data, batch_size, training_iters)
+#
+#
+# #
 # def train_alphago_estimator(num_train_steps, training_data, batch_size):
 #     # Don't train if we don't have enough training data for a batch.
 #     # TODO: Move batch_size to training function.

@@ -3,7 +3,7 @@ import numpy as np
 __all__ = ["mcts", "MCTSNode"]
 
 
-def mcts(starting_node, game, estimator, mcts_iters, c_puct):
+def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1):
     # TODO: write a better docstring!
     """Perform a MCTS from a given starting node
 
@@ -22,6 +22,12 @@ def mcts(starting_node, game, estimator, mcts_iters, c_puct):
     c_puct: float
         A hyperparameter determining the level of exploration in the
         select algorithm.
+    tau: float
+        A hyperparameter between 1 and 0 defining the 'temperature' of
+        the calculated probability distribution. Here, a value of 1
+        gives the true distribution based on node visit count and a value
+        tending to 0 extremises the distribution such that effectively
+        the most visited node has a corresponding probability of 1.
 
     Returns
     -------
@@ -82,7 +88,7 @@ def mcts(starting_node, game, estimator, mcts_iters, c_puct):
 
     action_counts = {action: child.N
                      for action, child in starting_node.children.items()}
-    return compute_distribution(action_counts)
+    return compute_distribution(action_counts, tau)
 
 
 class MCTSNode:
@@ -312,7 +318,8 @@ def backup(nodes, values):
         parent_player = node.player
 
 
-def compute_distribution(d):
+def compute_distribution(d, tau):
+    # TODO: update docstring for tau parameter
     """Calculate a probability distribution with probabilities
     proportional to the values in a dictionary
 
@@ -328,11 +335,14 @@ def compute_distribution(d):
         given as a dictionary with keys equal to those of d and values
         the probability corresponding to the value.
     """
-    total = sum(d.values())
+    assert tau > 0
     assert min(d.values()) >= 0
+    max_value = max(d.values())
+    d_tau = {k: (v / max_value) ** (1 / tau) for k, v in d.items()}
+    total = sum(d_tau.values())
     assert total > 0
-    prob_distribution = {k: float(v) / float(total)
-                         for k, v in d.items()}
+
+    prob_distribution = {k: v / total for k, v in d_tau.items()}
     return prob_distribution
 
 

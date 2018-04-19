@@ -1,5 +1,9 @@
 from tqdm import tqdm
 
+from collections import namedtuple
+
+GameLog = namedtuple("GameLog", "result actions game_states".split())
+
 
 def evaluate(game, players, num_games):
     """Compare two evaluators. Returns the number of evaluator1 wins
@@ -9,12 +13,13 @@ def evaluate(game, players, num_games):
 
     win, loss, draw = 1, -1, 0
     player1_results = {win: 0, loss: 0, draw: 0}
+    game_logs = []
 
     with tqdm(total=num_games) as pbar:
         for game_no in range(num_games):
-            game_state_list, _ = play(game, players)
+            actions, game_states = play(game, players)
 
-            utility = game.utility(game_state_list[-1])
+            utility = game.utility(game_states[-1])
             player1_result = utility[1]
 
             player1_results[player1_result] += 1
@@ -24,7 +29,9 @@ def evaluate(game, players, num_games):
                 player1_results[win], player1_results[loss],
                 player1_results[draw]))
 
-    return player1_results
+            game_logs.append(GameLog(player1_result, actions, game_states))
+
+    return player1_results, game_logs
 
 
 def play(game, players):
@@ -42,29 +49,21 @@ def play(game, players):
     game_state_list: list
         A list of game states encountered in the self-play game. Starts
         with the initial state and ends with a terminal state.
-    action_probs_list: list
-        A list of action probability dictionaries, as returned by MCTS
-        each time the algorithm has to take an action. The ith action
-        probabilities dictionary corresponds to the ith game_state, and
-        action_probs_list has length one less than game_state_list,
-        since we don't have to move in a terminal state.
     """
     game_state = game.INITIAL_STATE
-    game_state_list = [game_state]
-    action_probs_list = []
+    game_states = [game_state]
+    actions = []
 
     while not game.is_terminal(game_state):
         # First run MCTS to compute action probabilities.
         player_no = game.which_player(game_state)
-        action, action_probs = players[player_no].choose_action(
-            game_state, return_probabilities=True)
+        action = players[player_no].choose_action(game_state)
 
         # Play the action
         next_states = game.compute_next_states(game_state)
         game_state = next_states[action]
 
-        # Add the action probabilities and game state to the list.
-        action_probs_list.append(action_probs)
-        game_state_list.append(game_state)
+        actions.append(action)
+        game_states.append(game_state)
 
-    return game_state_list, action_probs_list
+    return actions, game_states
