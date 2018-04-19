@@ -1,7 +1,5 @@
 from tqdm import tqdm
 
-from alphago.utilities import sample_distribution
-
 
 def evaluate(game, players, num_games):
     """Compare two evaluators. Returns the number of evaluator1 wins
@@ -58,10 +56,8 @@ def play(game, players):
     while not game.is_terminal(game_state):
         # First run MCTS to compute action probabilities.
         player_no = game.which_player(game_state)
-        action, action_probs = players[player_no].choose_action(game_state)
-
-        # Choose the action according to the action probabilities.
-        action = sample_distribution(action_probs)
+        action, action_probs = players[player_no].choose_action(
+            game_state, return_probabilities=True)
 
         # Play the action
         next_states = game.compute_next_states(game_state)

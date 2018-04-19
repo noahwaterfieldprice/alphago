@@ -6,23 +6,12 @@ not full).
 
 import numpy as np
 
+from ..utilities import memoize
+
 
 INITIAL_STATE = (np.nan,) * 42
 ACTION_SPACE = [i for i in range(7)]
 ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
-
-
-def memoize(func):
-    cache = dict()
-
-    def memoized_func(*args):
-        if args in cache:
-            return cache[args]
-        result = func(*args)
-        cache[args] = result
-        return result
-
-    return memoized_func
 
 
 @memoize
