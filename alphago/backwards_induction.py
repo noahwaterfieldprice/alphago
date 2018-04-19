@@ -1,3 +1,4 @@
+from .utilities import memoize
 
 
 def solve_game(best_actions, game, state):
@@ -26,6 +27,7 @@ def solve_game(best_actions, game, state):
         return child_utilities[best_action], best_action
 
 
+@memoize
 def backwards_induction(game, state):
     """Returns the value of the state (to both players) and the optimal move to
     play in this state.
