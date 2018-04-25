@@ -1,5 +1,5 @@
 import alphago.games.noughts_and_crosses as nac
-from alphago import play
+from alphago.evaluator import play
 from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer, RandomPlayer
 

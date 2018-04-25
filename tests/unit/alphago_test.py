@@ -1,6 +1,7 @@
 import numpy as np
 
-from alphago.alphago import build_training_data, play
+from alphago.alphago import build_training_data
+from alphago.evaluator import play
 from alphago.estimator import create_trivial_estimator
 from alphago.games import noughts_and_crosses as nac
 from alphago.player import MCTSPlayer
