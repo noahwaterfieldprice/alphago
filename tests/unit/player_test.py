@@ -47,16 +47,16 @@ class TestMCTSPlayer(TestAbstractPlayer):
 
         mock_mcts = mocker.patch("alphago.player.mcts")
         mock_mcts_node = mocker.MagicMock()
-        mock_mcts_node.game_state = 0
+        mock_mcts_node.game_state = mock_game.INITIAL_STATE
         mock_mcts_node_constructor = mocker.patch(
             "alphago.player.MCTSNode", return_value=mock_mcts_node)
 
         mocker.patch("alphago.player.sample_distribution",
                      return_value="some_action")
 
-        arg_names = ("game", "player_no", "estimator", "mcts_iters",
-                     "c_puct", "tau")
-        args = (mock_game, 1, mock_estimator, 20, 0.5, 1)
+        arg_names = ("game", "estimator", "mcts_iters",
+                     "c_puct", "tau", "current_node")
+        args = (mock_game, mock_estimator, 20, 0.5, 1, None)
         player_info = {key: value for key, value in zip(arg_names, args)}
         mock_player = mocker.MagicMock(**player_info)
         mock_player.choose_action = MCTSPlayer.choose_action
@@ -64,11 +64,12 @@ class TestMCTSPlayer(TestAbstractPlayer):
         mock_player.choose_action(mock_player, mock_game.INITIAL_STATE)
         mock_mcts_node_constructor.assert_called_once_with(
             mock_game.INITIAL_STATE, 1)
-        expected_args = (mock_mcts_node, mock_game, mock_estimator) + args[3:]
+        expected_args = (mock_mcts_node, mock_game, mock_estimator) + args[2:5]
         mock_mcts.assert_called_once_with(*expected_args)
 
     def test_calculating_action_probabilities(self, mocker):
         mock_player = mocker.MagicMock()
+        mock_player.current_node.game_state = mock_game.INITIAL_STATE
         mock_player.choose_action = MCTSPlayer.choose_action
 
         # Patch the mcts and sample_distribution functions. We have to patch

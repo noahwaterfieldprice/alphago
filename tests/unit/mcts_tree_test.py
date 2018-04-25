@@ -154,7 +154,7 @@ def test_compute_ucb():
     action_values = {'a': 1.0, 'b': 2.0, 'c': 3.0}
     prior_probs = {'a': 0.2, 'b': 0.5, 'c': 0.3}
     action_counts = {'a': 10, 'b': 20, 'c': 30}
-    num = 1.0 + np.sqrt(sum(action_counts.values()))
+    num = np.sqrt(sum(action_counts.values()))
     expected = {
         a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) *
         c_puct * num for a in action_values

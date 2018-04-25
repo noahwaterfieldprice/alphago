@@ -63,8 +63,8 @@ def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1):
             # there will be no next_states.
             child_states = game.compute_next_states(leaf.game_state)
 
-            # TODO: This should be replaced by a function that links the indices
-            # for the neural network output to the actions in the game.
+            # TODO: This should be replaced by a function that links the
+            # indices for the neural network output to the actions in the game.
             prior_probs = {action: prior_probs[action]
                            for action in child_states}
 
@@ -225,7 +225,7 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     # prior_probs if action_counts are 0. This is the case when we
     # select children for the first time, which is exactly the time
     # we want to be using prior_probs.
-    num = 1.0 + np.sqrt(sum(action_counts.values()))
+    num = np.sqrt(sum(action_counts.values()))
     # assert num > 0
     upper_confidence_bounds = {
         k: action_values[k] + prior_probs[k] / float(1 + action_counts[k]) *

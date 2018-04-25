@@ -7,7 +7,7 @@ from alphago.estimator import create_trivial_estimator
 
 
 def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
-    player = RandomPlayer(game=nac, player_no=1)
+    player = RandomPlayer(game=nac)
     action, action_probs = player.choose_action(nac.INITIAL_STATE,
                                                 return_probabilities=True)
 
@@ -26,9 +26,12 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
     ((1, -1, 1, 1, np.nan, -1, np.nan, 1, np.nan), (2, 0)),
 ])
 def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_action):
+    # seed the random number generator.
+    np.random.seed(0)
+
     estimator = create_trivial_estimator(nac.compute_next_states)
-    player = MCTSPlayer(game=nac, player_no=1, estimator=estimator,
-                        mcts_iters=100, c_puct=0.5, tau=1)
+    player = MCTSPlayer(game=nac, estimator=estimator, mcts_iters=100,
+                        c_puct=0.5, tau=1)
     action, action_probs = player.choose_action(state,
                                                 return_probabilities=True)
 
