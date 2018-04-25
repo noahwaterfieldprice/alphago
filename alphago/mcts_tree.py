@@ -3,7 +3,8 @@ import numpy as np
 __all__ = ["mcts", "MCTSNode"]
 
 
-def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1):
+def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1,
+         dirichlet_epsilon=0.25, dirichlet_alpha=0.03):
     # TODO: write a better docstring!
     """Perform a MCTS from a given starting node
 
@@ -28,6 +29,13 @@ def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1):
         gives the true distribution based on node visit count and a value
         tending to 0 extremises the distribution such that effectively
         the most visited node has a corresponding probability of 1.
+    dirichlet_epsilon: float
+        Mixes the prior probabilities for starting_node with Dirichlet
+        noise. Uses (1 - dirichlet_epsilon) * prior_prob +
+        dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
+        sampled from the Dirichlet distribution with parameter dirichlet_alpha.
+    dirichlet_alpha: float
+        The parameter to sample the Dirichlet distribution with.
 
     Returns
     -------
@@ -42,7 +50,9 @@ def mcts(starting_node, game, estimator, mcts_iters, c_puct, tau=1):
         # returns all nodes and actions taken, with the length of
         # actions being one less than the length of nodes. The last
         # element of nodes is the leaf node.
-        nodes, actions = select(starting_node, c_puct)
+        nodes, actions = select(starting_node, c_puct,
+                                dirichlet_epsilon=dirichlet_epsilon,
+                                dirichlet_alpha=dirichlet_alpha)
         leaf = nodes[-1]
 
         if not leaf.is_terminal:
@@ -233,7 +243,35 @@ def compute_ucb(action_values, prior_probs, action_counts, c_puct):
     return upper_confidence_bounds
 
 
-def select(starting_node, c_puct):
+def mix_dirichlet_noise(d, epsilon, alpha):
+    """Combine values in dictionary with Dirichlet noise. Samples
+    dirichlet_noise according to dirichlet_alpha in each component. Then
+    updates the value v for key k with (1-epsilon) * v + epsilon * noise_k.
+
+    Parameters
+    ----------
+    d: dict
+        Dictionary with floats as values.
+    epsilon: float
+        Mixes the prior probabilities for starting_node with Dirichlet
+        noise. Uses (1 - dirichlet_epsilon) * prior_prob +
+        dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
+        sampled from the Dirichlet distribution with parameter dirichlet_alpha.
+        Set to 0.0 if no Dirichlet perturbation.
+    alpha: float
+        The parameter to sample the Dirichlet distribution with.
+
+    Returns
+    -------
+    d: dict
+        The dictionary with perturbed values.
+    """
+    noise = np.random.dirichlet([alpha] * len(d))
+    return {k: (1 - epsilon) * v + epsilon * noise for ((k, v), noise) in zip(
+        d.items(), noise)}
+
+
+def select(starting_node, c_puct, dirichlet_epsilon=0.0, dirichlet_alpha=0.03):
     """Starting at a given node in the tree, traverse a path through
      child nodes until a leaf is reached. Return the sequence of nodes
      and actions taken along the path.
@@ -247,6 +285,14 @@ def select(starting_node, c_puct):
         The node in the tree from which to start selection algorithm.
     c_puct: float
         A hyperparameter determining the level of exploration.
+    dirichlet_epsilon: float
+        Mixes the prior probabilities for starting_node with Dirichlet
+        noise. Uses (1 - dirichlet_epsilon) * prior_prob +
+        dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
+        sampled from the Dirichlet distribution with parameter dirichlet_alpha.
+        Set to 0.0 if no Dirichlet perturbation.
+    dirichlet_alpha: float
+        The parameter to sample the Dirichlet distribution with.
 
     Returns
     -------
@@ -272,8 +318,12 @@ def select(starting_node, c_puct):
         action_counts = {action: child.N
                          for action, child in node.children.items()}
 
+        # Add Dirichlet noise to the prior probs.
+        prior_probs = mix_dirichlet_noise(node.prior_probs,
+                                          dirichlet_epsilon, dirichlet_alpha)
+
         # Compute the upper confidence bound values
-        upper_confidence_bounds = compute_ucb(action_values, node.prior_probs,
+        upper_confidence_bounds = compute_ucb(action_values, prior_probs,
                                               action_counts, c_puct)
 
         # Take action with largest ucb
