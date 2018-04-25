@@ -39,6 +39,8 @@ ACTION_SPACE = [(i, j) for i in range(3) for j in range(3)]
 ACTION_INDICES = {a: ACTION_SPACE.index(a) for a in ACTION_SPACE}
 
 
+__repr__ = "Game"
+
 @memoize
 def _calculate_line_sums(state):
     """Calculate line sums along horizontal and vertical directions
