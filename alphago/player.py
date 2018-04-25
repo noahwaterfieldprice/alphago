@@ -1,5 +1,3 @@
-import numpy as np
-
 from .utilities import sample_distribution
 
 from . import mcts, MCTSNode
@@ -55,6 +53,8 @@ class MCTSPlayer(AbstractPlayer):
 
         action = sample_distribution(action_probs)
 
+        if return_probabilities:
+            return action, action_probs
         return action
 
 

@@ -19,7 +19,7 @@ def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
     # Check the evaluators aren't equal.
     assert player1 is not player2
 
-    player1_results = evaluator.evaluate(mock_game, players, 100)
+    player1_results, _ = evaluator.evaluate(mock_game, players, 100)
 
     assert player1_results == {1: 100, -1: 0, 0: 0}
 
