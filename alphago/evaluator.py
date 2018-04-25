@@ -17,6 +17,9 @@ def evaluate(game, players, num_games):
 
     with tqdm(total=num_games) as pbar:
         for game_no in range(num_games):
+            for player in players.values():
+                player.reset()
+
             actions, game_states = play(game, players)
 
             utility = game.utility(game_states[-1])
@@ -55,13 +58,17 @@ def play(game, players):
     actions = []
 
     while not game.is_terminal(game_state):
-        # First run MCTS to compute action probabilities.
+        # first run MCTS to compute action probabilities.
         player_no = game.which_player(game_state)
         action = players[player_no].choose_action(game_state)
 
-        # Play the action
+        # play the action
         next_states = game.compute_next_states(game_state)
         game_state = next_states[action]
+
+        # update players with the played action
+        for player in players.values():
+            player.update(action)
 
         actions.append(action)
         game_states.append(game_state)

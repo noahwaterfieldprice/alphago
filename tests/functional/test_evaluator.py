@@ -3,8 +3,26 @@ import numpy as np
 import alphago.games.noughts_and_crosses as nac
 from ..unit.games import mock_game
 from alphago.estimator import create_trivial_estimator
-from alphago.player import MCTSPlayer
-from alphago import evaluator
+from alphago.player import RandomPlayer, MCTSPlayer
+from alphago.evaluator import evaluate, play
+
+
+def test_playing_two_random_players_against_each_other():
+    # Seed the random number generator.
+    np.random.seed(0)
+
+    player1 = RandomPlayer(mock_game)
+    player2 = RandomPlayer(mock_game)
+    players = {1: player1, 2: player2}
+
+    # Check the players aren't equal.
+    assert player1 is not player2
+
+    actions, game_states = play(mock_game, players)
+
+    assert mock_game.is_terminal(game_states[-1])
+    assert actions == [1, 1, 1]
+    assert game_states == [0, 2, 6, 17]
 
 
 def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
@@ -12,14 +30,14 @@ def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
     np.random.seed(0)
 
     estimator = create_trivial_estimator(mock_game.compute_next_states)
-    player1 = MCTSPlayer(1, mock_game, estimator, 100, 0.5)
-    player2 = MCTSPlayer(2, mock_game, estimator, 100, 0.5)
+    player1 = MCTSPlayer(mock_game, estimator, 100, 0.5)
+    player2 = MCTSPlayer(mock_game, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
-    # Check the evaluators aren't equal.
+    # Check the players aren't equal.
     assert player1 is not player2
 
-    player1_results, _ = evaluator.evaluate(mock_game, players, 100)
+    player1_results, _ = evaluate(mock_game, players, 100)
 
     assert player1_results == {1: 100, -1: 0, 0: 0}
 
@@ -29,14 +47,14 @@ def test_evaluator_on_noughts_and_crosses():
     np.random.seed(0)
 
     estimator = create_trivial_estimator(nac.compute_next_states)
-    player1 = MCTSPlayer(1, nac, estimator, 100, 0.5)
-    player2 = MCTSPlayer(2, nac, estimator, 100, 0.5)
+    player1 = MCTSPlayer(nac, estimator, 100, 0.5)
+    player2 = MCTSPlayer(nac, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
     # Check the evaluators aren't equal.
     assert player1 is not player2
 
-    player1_results = evaluator.evaluate(nac, players, 20)
+    player1_results = evaluate(nac, players, 20)
 
     # TODO: Test something here!
 
