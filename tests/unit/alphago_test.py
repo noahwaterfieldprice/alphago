@@ -12,16 +12,15 @@ from .games import mock_game
 
 
 def test_mcts_can_self_play_fake_game():
-
     player1 = MCTSPlayer(1, mock_game, mock_game.mock_estimator, 100, 0.5)
     player2 = MCTSPlayer(2, mock_game, mock_game.mock_estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
-    states, action_probs = play(mock_game, players)
+    actions, game_states = play(mock_game, players)
 
-    assert states[0] == mock_game.INITIAL_STATE
-    assert len(states) == 4
-    assert len(action_probs) == 3
+    assert len(actions) == 3
+    assert game_states[0] == mock_game.INITIAL_STATE
+    assert len(game_states) == 4
 
 
 def test_mcts_can_self_play_noughts_and_crosses():
@@ -30,11 +29,11 @@ def test_mcts_can_self_play_noughts_and_crosses():
     player2 = MCTSPlayer(2, nac, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
-    game_states, action_probs = play(nac, players)
+    actions, game_states = play(nac, players)
 
-    assert len(action_probs) == len(game_states) - 1
-    assert nac.is_terminal(game_states[-1])
+    assert len(actions) == len(game_states) - 1
     assert game_states[0] == nac.INITIAL_STATE
+    assert nac.is_terminal(game_states[-1])
 
 
 TRAINING_DATA_STATES = [

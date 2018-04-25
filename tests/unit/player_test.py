@@ -36,7 +36,7 @@ class TestRandomPlayer(TestAbstractPlayer):
                                  for action in next_states.keys()}
 
         action, action_probs = mock_player.choose_action(
-            mock_player, mock_game.INITIAL_STATE)
+            mock_player, mock_game.INITIAL_STATE, return_probabilities=True)
         assert action_probs == expected_action_probs
 
 
@@ -54,8 +54,9 @@ class TestMCTSPlayer(TestAbstractPlayer):
         mocker.patch("alphago.player.sample_distribution",
                      return_value="some_action")
 
-        arg_names = ("game", "player_no", "estimator", "mcts_iters", "c_puct")
-        args = (mock_game, 1, mock_estimator, 20, 0.5)
+        arg_names = ("game", "player_no", "estimator", "mcts_iters",
+                     "c_puct", "tau")
+        args = (mock_game, 1, mock_estimator, 20, 0.5, 1)
         player_info = {key: value for key, value in zip(arg_names, args)}
         mock_player = mocker.MagicMock(**player_info)
         mock_player.choose_action = MCTSPlayer.choose_action
@@ -78,6 +79,6 @@ class TestMCTSPlayer(TestAbstractPlayer):
                      return_value="some_action")
 
         action, action_probs = mock_player.choose_action(
-            mock_player, mock_game.INITIAL_STATE)
+            mock_player, mock_game.INITIAL_STATE, return_probabilities=True)
         assert action_probs == "some_action_probs"
         assert action == "some_action"

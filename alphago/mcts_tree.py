@@ -318,7 +318,7 @@ def backup(nodes, values):
         parent_player = node.player
 
 
-def compute_distribution(d, tau):
+def compute_distribution(d, tau=1):
     # TODO: update docstring for tau parameter
     """Calculate a probability distribution with probabilities
     proportional to the values in a dictionary
