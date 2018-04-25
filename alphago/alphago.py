@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 
-from .player import MCTSPlayer
+from .player import MCTSPlayer, RandomPlayer
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
 from .utilities import sample_distribution
@@ -93,18 +93,27 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
             # TODO: Implement evaluation
             # TODO: Refactor so the MCTSPlayer doesn't need to know player
             # number. It should be able to play in both positions.
+            # TODO: Choose tau more systematically.
 
-            print("Evaluating")
-            wins1, wins2, draws = evaluate_in_both_positions(
+            print("Evaluating. Self-player vs training, then training vs "
+                  "self-player")
+            wins1, wins2, draws = evaluate_estimators_in_both_positions(
                 game, self_play_player.create_estimate_fn(),
                 training_player.create_estimate_fn(), mcts_iters, c_puct,
-                num_evaluate_games)
+                num_evaluate_games, tau=0.1)
 
             print("Self-play player wins: {}, Training player wins: {}, "
                   "Draws: {}".format(wins1, wins2, draws))
             training_win_rate = wins2 / (wins1 + wins2 + draws)
             print("Win rate for training player: {}".format(
                 training_win_rate))
+
+            # Also evaluate against a random player
+            wins1, wins2, draws = evaluate_mcts_against_random_player(
+                game, training_player.create_estimate_fn(), mcts_iters,
+                c_puct, num_evaluate_games, tau=0.1)
+            print("Training player vs random. Wins: {}, Losses: {}, "
+                  "Draws: {}".format(wins1, wins2, draws))
 
             # Checkpoint the training player.
             checkpoint_name = checkpoint_path + "{}.checkpoint".format(
@@ -126,20 +135,42 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     return
 
 
-def evaluate_in_both_positions(game, estimator1, estimator2, mcts_iters,
-                               c_puct, num_evaluate_games):
+def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
+                                        c_puct, num_evaluate_games, tau):
     # Evaluate estimator1 vs estimator2.
-    players = {1: MCTSPlayer(1, game, estimator1, mcts_iters, c_puct),
-               2: MCTSPlayer(2, game, estimator2, mcts_iters, c_puct)}
-    player1_results = evaluate(game, players, num_evaluate_games)
+    players = {1: MCTSPlayer(1, game, estimator, mcts_iters, c_puct, tau=tau),
+               2: RandomPlayer(2, game)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 = player1_results[1]
     wins2 = player1_results[-1]
     draws = player1_results[0]
 
     # Evaluate estimator2 vs estimator1.
-    players = {1: MCTSPlayer(1, game, estimator2, mcts_iters, c_puct),
-               2: MCTSPlayer(2, game, estimator1, mcts_iters, c_puct)}
-    player1_results = evaluate(game, players, num_evaluate_games)
+    players = {1: RandomPlayer(1, game),
+               2: MCTSPlayer(2, game, estimator, mcts_iters, c_puct, tau=tau)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    wins1 += player1_results[-1]
+    wins2 += player1_results[1]
+    draws += player1_results[0]
+
+    return wins1, wins2, draws
+
+
+def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
+                                          mcts_iters, c_puct,
+                                          num_evaluate_games, tau):
+    # Evaluate estimator1 vs estimator2.
+    players = {1: MCTSPlayer(1, game, estimator1, mcts_iters, c_puct, tau=tau),
+               2: MCTSPlayer(2, game, estimator2, mcts_iters, c_puct, tau=tau)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    wins1 = player1_results[1]
+    wins2 = player1_results[-1]
+    draws = player1_results[0]
+
+    # Evaluate estimator2 vs estimator1.
+    players = {1: MCTSPlayer(1, game, estimator2, mcts_iters, c_puct, tau=tau),
+               2: MCTSPlayer(2, game, estimator1, mcts_iters, c_puct, tau=tau)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 += player1_results[-1]
     wins2 += player1_results[1]
     draws += player1_results[0]
@@ -244,9 +275,14 @@ def self_play(game, estimator, mcts_iters, c_puct):
     game_state_list = [node.game_state]
     action_probs_list = []
 
+    move_count = 0
+
     while not node.is_terminal:
+        # TODO: Choose this better.
+        tau = 1 / (move_count + 1)
+
         # First run MCTS to compute action probabilities.
-        action_probs = mcts(node, game, estimator, mcts_iters, c_puct)
+        action_probs = mcts(node, game, estimator, mcts_iters, c_puct, tau=tau)
 
         # Choose the action according to the action probabilities.
         action = sample_distribution(action_probs)
@@ -260,6 +296,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
         # Add the action probabilities and game state to the list.
         action_probs_list.append(action_probs)
         game_state_list.append(node.game_state)
+        move_count += 1
 
     return game_state_list, action_probs_list
 

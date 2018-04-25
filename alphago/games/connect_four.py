@@ -165,19 +165,19 @@ def compute_next_states(state):
 
     # Consider each column in turn.
     for col in range(7):
-        next_state = tuple(state)
+        next_state = np.array(state).reshape(6, 7)
 
         # If the top element in the column is open, then this column is an
         # available action.
-        if not np.isnan(state[0][col]):
+        if not np.isnan(next_state[0][col]):
             continue
 
         # Find the lowest open element in the column. Search from the bottom
         # until we find an np.nan.
         for row in reversed(range(6)):
-            if np.isnan(state[row][col]):
+            if np.isnan(next_state[row][col]):
                 next_state[row][col] = marker
-                next_states[col] = next_state
+                next_states[col] = tuple(next_state.ravel())
                 break
 
     return next_states

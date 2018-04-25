@@ -36,13 +36,13 @@ if __name__ == "__main__":
 
     action_indices = game.ACTION_INDICES
     self_play_iters = 100
-    training_iters = 10000
+    training_iters = 1000
     evaluate_every = 2
     alphago_steps = 1000
-    mcts_iters = 50
+    mcts_iters = 20
     c_puct = 1.0
     replay_length = 10000
-    num_evaluate_games = 50
+    num_evaluate_games = 20
     win_rate = 0.55
 
     train_alphago(game, create_estimator, self_play_iters=self_play_iters,

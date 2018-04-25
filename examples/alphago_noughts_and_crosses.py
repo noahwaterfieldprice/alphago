@@ -5,7 +5,7 @@ from alphago.estimator import create_trivial_estimator, BasicNACNet
 if __name__ == "__main__":
 
     net = BasicNACNet()
-    evaluator = net.create_estimator(nac.ACTION_INDICES)
+    evaluator = net.create_estimate_fn(nac.ACTION_INDICES)
     train_function = net.train
 
     mcts_tree.alpha_go(evaluator, train_function, nac.ACTION_INDICES,

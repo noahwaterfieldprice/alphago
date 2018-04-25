@@ -2,6 +2,7 @@ import alphago.games.noughts_and_crosses as nac
 from alphago.estimator import create_trivial_estimator
 from alphago.evaluator import evaluate
 from alphago.player import MCTSPlayer, OptimalPlayer
+from alphago.alphago import train
 
 
 def compare_against_optimal(game, player, num_games):
@@ -19,5 +20,8 @@ if __name__ == "__main__":
 
     num_games = 200
     trivial_estimator = create_trivial_estimator(nac.compute_next_states)
+
+    train(nac, )
+
     player = MCTSPlayer(1, nac, trivial_estimator, 10, 1)
     compare_against_optimal(nac, player, num_games)
