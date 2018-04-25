@@ -101,5 +101,3 @@ class OptimalPlayer(AbstractPlayer):  # TODO: Add UTs
             action_probs = {action: 1}
             return action, action_probs
         return action
-
-
