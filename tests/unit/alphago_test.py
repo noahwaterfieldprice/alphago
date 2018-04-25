@@ -12,8 +12,8 @@ from .games import mock_game
 
 
 def test_mcts_can_self_play_fake_game():
-    player1 = MCTSPlayer(1, mock_game, mock_game.mock_estimator, 100, 0.5)
-    player2 = MCTSPlayer(2, mock_game, mock_game.mock_estimator, 100, 0.5)
+    player1 = MCTSPlayer(mock_game, mock_game.mock_estimator, 100, 0.5)
+    player2 = MCTSPlayer(mock_game, mock_game.mock_estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
     actions, game_states = play(mock_game, players)
@@ -25,8 +25,8 @@ def test_mcts_can_self_play_fake_game():
 
 def test_mcts_can_self_play_noughts_and_crosses():
     estimator = create_trivial_estimator(nac.compute_next_states)
-    player1 = MCTSPlayer(1, nac, estimator, 100, 0.5)
-    player2 = MCTSPlayer(2, nac, estimator, 100, 0.5)
+    player1 = MCTSPlayer(nac, estimator, 100, 0.5)
+    player2 = MCTSPlayer(nac, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
 
     actions, game_states = play(nac, players)

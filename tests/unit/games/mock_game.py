@@ -10,6 +10,8 @@ NEXT_STATES_MAP = {
         3: (7, 8, 9), 4: (10, 11, 12), 5: (13, 14, 15), 6: (16, 17, 18)
 }
 
+__repr__ = "MockGame"
+
 
 def which_player(state):
     if is_terminal(state):
