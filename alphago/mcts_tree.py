@@ -396,8 +396,6 @@ def compute_distribution(d, tau=1):
     return prob_distribution
 
 
-
-
 def print_tree(root):
     """Prints the tree rooted at 'root'. Prints in pre-order.
     """
