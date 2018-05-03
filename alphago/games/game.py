@@ -10,7 +10,18 @@ class Game(abc.ABC):
 
     This abstract base class defines the minimal interface a Game
     object needs to implement to be able run MCTS on it.
+
+
+    Attributes
+    ----------
+    initial_state
+        The initial state of the game.
+    action_space
+        The space of all possible actions within the game.
     """
+
+    initial_state = None  # type: GameState
+    action_space = None  # type: Sequence[Action]
 
     @abc.abstractmethod
     def which_player(self, state: GameState) -> int:
