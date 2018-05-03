@@ -6,20 +6,84 @@ from alphago.games import connect_four as cf
 
 def test_connect_four_initial_state():
     assert np.shape(cf.INITIAL_STATE) == (42,)
-    assert np.isnan(cf.INITIAL_STATE).all()
+    assert ~np.any(cf.INITIAL_STATE)
 
 
 def test_compute_next_states_on_full_column():
     # Full first column
-    state = tuple(1 if i % 7 == 0 else np.nan for i in range(42))
+    state = tuple(1 if i % 7 == 0 else 0 for i in range(42))
 
     expected_next_actions = list(range(1, 7))
     computed = cf.compute_next_states(state)
     assert expected_next_actions == list(computed.keys())
 
 
-SUB_GRIDS = [(1, 1, 0, 0, 0, 1, -1, 0, np.nan, 1, 0, 1, 1, np.nan, 0, 1),
-             (np.nan,) * 16]
+NEXT_STATES_STATES = [
+    (0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, -1, 0, 0,
+     0, 1, -1, 0, 1, 0, 0)
+]
+
+
+NEXT_NEXT_STATES_STATES = [
+    {0: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, -1, 0, 0,
+         1, 1, -1, 0, 1, 0, 0),
+     1: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 1, 0, 0, -1, 0, 0,
+         0, 1, -1, 0, 1, 0, 0),
+     2: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 1, 0, -1, 0, 0,
+         0, 1, -1, 0, 1, 0, 0),
+     3: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, -1, 0, 0,
+         0, 1, -1, 1, 1, 0, 0),
+     4: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 1, 0, 0,
+         0, 0, 0, 0, -1, 0, 0,
+         0, 1, -1, 0, 1, 0, 0),
+     5: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, -1, 0, 0,
+         0, 1, -1, 0, 1, 1, 0),
+     6: (0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, -1, 0, 0,
+         0, 1, -1, 0, 1, 0, 1)}
+]
+
+
+@pytest.mark.parametrize("state, expected_next_states",
+                         zip(NEXT_STATES_STATES, NEXT_NEXT_STATES_STATES))
+def test_compute_next_states(state, expected_next_states):
+    next_states = cf.compute_next_states(state)
+    for a, v in next_states.items():
+        assert next_states[a] == expected_next_states[a]
+
+
+SUB_GRIDS = [(1, 1, 0, 0, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0, 0, 1),
+             (0,) * 16]
 
 EXPECTED_LINE_SUMS = [
     [2, 0, 2, 2, 2, 3, -1, 2, 3, 1],
@@ -39,26 +103,26 @@ TERMINAL_STATES = [
     (-1,) * 42,     # All -1s
     tuple(-1 ** i for i in range(42)),
 
-    (np.nan, np.nan, np.nan, np.nan, 1.0, np.nan, np.nan,
-     np.nan, np.nan, np.nan, 1.0, np.nan, np.nan, np.nan,
-     np.nan, np.nan, 1.0, np.nan, np.nan, np.nan, np.nan,
-     np.nan, 1.0, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+    (0, 0, 0, 0, 1, 0, 0,
+     0, 0, 0, 1, 0, 0, 0,
+     0, 0, 1, 0, 0, 0, 0,
+     0, 1, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0),
 
-    (-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+    (-1, 0, 0, 0, 0, 0, 0,
+     0, -1, 0, 0, 0, 0, 0,
+     0, 0, -1, 0, 0, 0, 0,
+     0, 0, 0, -1, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0),
 
-    (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     1.0, 1.0, 1.0, 1.0, np.nan, np.nan, np.nan),
+    (0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     1, 1, 1, 1, 0, 0, 0),
 ]
 
 
@@ -67,13 +131,50 @@ def test_is_terminal_returns_true_for_terminal_states(state):
     assert cf.is_terminal(state) is True
 
 
+UTILITY_STATES = [
+    (0, 0, 0, 0, 1, 0, 0,
+     0, 0, 0, 1, 0, 0, 0,
+     0, 0, 1, 0, 0, 0, 0,
+     0, 1, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0),
+
+    (-1, 0, 0, 0, 0, 0, 0,
+     0, -1, 0, 0, 0, 0, 0,
+     0, 0, -1, 0, 0, 0, 0,
+     0, 0, 0, -1, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0),
+
+    (0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     1, 1, 1, 1, 0, 0, 0),
+]
+
+EXPECTED_UTILITIES = [
+    {1: 1, 2: -1},
+    {1: -1, 2: 1},
+    {1: 1, 2: -1}
+]
+
+
+@pytest.mark.parametrize("state, expected_utility",
+                         zip(UTILITY_STATES, EXPECTED_UTILITIES))
+def test_utility(state, expected_utility):
+    u = cf.utility(state)
+    assert u == expected_utility
+
+
 STATES = [
-    (-1.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, -1.0, np.nan, np.nan, np.nan, np.nan, 1.0,
-     np.nan, np.nan, -1.0, np.nan, np.nan, np.nan, np.nan,
-     1.0, np.nan, np.nan, -1.0, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-     np.nan, np.nan, np.nan, np.nan, np.nan, 1.0, np.nan)]
+    (-1, 0, 0, 0, 0, 0, 0,
+     0, -1, 0, 0, 0, 0, 1,
+     0, 0, -1, 0, 0, 0, 0,
+     1, 0, 0, -1, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 1, 0)]
 
 div = "---+---+---+---+---+---+---"
 # additional newline character accounts for the one added to the output
