@@ -1,1 +1,1 @@
-__all__ = ["connect_four", "noughts_and_crosses"]
+from .noughts_and_crosses import NoughtsAndCrosses

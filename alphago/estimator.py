@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
-from .games import noughts_and_crosses as nac
+from .games import NoughtsAndCrosses
 from .games import connect_four as cf
 
 
@@ -178,7 +178,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
-        self.action_indices = nac.ACTION_INDICES
+        self.action_indices = nac.action_indices
 
         # Use the graph to create the tensors
         with self.graph.as_default():
@@ -271,7 +271,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
-        self.action_indices = cf.ACTION_INDICES
+        self.action_indices = cf.action_indices
 
         # Use the graph to create the tensors
         with self.graph.as_default():

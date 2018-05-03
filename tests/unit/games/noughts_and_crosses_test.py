@@ -1,11 +1,13 @@
-import numpy as np
 import pytest
 
-from alphago.games import noughts_and_crosses as nac
+from alphago.games import NoughtsAndCrosses
 
 
-def test_noughts_and_crosses_initial_state():
-    assert nac.INITIAL_STATE == (np.nan,) * 9
+def test_noughts_and_crosses_initial_state(mocker):
+    mock = mocker.MagicMock()
+    NoughtsAndCrosses.__init__(mock)
+
+    assert mock.initial_state == (0,) * 9
 
 
 terminal_states = [
@@ -13,26 +15,28 @@ terminal_states = [
     (1, -1, -1, -1, 1, 1, -1, 1, 1),  # 1s negative diagonal
     (1, 1, 1, 1, -1, -1, 1, -1, -1),  # 1s top line and left side
     (1, -1, 1, -1, 1, -1, 1, -1, 1),  # 1s both diagonals
-    (-1, 1, np.nan, -1, 1, 1, -1, -1, 1),  # -1s left side
-    (1, np.nan, -1, -1, -1, 1, -1, 1, 1),  # -1s positive diagonal
+    (-1, 1, 0, -1, 1, 1, -1, -1, 1),  # -1s left side
+    (1, 0, -1, -1, -1, 1, -1, 1, 1),  # -1s positive diagonal
     (1, 1, -1, -1, -1, 1, 1, -1, 1),  # draw
 ]
 
 
 @pytest.mark.parametrize("state", terminal_states)
-def test_is_terminal_returns_true_for_terminal_states(state):
+def test_is_terminal_returns_true_for_terminal_states(state, mocker):
+    nac = NoughtsAndCrosses()
     assert nac.is_terminal(state) is True
 
 
 non_terminal_states = [
-    (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
-    (np.nan, 1, -1, -1, 1, -1, 1, np.nan, 1),
-    (1, np.nan, 1, np.nan, -1, np.nan, 1, np.nan, -1),
+    (1, -1, 0, 0, 1, 0, 1, 0, -1),
+    (0, 1, -1, -1, 1, -1, 1, 0, 1),
+    (1, 0, 1, 0, -1, 0, 1, 0, -1),
 ]
 
 
 @pytest.mark.parametrize("state", non_terminal_states)
-def test_is_terminal_returns_false_for_non_terminal_states(state):
+def test_is_terminal_returns_false_for_non_terminal_states(state, mocker):
+    nac = NoughtsAndCrosses()
     assert nac.is_terminal(state) is False
 
 
@@ -49,12 +53,14 @@ line_sums_list = [
 
 @pytest.mark.parametrize("state, line_sums",
                          zip(terminal_states, line_sums_list))
-def test_line_sums_are_calculated_correctly(state, line_sums):
+def test_line_sums_are_calculated_correctly(state, line_sums, mocker):
+    nac = NoughtsAndCrosses()
     assert tuple(nac._calculate_line_sums(state)) == line_sums
 
 
 @pytest.mark.parametrize("state", non_terminal_states)
-def test_utility_raises_exception_on_non_terminal_input_state(state):
+def test_utility_raises_exception_on_non_terminal_input_state(state, mocker):
+    nac = NoughtsAndCrosses()
     with pytest.raises(ValueError) as exception_info:
         nac.utility(state)
     assert str(exception_info.value) == ("Utility can not be calculated "
@@ -67,12 +73,14 @@ outcomes = ([{1: 1, 2: -1}] * 4 +
 
 
 @pytest.mark.parametrize("state, outcome", zip(terminal_states, outcomes))
-def test_utility_function_returns_correct_outcomes(state, outcome):
+def test_utility_function_returns_correct_outcomes(state, outcome, mocker):
+    nac = NoughtsAndCrosses()
     assert nac.utility(state) == outcome
 
 
 @pytest.mark.parametrize("state", terminal_states)
 def test_next_state_raises_exception_on_terminal_input_state(state):
+    nac = NoughtsAndCrosses()
     with pytest.raises(ValueError) as exception_info:
         nac.compute_next_states(state)
     assert str(exception_info.value) == ("Next states can not be generated "
@@ -80,30 +88,30 @@ def test_next_state_raises_exception_on_terminal_input_state(state):
 
 
 states = [
-    (1, np.nan, -1, np.nan, 1, np.nan, 1, np.nan, -1),
-    (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1),
-    (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1),
-    (1, np.nan, -1, -1, 1, 1, 1, -1, -1),
+    (1, 0, -1, 0, 1, 0, 1, 0, -1),
+    (1, 0, -1, -1, 1, 0, 1, 0, -1),
+    (1, 0, -1, -1, 1, 1, 1, 0, -1),
+    (1, 0, -1, -1, 1, 1, 1, -1, -1),
 ]
 # player 2s turn
 next_states_move6 = {
-    (0, 1): (1, -1, -1, np.nan, 1, np.nan, 1, np.nan, -1),
-    (1, 0): (1, np.nan, -1, -1, 1, np.nan, 1, np.nan, -1),
-    (1, 2): (1, np.nan, -1, np.nan, 1, -1, 1, np.nan, -1),
-    (2, 1): (1, np.nan, -1, np.nan, 1, np.nan, 1, -1, -1),
+    (0, 1): (1, -1, -1, 0, 1, 0, 1, 0, -1),
+    (1, 0): (1, 0, -1, -1, 1, 0, 1, 0, -1),
+    (1, 2): (1, 0, -1, 0, 1, -1, 1, 0, -1),
+    (2, 1): (1, 0, -1, 0, 1, 0, 1, -1, -1),
 }
 # player 2 placed 'o' at (1, 0)
 # player 1s turn
 next_states_move7 = {
-    (0, 1): (1, 1, -1, -1, 1, np.nan, 1, np.nan, -1),
-    (1, 2): (1, np.nan, -1, -1, 1, 1, 1, np.nan, -1),
-    (2, 1): (1, np.nan, -1, -1, 1, np.nan, 1, 1, -1),
+    (0, 1): (1, 1, -1, -1, 1, 0, 1, 0, -1),
+    (1, 2): (1, 0, -1, -1, 1, 1, 1, 0, -1),
+    (2, 1): (1, 0, -1, -1, 1, 0, 1, 1, -1),
 }
 # player 1 placed 'x' at (1, 2)
 # player 2 to move
 next_states_move8 = {
-    (0, 1): (1, -1, -1, -1, 1, 1, 1, np.nan, -1),
-    (2, 1): (1, np.nan, -1, -1, 1, 1, 1, -1, -1),
+    (0, 1): (1, -1, -1, -1, 1, 1, 1, 0, -1),
+    (2, 1): (1, 0, -1, -1, 1, 1, 1, -1, -1),
 }
 # player 2 placed 'o' at (2, 1)
 # player 1 to move
@@ -118,14 +126,15 @@ expected_next_states_list = (next_states_move6, next_states_move7,
 @pytest.mark.parametrize("state, expected_next_states",
                          zip(states, expected_next_states_list))
 def test_generating_a_dict_of_all_possible_next_states(state,
-                                                       expected_next_states):
-
+                                                       expected_next_states,
+                                                       mocker):
+    nac = NoughtsAndCrosses()
     assert nac.compute_next_states(state) == expected_next_states
 
 
 states = [
-   (np.nan,) * 9,
-   (1, -1, np.nan, np.nan, 1, np.nan, 1, np.nan, -1),
+   (0,) * 9,
+   (1, -1, 0, 0, 1, 0, 1, 0, -1),
    (1, 1, 1, 1, -1, -1, -1, -1, 1),
 ]
 div = "---+---+---"
@@ -139,7 +148,7 @@ outputs = [
 
 
 @pytest.mark.parametrize("state, expected_output", zip(states, outputs))
-def test_display_function_outputs_correct_strings(state, expected_output, capsys):
-    nac.display(state)
+def test_display_function_outputs_correct_strings(state, expected_output, capsys, mocker):
+    NoughtsAndCrosses.display(state)
     output = capsys.readouterr().out
     assert output == expected_output

@@ -3,15 +3,16 @@ import numpy as np
 from alphago.alphago import build_training_data
 from alphago.evaluator import play
 from alphago.estimator import create_trivial_estimator
-from alphago.games import noughts_and_crosses as nac
+from alphago.games import NoughtsAndCrosses
 from alphago.player import MCTSPlayer
-from .games import mock_game
+from .games.mock_game import MockGame
 
 
 # TODO: mock lots of things in this file, especially players
 
 
 def test_mcts_can_self_play_fake_game():
+    mock_game = MockGame()
     player1 = MCTSPlayer(mock_game, mock_game.mock_estimator, 100, 0.5)
     player2 = MCTSPlayer(mock_game, mock_game.mock_estimator, 100, 0.5)
     players = {1: player1, 2: player2}
@@ -19,11 +20,12 @@ def test_mcts_can_self_play_fake_game():
     actions, game_states = play(mock_game, players)
 
     assert len(actions) == 3
-    assert game_states[0] == mock_game.INITIAL_STATE
+    assert game_states[0] == mock_game.initial_state
     assert len(game_states) == 4
 
 
 def test_mcts_can_self_play_noughts_and_crosses():
+    nac = NoughtsAndCrosses()
     estimator = create_trivial_estimator(nac.compute_next_states)
     player1 = MCTSPlayer(nac, estimator, 100, 0.5)
     player2 = MCTSPlayer(nac, estimator, 100, 0.5)
@@ -32,7 +34,7 @@ def test_mcts_can_self_play_noughts_and_crosses():
     actions, game_states = play(nac, players)
 
     assert len(actions) == len(game_states) - 1
-    assert game_states[0] == nac.INITIAL_STATE
+    assert game_states[0] == nac.initial_state
     assert nac.is_terminal(game_states[-1])
 
 
@@ -59,6 +61,7 @@ TRAINING_DATA_EXPECTED = [
 
 
 def test_build_training_data():
+    mock_game = MockGame()
     mock_game.TERMINAL_STATE_VALUES = range(12)  # TODO: this is bad idea
 
     states = [0, 1, 3, 8]

@@ -2,11 +2,12 @@ import numpy as np
 
 from alphago.estimator import create_trivial_estimator, NACNetEstimator
 from alphago import mcts, MCTSNode
-from .games import mock_game
+from .games.mock_game import MockGame
 from .mock_estimator import MockNetEstimator
 
 
 def test_trivial_estimator():
+    mock_game = MockGame()
     trivial_estimator = create_trivial_estimator(mock_game.compute_next_states)
 
     assert trivial_estimator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
@@ -27,6 +28,7 @@ def test_initialising_basic_net_with_random_parameters():
 
 
 def test_neural_net_estimator():
+    mock_game = MockGame()
     nnet = MockNetEstimator(input_dim=1, output_dim=3)
 
     root = MCTSNode(0, player=1)

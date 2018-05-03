@@ -2,7 +2,7 @@ import pytest
 
 from alphago import mcts, MCTSNode
 from alphago.mcts_tree import print_tree
-from ..unit.games import mock_game
+from ..unit.games.mock_game import MockGame
 
 
 def test_can_create_mcts_node():
@@ -21,6 +21,7 @@ def test_can_run_mcts_on_fake_game():
     """ This test shows that we can run MCTS using a 'next_states'
     function and 'evaluator' function.
     """
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
     action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
@@ -46,6 +47,8 @@ def mock_evaluator_action1(state):
     (mock_evaluator_action1, [0, 2, 6, 17]),
 ])
 def test_mcts_can_play_fake_game(evaluator, expected):
+    mock_game = MockGame()
+
     root = MCTSNode(0, player=1)
     node = root
     nodes = [node]
@@ -60,6 +63,7 @@ def test_mcts_can_play_fake_game(evaluator, expected):
 
 
 def test_print_mcts():
+    mock_game = MockGame()
     # TODO: This doesn't currently test anything.
     # TODO: This next line is probably a bad idea
     mock_game.TERMINAL_STATE_VALUES = [0.01 * i for i in range(12)]
