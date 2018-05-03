@@ -152,7 +152,6 @@ def utility(state):
         return {1: 0, 2: 0}
 
     # otherwise it is non-terminal and the utility cannot be calculated
-    # TODO: Maybe have better message here
     raise ValueError("Utility can not be calculated for a "
                      "non-terminal state.")
 
@@ -241,22 +240,3 @@ def display(state):
 
     ascii_grid = divider.join(output_rows)
     print(ascii_grid)
-
-
-def optimal_strategy(state):
-    """Returns the optimal strategy for the game of noughts and crosses in the
-    given state.
-
-    Parameters
-    ----------
-    state: tuple
-        A tuple denoting the game state.
-
-    Returns
-    -------
-    action: tuple
-        An action to play. It is a tuple of the form (i, j) denoting the ith row
-        and jth column, where (0, 0) denotes the top left corner.
-    """
-    # TODO: Implement me.
-    pass

@@ -6,7 +6,6 @@ state, we back up the utility returned by the game.
 import numpy as np
 
 import alphago.games.noughts_and_crosses as nac
-from alphago import mcts_tree
 from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer
 if __name__ == "__main__":
@@ -15,22 +14,16 @@ if __name__ == "__main__":
 
     state = nac.INITIAL_STATE
     computer_player_no = np.random.choice([1, 2])
-    computer_player = MCTSPlayer(computer_player_no, nac, evaluator,
-                                 mcts_iters=2000, c_puct=0.5)
+    computer_player = MCTSPlayer(nac, evaluator, mcts_iters=2000,
+                                 c_puct=0.5, tau=0.01)
     human_player_no = 1 if computer_player_no == 2 else 2
     print("You are player: {}".format(human_player_no))
     while not nac.is_terminal(state):
         player_no = nac.which_player(state)
         next_states = nac.compute_next_states(state)
         if player_no == computer_player_no:
-            current_node = mcts_tree.MCTSNode(state, player_no)
-            action_probs = computer_player.action_probabilities(
-                current_node.game_state)
-
-            actions, probabilities = zip(*action_probs.items())
-            print("Action probabilities: {}".format(action_probs))
-            action_ix = np.random.choice(range(len(actions)), p=probabilities)
-            action = actions[action_ix]
+            action = computer_player.choose_action(state)
+            computer_player.update(action)
             print("Taking action: {}".format(action))
         else:
             action = None
@@ -39,6 +32,7 @@ if __name__ == "__main__":
                                       "across the board): "))
                 if 0 <= action_ix <= 8:
                     action = nac.ACTION_SPACE[action_ix]
+                    computer_player.update(action)
         state = next_states[action]
 
         nac.display(state)
