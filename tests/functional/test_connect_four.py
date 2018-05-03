@@ -1,15 +1,15 @@
-from alphago.games import connect_four as cf
+from alphago.games.connect_four import ConnectFour
 
 
 def test_can_play_connect_four():
-    game = cf
-    assert game.INITIAL_STATE
+    game = ConnectFour()
+    assert game.initial_state
 
-    game_state = game.INITIAL_STATE
+    game_state = game.initial_state
 
-    next_states = cf.compute_next_states(game_state)
+    next_states = game.compute_next_states(game_state)
     while len(next_states) > 0:
         action = min(next_states)
         game_state = next_states[action]
         print(action)
-        next_states = cf.compute_next_states(game_state)
+        next_states = game.compute_next_states(game_state)
