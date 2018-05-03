@@ -13,27 +13,17 @@ class Game(abc.ABC):
     """
 
     @abc.abstractmethod
-    @property
-    def initial_state(self) -> GameState:
-        """The initial state of the game."""
-
-    @abc.abstractmethod
-    @property
-    def action_space(self) -> Sequence[Action]:
-        """The space of all possible actions within the game."""
-
-    @abc.abstractmethod
     def which_player(self, state: GameState) -> int:
         """Returns the player to play in the given state."""
 
     @abc.abstractmethod
     def compute_next_states(self, state: GameState) -> Dict[Action, GameState]:
         """Computes the next states possible from the given state."""
-    
+
     @abc.abstractmethod
     def is_terminal(self, state: GameState) -> bool:
         """Returns whether the given state is terminal."""
-    
+
     @abc.abstractmethod
     def utility(self, state: GameState) -> Dict[int, float]:
         """Compute the utility of the given (terminal) state for each
