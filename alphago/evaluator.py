@@ -53,7 +53,7 @@ def play(game, players):
         A list of game states encountered in the self-play game. Starts
         with the initial state and ends with a terminal state.
     """
-    game_state = game.INITIAL_STATE
+    game_state = game.initial_state
     game_states = [game_state]
     actions = []
 

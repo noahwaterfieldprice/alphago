@@ -3,7 +3,7 @@ import pytest
 
 from alphago import mcts, MCTSNode
 from alphago.mcts_tree import backup, compute_distribution, compute_ucb, select
-from .games import mock_game
+from .games.mock_game import MockGame
 
 
 # Utility functions
@@ -188,6 +188,7 @@ def test_compute_distribution_temperature_parameter():
 
 
 def test_mcts_action_count_at_root():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
@@ -198,6 +199,7 @@ def test_mcts_action_count_at_root():
 
 
 def test_mcts_action_count_at_root_children():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
 
     action_probs = mcts(
@@ -208,6 +210,7 @@ def test_mcts_action_count_at_root_children():
 
 
 def test_mcts_value_at_children_of_root():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
     assert root.N == 0
 

@@ -1,7 +1,7 @@
 import numpy as np
 
-import alphago.games.noughts_and_crosses as nac
-from ..unit.games import mock_game
+from alphago.games import NoughtsAndCrosses
+from ..unit.games.mock_game import MockGame
 from alphago.estimator import create_trivial_estimator
 from alphago.player import RandomPlayer, MCTSPlayer
 from alphago.evaluator import evaluate, play
@@ -10,6 +10,7 @@ from alphago.evaluator import evaluate, play
 def test_playing_two_random_players_against_each_other():
     # Seed the random number generator.
     np.random.seed(0)
+    mock_game = MockGame()
 
     player1 = RandomPlayer(mock_game)
     player2 = RandomPlayer(mock_game)
@@ -28,6 +29,7 @@ def test_playing_two_random_players_against_each_other():
 def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
     # Seed the random number generator.
     np.random.seed(0)
+    mock_game = MockGame()
 
     estimator = create_trivial_estimator(mock_game.compute_next_states)
     player1 = MCTSPlayer(mock_game, estimator, 100, 0.5)
@@ -46,6 +48,7 @@ def test_evaluator_on_noughts_and_crosses():
     # Seed the random number generator.
     np.random.seed(0)
 
+    nac = NoughtsAndCrosses()
     estimator = create_trivial_estimator(nac.compute_next_states)
     player1 = MCTSPlayer(nac, estimator, 100, 0.5)
     player2 = MCTSPlayer(nac, estimator, 100, 0.5)
