@@ -20,19 +20,19 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
                                        expected_action_probs[action])
 
 
-@pytest.mark.parametrize("state, optimal_action", [
-    (nac.INITIAL_STATE, (0, 0)),
-    ((1, 1, np.nan, np.nan, np.nan, np.nan, -1, -1, np.nan), (0, 2)),
-    ((1, -1, 1, 1, np.nan, -1, np.nan, 1, np.nan), (2, 0)),
+@pytest.mark.parametrize("state, optimal_actions", [
+    (nac.INITIAL_STATE, [(0, 0), (0, 2), (2, 0), (2, 2)]),
+    ((1, 1, np.nan, np.nan, np.nan, np.nan, -1, -1, np.nan), [(0, 2)]),
+    ((1, -1, 1, 1, np.nan, -1, np.nan, 1, np.nan), [(2, 0)]),
 ])
-def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_action):
+def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_actions):
     # seed the random number generator.
     np.random.seed(0)
 
     estimator = create_trivial_estimator(nac.compute_next_states)
     player = MCTSPlayer(game=nac, estimator=estimator, mcts_iters=100,
                         c_puct=0.5, tau=1)
-    action, action_probs = player.choose_action(state,
-                                                return_probabilities=True)
+    action, action_probs = player.choose_action(state, return_probabilities=True)
+    print(action_probs)
 
-    assert optimal_action == max(action_probs, key=action_probs.get)
+    assert max(action_probs, key=action_probs.get) in optimal_actions

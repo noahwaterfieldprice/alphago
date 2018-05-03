@@ -91,7 +91,7 @@ def mcts(starting_node: "MCTSNode",
             prior_probs = {action: prior_probs[action]
                            for action in child_states.keys()}
 
-            prior_probs = compute_distribution(prior_probs, tau)
+            prior_probs = compute_distribution(prior_probs, tau=1)
 
             # Compute the players for the children states.
             child_players = {action: game.which_player(child_state)
