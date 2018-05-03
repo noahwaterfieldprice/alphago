@@ -1,5 +1,4 @@
 from .utilities import sample_distribution
-
 from . import mcts, MCTSNode
 from .backwards_induction import backwards_induction
 
@@ -79,13 +78,9 @@ class MCTSPlayer(AbstractPlayer):
 
         if self.current_node is None:
             return
-        print(self.current_node)
-        print(action)
-        print({k: v.N for k, v in self.current_node.children.items()})
         try:
             self.current_node = self.current_node.children[action]
         except KeyError:
-            print("tree not kept!")
             self.current_node = None
 
     def reset(self):

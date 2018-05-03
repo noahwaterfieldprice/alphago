@@ -6,10 +6,10 @@ import numpy as np
 
 trivial_estimator = create_trivial_estimator(
     noughts_and_crosses.compute_next_states)
-player2 = MCTSPlayer(noughts_and_crosses, trivial_estimator, 2, 0.5, 0.01)
-player1 = OptimalPlayer(noughts_and_crosses)
+player2 = MCTSPlayer(noughts_and_crosses, trivial_estimator, 2000, 0.5, 0.01)
+player1 = MCTSPlayer(noughts_and_crosses, trivial_estimator, 2000, 0.5, 0.01)
 
-play(noughts_and_crosses, {2: player2, 1: player1})
+evaluate(noughts_and_crosses, {2: player2, 1: player1}, 100)
 
 #
 #

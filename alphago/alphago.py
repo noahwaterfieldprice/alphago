@@ -91,8 +91,6 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
         if alphago_step % evaluate_every == 0:
             # Checkpoint the model.
             # TODO: Implement evaluation
-            # TODO: Refactor so the MCTSPlayer doesn't need to know player
-            # number. It should be able to play in both positions.
             # TODO: Choose tau more systematically.
 
             print("Evaluating. Self-player vs training, then training vs "

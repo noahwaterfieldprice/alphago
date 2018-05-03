@@ -1,6 +1,6 @@
 import alphago.games.noughts_and_crosses as nac
 from alphago import mcts_tree
-from alphago.estimator import create_trivial_estimator, BasicNACNet
+from alphago.estimator import NACNetEstimator
 
 if __name__ == "__main__":
 
