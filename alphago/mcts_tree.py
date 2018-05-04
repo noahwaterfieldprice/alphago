@@ -91,7 +91,7 @@ def mcts(starting_node: "MCTSNode",
             prior_probs = {action: prior_probs[action]
                            for action in child_states.keys()}
 
-            prior_probs = compute_distribution(prior_probs, tau=1)
+            prior_probs = normalise_distribution(prior_probs)
 
             # Compute the players for the children states.
             child_players = {action: game.which_player(child_state)
@@ -113,7 +113,7 @@ def mcts(starting_node: "MCTSNode",
 
     action_counts = {action: child.N
                      for action, child in starting_node.children.items()}
-    return compute_distribution(action_counts, tau)
+    return extremise_distribution(action_counts, tau)
 
 
 class MCTSNode:
@@ -397,39 +397,65 @@ def backup(nodes: List["MCTSNode"],
         parent_player = node.player
 
 
-def compute_distribution(d: Dict[Any, float],
-                         tau: float = 1) -> Dict[Any, float]:
-    """Calculate a probability distribution with probabilities
-    proportional to the values in a dictionary
+def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
+    """Calculate a (normalised) probability distribution with
+    probabilities proportional to the values in a dictionary.
 
     Parameters
     ----------
-    d: dict
+    distribution: dict
         A dictionary with values equal to positive floats.
-    tau: float
-        A parameter between 1 and 0 defining the 'temperature' of the
-        calculated probability distribution. Here, a value of 1 gives
-        the true distribution based on the input (potentially
-        non-normalised distribution) and a value tending to 0
-        extremises the distribution such that effectively the most
-        visited node has a corresponding probability of 1.
 
     Returns
     -------
-    prob_distribution: dict:
-        A probability distribution proportional to the values of d,
-        given as a dictionary with keys equal to those of d and values
-        the probability corresponding to the value.
+    dict:
+        A probability distribution given as a dictionary with keys
+        equal to those of the input distribution and values the
+        corresponding (normalised) probabilities.
+    """
+    total = sum(distribution.values())
+    assert total > 0
+    normalised_distribution = {k: v / total for k, v in distribution.items()}
+    return normalised_distribution
+
+
+def extremise_distribution(distribution: Dict[Any, float],
+                           tau: float = 1) -> Dict[Any, float]:
+    """Calculate an extremised probability distribution parametrised by
+    the temperature parameter tau.
+
+    The extremised values are proportional to the values in the input
+    distribution exponentiated to 1 / tau, where tau is a number
+    between 1 and 0. Here, a value of 1 leaves the input distribution
+    unchanged and a value tending to 0 maximally extremises the
+    distribution. In this case, the entry corresponding to the the
+    highest value in the input distribution tends to 1 and the all the
+    others tend to 0.
+
+    Parameters
+    ----------
+    distribution: dict
+        A dictionary with values equal to positive floats.
+    tau: float
+        A parameter between 1 and 0 defining the reciprocal exponent or
+        'temperature' of the extremised distribution.
+
+    Returns
+    -------
+    dict:
+        A probability distribution whose keys are equal to those
+        of the input distribution and values are proportional to
+        extremised (exponentiated to 1 / tau) values of the input
+        distribution.
     """
     assert tau > 0
-    assert min(d.values()) >= 0
-    max_value = max(d.values())
-    d_tau = {k: (v / max_value) ** (1 / tau) for k, v in d.items()}
-    total = sum(d_tau.values())
-    assert total > 0
+    assert min(distribution.values()) >= 0
 
-    prob_distribution = {k: v / total for k, v in d_tau.items()}
-    return prob_distribution
+    total = sum(v ** (1 / tau) for v in distribution.values())
+    extremised_distribution = {k: (v ** (1 / tau) / total)
+                               for k, v in distribution.items()}
+
+    return extremised_distribution
 
 
 def print_tree(root: "MCTSNode") -> None:
