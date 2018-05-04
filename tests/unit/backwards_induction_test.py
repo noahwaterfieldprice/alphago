@@ -1,5 +1,3 @@
-import numpy as np
-
 from alphago import backwards_induction
 from alphago.games import NoughtsAndCrosses
 
