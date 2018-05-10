@@ -5,11 +5,12 @@ state, we back up the utility returned by the game.
 """
 import numpy as np
 
-import alphago.games.noughts_and_crosses as nac
+from alphago.games.noughts_and_crosses import NoughtsAndCrosses
 from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer
 if __name__ == "__main__":
 
+    nac = NoughtsAndCrosses()
     evaluator = create_trivial_estimator(nac.compute_next_states)
 
     state = nac.INITIAL_STATE

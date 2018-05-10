@@ -1,16 +1,11 @@
-import numpy as np
-
 from alphago import backwards_induction
-from alphago.games import noughts_and_crosses as nac
+from alphago.games import NoughtsAndCrosses
 
 
 def test_backwards_induction_on_nac_o_plays_top_right():
+    nac = NoughtsAndCrosses()
 
-    state = nac.INITIAL_STATE
-
-    state = (1, 1, np.nan,
-             -1, np.nan, np.nan,
-             np.nan, np.nan, np.nan)
+    state = (1, 1, 0, -1, 0, 0, 0, 0, 0)
 
     utility, best_action = backwards_induction.backwards_induction(nac, state)
 
@@ -18,17 +13,14 @@ def test_backwards_induction_on_nac_o_plays_top_right():
 
 
 def test_backwards_induction_on_nac():
-    state = (1, np.nan, np.nan,
-             np.nan, np.nan, np.nan,
-             np.nan, np.nan, np.nan)
+    nac = NoughtsAndCrosses()
+    state = (1, 0, 0, 0, 0, 0, 0, 0, 0)
 
     best_actions = {}
     backwards_induction.solve_game(best_actions, nac, state)
 
     assert best_actions[state] == (1, 1)
 
-    state = (1, np.nan, np.nan,
-             np.nan, -1, np.nan,
-             np.nan, np.nan, np.nan)
+    state = (1, 0, 0, 0, -1, 0, 0, 0, 0)
 
     assert best_actions[state] == (0, 1)
