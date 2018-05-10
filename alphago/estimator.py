@@ -59,13 +59,13 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
-        'probs' and 'values'
+        'probs' and 'value'
 
         Returns
         -------
-        probs: np array
+        probs: ndarray
             The probabilities returned by the net.
-        values: np array
+        value: ndarray
             The value returned by the net.
         """
 
@@ -74,13 +74,13 @@ class AbstractNeuralNetEstimator(abc.ABC):
             feed_dict={
                 self.tensors['state_vector']: state,
                 self.tensors['is_training']: False})
-        values = self.sess.run(
-            self.tensors['values'],
+        value = self.sess.run(
+            self.tensors['value'],
             feed_dict={
                 self.tensors['state_vector']: state,
                 self.tensors['is_training']: False})
 
-        return np.ravel(probs), values
+        return np.ravel(probs), value
 
     def train(self, training_data, batch_size, training_iters):
         """Trains the net on the training data.
@@ -106,8 +106,8 @@ class AbstractNeuralNetEstimator(abc.ABC):
             zs = np.array([x[2] for x in batch_data])
             zs = zs[:, np.newaxis]
 
-            values, probs, loss, _ = self.sess.run(
-                [self.tensors['values'], self.tensors['probs'],
+            value, probs, loss, _ = self.sess.run(
+                [self.tensors['value'], self.tensors['probs'],
                     self.tensors['loss'], self.train_op], feed_dict={
                         self.tensors['state_vector']: states,
                         self.tensors['pi']: pis,
@@ -141,14 +141,14 @@ class AbstractNeuralNetEstimator(abc.ABC):
             state = np.nan_to_num(state)
 
             # Evaluate the network at the state
-            probs, values = self(state)
+            probs, [value] = self(state)
 
-            # probs is currently an np array. Put the values into a
+            # probs is currently an np array. Put the value into a
             # dictionary with keys the actions and values the probs.
             probs_dict = {action: probs[self.action_indices[action]] for
                           action in self.action_indices}
 
-            return probs_dict, values[0]
+            return probs_dict, value
 
         return estimate_fn
 
@@ -219,7 +219,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
                     dense1, is_training=is_training)
             dense1 = tf.nn.relu(dense1)
 
-            values = tf.contrib.layers.fully_connected(
+            value = tf.contrib.layers.fully_connected(
                 inputs=dense1, num_outputs=1, weights_regularizer=regularizer,
                 activation_fn=tf.nn.tanh)
 
@@ -234,7 +234,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
             log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
 
-            loss_value = tf.losses.mean_squared_error(outcomes, values)
+            loss_value = tf.losses.mean_squared_error(outcomes, value)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
 
             loss = loss_value + loss_probs
@@ -253,10 +253,10 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, values, prob_logits, probs,
+        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
                    loss, loss_value, loss_probs, is_training]
-        names = "state_vector outcomes pi values prob_logits probs loss " \
-                "loss_value loss_probs is_training".split()
+        names = ("state_vector outcomes pi value prob_logits probs loss "
+                 "loss_value loss_probs is_training").split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
 
