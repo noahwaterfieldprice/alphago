@@ -1,3 +1,6 @@
+from collections import OrderedDict
+import json
+
 import numpy as np
 from tqdm import tqdm
 
@@ -6,14 +9,20 @@ from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
 from .utilities import sample_distribution
 
-__all__ = ["train_alphago", "self_play", "build_training_data"]
+__all__ = ["train_alphago", "self_play", "process_self_play_data",
+           "process_training_data"]
+
+
+def compute_checkpoint_name(step, path):
+    return path + "{}.checkpoint".format(step)
 
 
 def train_alphago(game, create_estimator, self_play_iters, training_iters,
                   checkpoint_path, alphago_steps=100, evaluate_every=1,
                   batch_size=32, mcts_iters=100, c_puct=1.0,
                   replay_length=100000, num_evaluate_games=500,
-                  win_rate=0.55):
+                  win_rate=0.55, verbose=True, restore_step=None,
+                  self_play_file_path=None):
     """Trains AlphaGo on the game.
 
     Parameters
@@ -47,6 +56,12 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     win_rate: float
         Number between 0 and 1. Only update self-play player when training
         player beats self-play player by at least this rate.
+    verbose: bool
+        Whether or not to output progress.
+    restore_step: int or None
+        If given, restore the network from the checkpoint at this step.
+    self_play_file_path: str or None
+        Where to load self play data from, if given.
     """
     # TODO: Do self-play, training and evaluating in parallel.
 
@@ -60,77 +75,91 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     self_play_player = create_estimator()
     training_player = create_estimator()
 
-    checkpoint_names = []
+    if restore_step:
+        restore_path = compute_checkpoint_name(restore_step, checkpoint_path)
+        self_play_player.restore(restore_path)
+        training_player.restore(restore_path)
 
     all_losses = []
 
-    all_training_data = []
-    for alphago_step in range(alphago_steps):
-        print("Self-play")
-        # Collect self-play training data using the best estimator.
-        for _ in tqdm(range(self_play_iters)):
-            game_state_list, action_probs_list = self_play(
-                game, self_play_player.create_estimate_fn(), mcts_iters, c_puct)
-            training_data = build_training_data(game_state_list,
-                                                action_probs_list, game,
-                                                game.action_indices)
+    initial_step = restore_step + 1 if restore_step else 0
+    for alphago_step in range(initial_step, initial_step +
+                                            alphago_steps):
+        self_play_data = generate_self_play_data(
+            game, self_play_player, mcts_iters, c_puct, self_play_iters,
+            verbose=verbose, save_file_path=self_play_file_path)
 
-        # Append training data
-        all_training_data.extend(training_data)
-        # Only keep most recent data
-        all_training_data = all_training_data[-replay_length:]
+        training_data = process_training_data(self_play_data, replay_length)
+        losses = optimise(training_player, training_data, batch_size,
+                          training_iters, output_losses=True, verbose=verbose)
 
-        # Train the training player on self-play training data.
-        print("Training")
-        losses = training_player.train(all_training_data, batch_size,
-                                       training_iters)
         all_losses.append(losses)
-        print("Mean loss: {}".format(np.mean(losses)))
+        if verbose:
+            print("Mean loss: {}".format(np.mean(losses)))
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
-            # Checkpoint the model.
-            # TODO: Implement evaluation
-            # TODO: Choose tau more systematically.
-
-            print("Evaluating. Self-player vs training, then training vs "
-                  "self-player")
-            wins1, wins2, draws = evaluate_estimators_in_both_positions(
-                game, self_play_player.create_estimate_fn(),
-                training_player.create_estimate_fn(), mcts_iters, c_puct,
-                num_evaluate_games, tau=0.1)
-
-            print("Self-play player wins: {}, Training player wins: {}, "
-                  "Draws: {}".format(wins1, wins2, draws))
-            training_win_rate = wins2 / (wins1 + wins2 + draws)
-            print("Win rate for training player: {}".format(
-                training_win_rate))
-
-            # Also evaluate against a random player
-            wins1, wins2, draws = evaluate_mcts_against_random_player(
-                game, training_player.create_estimate_fn(), mcts_iters,
-                c_puct, num_evaluate_games, tau=0.1)
-            print("Training player vs random. Wins: {}, Losses: {}, "
-                  "Draws: {}".format(wins1, wins2, draws))
-
-            # Checkpoint the training player.
-            checkpoint_name = checkpoint_path + "{}.checkpoint".format(
-                alphago_step)
-            checkpoint_names.append(checkpoint_name)
-            print("Saving at: {}".format(checkpoint_name))
-            training_player.save(checkpoint_name)
+            training_win_rate = evaluate_model(game, self_play_player,
+                                               training_player, mcts_iters,
+                                               c_puct, num_evaluate_games)
+            checkpoint_model(training_player, alphago_step, checkpoint_path)
 
             # If training player beats self-play player by a large enough
             # margin, then it becomes the new best estimator.
             if training_win_rate > win_rate:
                 # Create a new self player, with the weights of the most
                 # recent training_player.
-                print("Updating self-play player.")
+                if verbose:
+                    print("Updating self-play player.")
+                    print("Restoring from step: {}".format(alphago_step))
                 self_play_player = create_estimator()
-                print("Restoring from: {}".format(checkpoint_name))
-                self_play_player.restore(checkpoint_name)
+                restore_path = compute_checkpoint_name(alphago_step,
+                                                       checkpoint_path)
+                self_play_player.restore(restore_path)
 
-    return
+    return all_losses
+
+
+def optimise(estimator, training_data, batch_size, training_iters,
+             output_losses=True, verbose=True):
+    losses = estimator.train(training_data, batch_size, training_iters,
+                             verbose=verbose)
+    if output_losses:
+        return losses
+
+
+def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games):
+    # Checkpoint the model.
+    # TODO: Implement evaluation
+    # TODO: Choose tau more systematically.
+
+    print("Evaluating. Self-player vs training, then training vs "
+          "self-player")
+    wins1, wins2, draws = evaluate_estimators_in_both_positions(
+        game, player1.create_estimate_fn(), player2.create_estimate_fn(),
+        mcts_iters, c_puct, num_games, tau=0.1)
+
+    print("Self-play player wins: {}, Training player wins: {}, "
+          "Draws: {}".format(wins1, wins2, draws))
+    training_win_rate = wins2 / (wins1 + wins2 + draws)
+    print("Win rate for training player: {}".format(
+        training_win_rate))
+
+    # Also evaluate against a random player
+    wins1, wins2, draws = evaluate_mcts_against_random_player(
+        game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
+        tau=0.1)
+    print("Training player vs random. Wins: {}, Losses: {}, "
+          "Draws: {}".format(wins1, wins2, draws))
+
+    return training_win_rate
+
+
+def checkpoint_model(player, step, path):
+    """Checkpoint the training player.
+    """
+    checkpoint_name = compute_checkpoint_name(step, path)
+    player.save(checkpoint_name)
 
 
 def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
@@ -175,77 +204,36 @@ def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
 
     return wins1, wins2, draws
 
-#
-# def train(game, players, action_indices, self_play_iters,
-#           training_iters, batch_size=32):
-#     """Runs AlphaGo on the game.
-#
-#     Parameters
-#     ----------
-#
-#     game: Game
-#         An object representing the game to be played.
-#     players: dict of Player
-#         An dictionary with keys the player numbers and values the players.
-#     action_indices: dict
-#         Dictionary with keys the possible actions in the game, and values the
-#         index of that action.
-#     self_play_iters: int
-#         Number of iterations of self-play to run.
-#     training_iters: int
-#         Number of training steps to take.
-#     batch_size: int
-#     """  # TODO: write better docstring and test this
-#
-#     all_training_data = []
-#     losses = []
-#     with tqdm(total=self_play_iters) as pbar:
-#         for i in range(self_play_iters):
-#             # Collect training data
-#             game_states, action_probs = play(game, players)
-#
-#             training_data = build_training_data(
-#                 game_states, action_probs, game, action_indices)
-#
-#             # Append to our current training data
-#             all_training_data.extend(training_data)
-#
-#             # Only keep the most recent training data
-#             all_training_data = all_training_data[-10000:]
-#
-#             # Update tqdm description
-#             pbar.update(1)
-#
-#     players[0].estimator.train(all_training_data, batch_size, training_iters)
-#
-#
-# #
-# def train_alphago_estimator(num_train_steps, training_data, batch_size):
-#     # Don't train if we don't have enough training data for a batch.
-#     # TODO: Move batch_size to training function.
-#     if len(all_training_data) < batch_size:
-#         return
-#
-#     with tqdm(total=num_train_steps) as pbar:
-#
-#         for i in range(num_train_steps):
-#             # Train on the data
-#             batch_indices = np.random.choice(len(all_training_data),
-#                                              batch_size,
-#                                              replace=True)
-#             train_batch = [all_training_data[ix] for ix in
-#                            batch_indices]
-#             loss = train_function(train_batch)
-#             losses.append(loss)
-#             pbar.set_description("Avg loss: {0:.5f}".format(np.mean(losses)))
-#
-#             # Update tqdm description
-#             if i % 100 == 0:
-#                 pbar.update(100)
+
+def generate_self_play_data(game, estimator, mcts_iters, c_puct, num_iters,
+                            save_file_path=None, verbose=True):
+    """Generates self play data for a number of iterations for a given
+    estimator. Saves to save_file_path, if given.
+    """
+    if save_file_path is not None:
+        with open(save_file_path, 'r') as f:
+            data = json.load(save_file_path)
+        index = max(data.keys()) + 1
+    else:
+        data = OrderedDict()
+        index = 0
+
+    # Collect self-play training data using the best estimator.
+    disable_tqdm = False if verbose else True
+    for _ in tqdm(range(num_iters), disable=disable_tqdm):
+        data[index] = self_play(
+            game, estimator.create_estimate_fn(), mcts_iters, c_puct)
+
+    if save_file_path is not None:
+        with open(save_file_path, 'w') as f:
+            json.dump(data, f)
+
+    return data
 
 
 def self_play(game, estimator, mcts_iters, c_puct):
-    """Plays a game using MCTS to choose actions for both players.
+    """Plays a single game using MCTS to choose actions for both players.
+
     Parameters
     ----------
     game: Game
@@ -256,6 +244,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
         Number of iterations to run MCTS for.
     c_puct: float
         Parameter for MCTS.
+
     Returns
     -------
     game_state_list: list
@@ -272,6 +261,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
 
     game_state_list = [node.game_state]
     action_probs_list = []
+    action_list = []
 
     move_count = 0
 
@@ -284,9 +274,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
 
         # Choose the action according to the action probabilities.
         action = sample_distribution(action_probs)
-        # actions, probs = zip(*action_probs.items())
-        # action_ix = np.random.choice(len(actions), p=probs)
-        # action = actions[action_ix]
+        action_list.append(action)
 
         # Play the action
         node = node.children[action]
@@ -296,10 +284,39 @@ def self_play(game, estimator, mcts_iters, c_puct):
         game_state_list.append(node.game_state)
         move_count += 1
 
-    return game_state_list, action_probs_list
+    data = process_self_play_data(game_state_list, action_list,
+                                  action_probs_list, game, game.action_indices)
+
+    return data
 
 
-def build_training_data(states_, action_probs_, game, action_indices):
+def process_training_data(self_play_data, replay_length=None):
+    """Takes self play data and returns a list of tuples (state,
+    action_probs, utility) suitable for training an estimator.
+
+    Parameters
+    ----------
+    self_play_data: dict
+        Dictionary with keys given by an index (int) and values given by a
+        log of the game. This is a list of tuples as in generate self play
+        data.
+    replay_length: int or None
+        If given, only return the last replay_length (state, probs, utility)
+        tuples.
+    """
+    training_data = []
+    for index, game_log in self_play_data.items():
+        for (state, action, probs_vector, z) in game_log:
+            training_data.append((state, probs_vector, z))
+
+    if replay_length is not None:
+        training_data = training_data[-replay_length:]
+
+    return training_data
+
+
+def process_self_play_data(states_, actions_, action_probs_, game,
+                           action_indices):
     """Takes a list of states and action probabilities, as returned by
     play, and creates training data from this. We build up a list
     consisting of (state, probs, z) tuples, where player is the player
@@ -313,6 +330,9 @@ def build_training_data(states_, action_probs_, game, action_indices):
     ----------
     states_: list
         A list of n states, with the last being terminal.
+    actions_: list
+        A list of n-1 actions, being the action taken in the corresponding
+        state.
     action_probs_: list
         A list of n-1 dictionaries containing action probabilities. The ith
         dictionary applies to the ith state, representing the probabilities
@@ -327,8 +347,8 @@ def build_training_data(states_, action_probs_, game, action_indices):
     Returns
     -------
     training_data: list
-        A list consisting of (state, probs, z) tuples, where player is the
-        player in state 'state', and 'z' is the utility to 'player' in
+        A list consisting of (state, action, probs, z) tuples, where player
+        is the player in state 'state', and 'z' is the utility to 'player' in
         'last_state'.
     """
 
@@ -338,7 +358,7 @@ def build_training_data(states_, action_probs_, game, action_indices):
 
     # Now action_probs_ and states_ are the same length.
     training_data = []
-    for state, probs in zip(states_, action_probs_):
+    for state, action, probs in zip(states_, actions_, action_probs_):
         # Get the player in the state, and the value to this player of the
         # terminal state.
         player = game.which_player(state)
@@ -346,11 +366,11 @@ def build_training_data(states_, action_probs_, game, action_indices):
 
         # Convert the probs dictionary to a numpy array using action_indices.
         probs_vector = np.zeros(len(action_indices))
-        for action, prob in probs.items():
-            probs_vector[action_indices[action]] = prob
+        for a, prob in probs.items():
+            probs_vector[action_indices[a]] = prob
 
         non_nan_state = np.nan_to_num(state)
 
-        training_data.append((non_nan_state, probs_vector, z))
+        training_data.append((non_nan_state, action, probs_vector, z))
 
     return training_data
