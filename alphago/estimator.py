@@ -5,7 +5,7 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from .games import noughts_and_crosses as nac
-from .games import connect_four as cf
+from .games.connect_four import ConnectFour
 
 
 def create_trivial_estimator(next_states_function):
@@ -263,6 +263,10 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
 
+    def __init__(self, learning_rate, action_indices):
+        super().__init__(learning_rate)
+        self.action_indices = action_indices
+
     def _initialise_net(self):
         # TODO: test reshape recreates game properly
 
@@ -271,7 +275,6 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         # Using 'with sess:' means you start with a new net each time.
         self.graph = tf.Graph()
         self.sess = tf.Session(graph=self.graph)
-        self.action_indices = cf.ACTION_INDICES
 
         # Use the graph to create the tensors
         with self.graph.as_default():
