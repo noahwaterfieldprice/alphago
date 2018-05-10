@@ -73,7 +73,7 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
                 game, self_play_player.create_estimate_fn(), mcts_iters, c_puct)
             training_data = build_training_data(game_state_list,
                                                 action_probs_list, game,
-                                                game.ACTION_INDICES)
+                                                game.action_indices)
 
         # Append training data
         all_training_data.extend(training_data)
@@ -136,16 +136,16 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
                                         c_puct, num_evaluate_games, tau):
     # Evaluate estimator1 vs estimator2.
-    players = {1: MCTSPlayer(1, game, estimator, mcts_iters, c_puct, tau=tau),
-               2: RandomPlayer(2, game)}
+    players = {1: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau),
+               2: RandomPlayer(game)}
     player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 = player1_results[1]
     wins2 = player1_results[-1]
     draws = player1_results[0]
 
     # Evaluate estimator2 vs estimator1.
-    players = {1: RandomPlayer(1, game),
-               2: MCTSPlayer(2, game, estimator, mcts_iters, c_puct, tau=tau)}
+    players = {1: RandomPlayer(game),
+               2: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau)}
     player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 += player1_results[-1]
     wins2 += player1_results[1]
@@ -158,16 +158,16 @@ def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
                                           mcts_iters, c_puct,
                                           num_evaluate_games, tau):
     # Evaluate estimator1 vs estimator2.
-    players = {1: MCTSPlayer(1, game, estimator1, mcts_iters, c_puct, tau=tau),
-               2: MCTSPlayer(2, game, estimator2, mcts_iters, c_puct, tau=tau)}
+    players = {1: MCTSPlayer(game, estimator1, mcts_iters, c_puct, tau=tau),
+               2: MCTSPlayer(game, estimator2, mcts_iters, c_puct, tau=tau)}
     player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 = player1_results[1]
     wins2 = player1_results[-1]
     draws = player1_results[0]
 
     # Evaluate estimator2 vs estimator1.
-    players = {1: MCTSPlayer(1, game, estimator2, mcts_iters, c_puct, tau=tau),
-               2: MCTSPlayer(2, game, estimator1, mcts_iters, c_puct, tau=tau)}
+    players = {1: MCTSPlayer(game, estimator2, mcts_iters, c_puct, tau=tau),
+               2: MCTSPlayer(game, estimator1, mcts_iters, c_puct, tau=tau)}
     player1_results, _ = evaluate(game, players, num_evaluate_games)
     wins1 += player1_results[-1]
     wins2 += player1_results[1]
@@ -268,7 +268,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
         action_probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
-    node = MCTSNode(game.INITIAL_STATE, game.which_player(game.INITIAL_STATE))
+    node = MCTSNode(game.initial_state, game.which_player(game.initial_state))
 
     game_state_list = [node.game_state]
     action_probs_list = []

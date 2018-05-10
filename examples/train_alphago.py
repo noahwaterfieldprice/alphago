@@ -1,9 +1,8 @@
 import argparse
 
-from alphago.games import noughts_and_crosses as nac
-from alphago.games import connect_four as cf
+from alphago.games.connect_four import ConnectFour
 from alphago.alphago import train_alphago
-from alphago.estimator import ConnectFourNet, NACNetEstimator
+from alphago.estimator import ConnectFourNet
 
 
 if __name__ == "__main__":
@@ -18,24 +17,25 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     learning_rate = 1e-4
+    #
+    # # Choose which game to play.
+    # if args.game == "noughts_and_crosses":
+    #     game = nac
+    #
+    #     def create_estimator():
+    #         return NACNetEstimator(learning_rate=learning_rate)
 
-    # Choose which game to play.
-    if args.game == "noughts_and_crosses":
-        game = nac
+    if args.game == "connect_four":
+        game = ConnectFour()
 
         def create_estimator():
-            return NACNetEstimator(learning_rate=learning_rate)
-
-    elif args.game == "connect_four":
-        game = cf
-
-        def create_estimator():
-            return ConnectFourNet(learning_rate=learning_rate)
+            return ConnectFourNet(learning_rate,
+                                  game.action_indices)
     else:
         raise ValueError("Game not implemented.")
 
-    action_indices = game.ACTION_INDICES
-    self_play_iters = 100
+    action_indices = game.action_indices
+    self_play_iters = 10
     training_iters = 1000
     evaluate_every = 2
     alphago_steps = 1000

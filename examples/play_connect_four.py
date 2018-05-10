@@ -7,7 +7,7 @@ back up the utility returned by the game.
 
 import numpy as np
 
-import alphago.games.connect_four as cf
+from alphago.games.connect_four import ConnectFour
 from alphago import mcts_tree
 from alphago.estimator import create_trivial_estimator
 
@@ -16,9 +16,10 @@ if __name__ == "__main__":
     max_iters = 1000
     c_puct = 0.5
 
+    cf = ConnectFour()
     evaluator = create_trivial_estimator(cf.compute_next_states)
 
-    state = cf.INITIAL_STATE
+    state = cf.initial_state
     computer = np.random.choice([1, 2])
     human = 1 if computer == 2 else 2
     print("You are player: {}".format(human))
@@ -39,8 +40,8 @@ if __name__ == "__main__":
             while action not in next_states:
                 action_ix = int(input("Your move (0-6 reading "
                                       "across the board): "))
-                if 0 <= action_ix < len(cf.ACTION_SPACE):
-                    action = cf.ACTION_SPACE[action_ix]
+                if 0 <= action_ix < len(cf.action_space):
+                    action = cf.action_space[action_ix]
         state = next_states[action]
 
         cf.display(state)
