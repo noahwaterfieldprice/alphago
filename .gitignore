@@ -10,3 +10,6 @@ pytest_report.html
 .coverage
 htmlcov/
 assets/
+
+# Notes
+papers/

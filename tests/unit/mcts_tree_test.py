@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 
 from alphago import mcts, MCTSNode
-from alphago.mcts_tree import backup, compute_distribution, compute_ucb, select
-from .games import mock_game
+from alphago.mcts_tree import (backup, compute_ucb,  extremise_distribution,
+                               normalise_distribution, select)
+from .games.mock_game import MockGame
 
 
 # Utility functions
@@ -167,27 +168,31 @@ def test_compute_ucb():
     assert expected == computed
 
 
-def test_compute_distribution_correctly_normalises_distribution():
+def test_normalise_distribution_correctly_normalises_distribution():
     action_counts = {1: 3, 5: 7}
-    computed = compute_distribution(action_counts)
+    normalised = normalise_distribution(action_counts)
     expected = {1: 3.0 / 10.0, 5: 7.0 / 10.0}
-    assert computed == expected
+    assert sum(normalised.values()) == pytest.approx(1)
+    assert normalised == expected
 
 
-def test_compute_distribution_temperature_parameter():
+def test_extremise_distribution_function():
     action_counts = {1: 3, 5: 7}
     tau = 0.1
-    computed = compute_distribution(action_counts, tau=tau)
+    extremised = extremise_distribution(action_counts, tau=tau)
     expected_not_normalised = {1: (3.0 / 10.0) ** (1 / tau),
                                5: (7.0 / 10.0) ** (1 / tau)}
     total = sum(expected_not_normalised.values())
     expected = {k: v / total for k, v in expected_not_normalised.items()}
+
+    assert sum(extremised.values()) == pytest.approx(1)
     keys = expected.keys()
-    np.testing.assert_almost_equal([computed[k] for k in keys],
+    np.testing.assert_almost_equal([extremised[k] for k in keys],
                                    [expected[k] for k in keys])
 
 
 def test_mcts_action_count_at_root():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
@@ -198,6 +203,7 @@ def test_mcts_action_count_at_root():
 
 
 def test_mcts_action_count_at_root_children():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
 
     action_probs = mcts(
@@ -208,6 +214,7 @@ def test_mcts_action_count_at_root_children():
 
 
 def test_mcts_value_at_children_of_root():
+    mock_game = MockGame()
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
