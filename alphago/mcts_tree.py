@@ -23,39 +23,43 @@ def mcts(starting_node: "MCTSNode",
 
     Parameters
     ----------
-    starting_node: MCTSNode
+    starting_node
         The root of a subtree of the game. We take actions at the root.
-    game: Game
+    game
         An object representing the game to be played.
-    estimator: func
+    estimator
         A function from states to probs, value. probs is a dictionary
         with keys the actions in the state and value given by the
         estimate of the value of the state.
-    mcts_iters: int
+    mcts_iters
         The number of iterations of MCTS.
-    c_puct: float
+    c_puct
         A hyperparameter determining the level of exploration in the
         select algorithm.
-    tau: float
+    tau
         A hyperparameter between 1 and 0 defining the 'temperature' of
         the calculated probability distribution. Here, a value of 1
         gives the true distribution based on node visit count and a value
         tending to 0 extremises the distribution such that effectively
         the most visited node has a corresponding probability of 1.
-    dirichlet_epsilon: float
+    dirichlet_epsilon
         Mixes the prior probabilities for starting_node with Dirichlet
         noise. Uses (1 - dirichlet_epsilon) * prior_prob +
         dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
         sampled from the Dirichlet distribution with parameter dirichlet_alpha.
-    dirichlet_alpha: float
+    dirichlet_alpha
         The parameter to sample the Dirichlet distribution with.
 
     Returns
     -------
-    action_probs: dict
-            A probability distribution over actions available in the
-            root node, given as a dictionary from actions to
-            probabilities.
+    dict
+        A probability distribution over actions available in the
+        root node, given as a dictionary from actions to
+        probabilities.
+
+    Examples
+    --------
+    >>> from alphago import mcts
     """
 
     for i in range(mcts_iters):
@@ -74,7 +78,6 @@ def mcts(starting_node: "MCTSNode",
             prior_probs, value = estimator(leaf.game_state)
 
             # Store this as a value for player 1 and a value for player 2.
-            # TODO: We could make this more general later.
             player = game.which_player(leaf.game_state)
             other_player = 1 if player == 2 else 2
             values = {player: value,
@@ -125,11 +128,11 @@ class MCTSNode:
 
     Parameters
     ----------
-    game_state: state
+    game_state
         An object describing the game state corresponding to this node.
-    player: int
+    player
         The player to play at this node.
-    is_terminal: bool
+    is_terminal
         A boolean indicating if the node is terminal.
 
 
@@ -202,26 +205,25 @@ class MCTSNode:
 
         Parameters
         ---------
-        prior_probs: dict
-            A dictionary where the keys are the available actions from
-            the node and the values are the prior probabilities of
-            taking each action.
-        child_states: dict
+        prior_probs
+            A probability distribution stored in a dictionary with keys
+            the available actions from the node and  values the prior
+            probabilities of taking each action.
+        child_states
             A dictionary where the keys are the available actions from
             the node and the values are the corresponding game states
             resulting from taking each action.
-        child_players: dict
+        child_players
             A dictionary where the keys are the available actions from the node
             and the values are the corresponding players to play in the child
             node.
-        child_terminals: dict
+        child_terminals
             A dictionary where the keys are the available actions from the node
             and the values are booleans indicating whether the corresponding
             nodes are terminal.
         """
         assert self.is_leaf()
 
-        # TODO: Enforce that prior probs is a distribution somehow
         self.prior_probs = prior_probs
 
         self.children = {action: MCTSNode(
@@ -235,25 +237,28 @@ def compute_ucb(action_values: Dict[Action, float],
                 action_counts: Dict[Action, int],
                 c_puct: float) -> Dict[Action, float]:
     """Calculates the upper confidence bound, Q(s,a) + U(s,a), for each
-    of the child nodes.
+    of the available actions.
 
     U(s,a) is defined as
-        c_puct * prior_prob * sqrt(sum(N)) / (1 + N)
-    where N is the action count.
+    .. math::
+        c_\mathrm{puct} P(s, a)* \frac{\sqrt{\sum_b N(s, b)}}{(1 + N)}
+    where c_puct is a hyperparameter the determines the level of
+    exploration, P is the probability and N is the action count.
 
     Parameters
     ----------
-    action_values, prior_probs, action_counts: dict
+    action_values, prior_probs, action_counts
         These are all dictionaries where the keys are the available
         actions and the values are the corresponding action values,
-        prior probabilities and action counts.
-    c_puct: float
+        prior probabilities and action counts, respectively.
+    c_puct
         A hyperparameter determining the level of exploration.
 
     Returns
     -------
-    upper_confidence_bounds: dict
-        A dictionary mapping each child node to: Q(s,a) + U(s,a).
+    dict
+        A dictionary mapping each of available the available actions to
+        the corresponding upper confidence bounds, Q(s,a) + U(s,a).
     """
     # TODO: Check if this is the right way to define this. Currently we ignore
     # prior_probs if action_counts are 0. This is the case when we
@@ -267,32 +272,34 @@ def compute_ucb(action_values: Dict[Action, float],
     return upper_confidence_bounds
 
 
-def mix_dirichlet_noise(d, epsilon, alpha):
+def mix_dirichlet_noise(distribution: Dict[Any, float],
+                        epsilon: float,
+                        alpha: float) -> Dict[Any, float]:
     """Combine values in dictionary with Dirichlet noise. Samples
     dirichlet_noise according to dirichlet_alpha in each component. Then
     updates the value v for key k with (1-epsilon) * v + epsilon * noise_k.
 
     Parameters
     ----------
-    d: dict
+    distribution
         Dictionary with floats as values.
-    epsilon: float
+    epsilon
         Mixes the prior probabilities for starting_node with Dirichlet
         noise. Uses (1 - dirichlet_epsilon) * prior_prob +
         dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
         sampled from the Dirichlet distribution with parameter dirichlet_alpha.
         Set to 0.0 if no Dirichlet perturbation.
-    alpha: float
+    alpha
         The parameter to sample the Dirichlet distribution with.
 
     Returns
     -------
-    d: dict
+    dict
         The dictionary with perturbed values.
     """
-    noise = np.random.dirichlet([alpha] * len(d))
-    return {k: (1 - epsilon) * v + epsilon * noise for ((k, v), noise) in zip(
-        d.items(), noise)}
+    noise = np.random.dirichlet([alpha] * len(distribution))
+    return {k: (1 - epsilon) * v + epsilon * noise
+            for ((k, v), noise) in zip(distribution.items(), noise)}
 
 
 def select(starting_node: "MCTSNode",
@@ -309,24 +316,24 @@ def select(starting_node: "MCTSNode",
 
     Parameters
     ----------
-    starting_node: MCTSNode
+    starting_node
         The node in the tree from which to start selection algorithm.
-    c_puct: float
+    c_puct
         A hyperparameter determining the level of exploration.
-    dirichlet_epsilon: float
+    dirichlet_epsilon
         Mixes the prior probabilities for starting_node with Dirichlet
         noise. Uses (1 - dirichlet_epsilon) * prior_prob +
         dirichlet_epsilon * dirichlet_noise, where dirichlet_noise is
         sampled from the Dirichlet distribution with parameter dirichlet_alpha.
         Set to 0.0 if no Dirichlet perturbation.
-    dirichlet_alpha: float
+    dirichlet_alpha
         The parameter to sample the Dirichlet distribution with.
 
     Returns
     -------
-    nodes: list
+    list
         The sequence of nodes that was traversed along the path.
-    actions: list
+    list
         The sequence of actions that were taken along the path.
     """
     node = starting_node
@@ -370,14 +377,14 @@ def select(starting_node: "MCTSNode",
 
 def backup(nodes: List["MCTSNode"],
            values: Dict[Player, float]) -> None:
-    """Given the sequence of nodes (ending in the new expanded node)
+    """Given the sequence `nodes` (ending in the new expanded node)
     from the game tree, propagate back the Q-values and action counts.
 
     Parameters
     ----------
-    nodes: list
+    nodes
         The list of nodes to backup.
-    values: dict
+    values
         A dictionary with keys the players and values the value for
         that player. In a zero sum game with players 1 and 2, we have
         v[1] = -v[2].
@@ -403,7 +410,7 @@ def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
 
     Parameters
     ----------
-    distribution: dict
+    distribution
         A dictionary with values equal to positive floats.
 
     Returns
@@ -422,21 +429,21 @@ def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
 def extremise_distribution(distribution: Dict[Any, float],
                            tau: float = 1) -> Dict[Any, float]:
     """Calculate an extremised probability distribution parametrised by
-    the temperature parameter tau.
+    the temperature parameter `tau`.
 
-    The extremised values are proportional to the values in the input
-    distribution exponentiated to 1 / tau, where tau is a number
-    between 1 and 0. Here, a value of 1 leaves the input distribution
-    unchanged and a value tending to 0 maximally extremises the
-    distribution. In this case, the entry corresponding to the the
-    highest value in the input distribution tends to 1 and the all the
-    others tend to 0.
+    The extremised values are proportional to the values in
+    `distribution` exponentiated to 1 / `tau`, where `tau` is a number
+    between 1 and 0. Here, a value of 1 leaves the relative values
+    unchanged and merely normalises the `distribution` whereas a value
+    tending to 0 maximally extremises the `distribution`. In this case,
+    the entry corresponding to the the highest value in the input
+    distribution tends to 1 and the all the others tend to 0.
 
     Parameters
     ----------
-    distribution: dict
+    distribution
         A dictionary with values equal to positive floats.
-    tau: float
+    tau
         A parameter between 1 and 0 defining the reciprocal exponent or
         'temperature' of the extremised distribution.
 
