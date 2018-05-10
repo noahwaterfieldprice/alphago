@@ -82,7 +82,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
         return np.ravel(probs), values
 
-    def train(self, training_data, batch_size, training_iters):
+    def train(self, training_data, batch_size, training_iters, verbose=True):
         """Trains the net on the training data.
 
         Parameters
@@ -93,9 +93,12 @@ class AbstractNeuralNetEstimator(abc.ABC):
             from the corresponding self-play game.
         batch_size: int
         training_iters: int
+        verbose: bool
+            Print out progress if True, else don't print anything.
         """
         losses = []
-        for _ in tqdm(range(training_iters)):
+        disable_tqdm = False if verbose else True
+        for _ in tqdm(range(training_iters), disable=disable_tqdm):
             batch_indices = np.random.choice(len(training_data), batch_size,
                                              replace=True)
             batch_data = [training_data[i] for i in batch_indices]
