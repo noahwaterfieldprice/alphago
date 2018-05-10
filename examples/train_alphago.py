@@ -34,7 +34,6 @@ if __name__ == "__main__":
     else:
         raise ValueError("Game not implemented.")
 
-    action_indices = game.action_indices
     self_play_iters = 10
     training_iters = 1000
     evaluate_every = 2

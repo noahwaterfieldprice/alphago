@@ -3,17 +3,15 @@ import tensorflow as tf
 
 
 class MockNetEstimator:
-    def __init__(self, input_dim, output_dim):
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+    def __init__(self, learning_rate, action_indices={i + 1: i for i in range(18)}):
         self._initialise_net()
 
     def _initialise_net(self):
         """Initiliase a 4-layer dense neural network for arbitrary
         input and output dimensions."""
-        state_vector = tf.placeholder(tf.float32, shape=(self.input_dim,))
+        state_vector = tf.placeholder(tf.float32, shape=(1,))
 
-        input_layer = tf.reshape(state_vector, [-1, self.input_dim])
+        input_layer = tf.reshape(state_vector, [-1, 1])
 
         dense1 = tf.layers.dense(inputs=input_layer, units=20,
                                  activation=tf.nn.relu)
@@ -24,7 +22,7 @@ class MockNetEstimator:
         values = tf.layers.dense(inputs=dense2, units=1,
                                  activation=tf.nn.tanh)
 
-        prob_logits = tf.layers.dense(inputs=dense2, units=self.output_dim)
+        prob_logits = tf.layers.dense(inputs=dense2, units=18)
         probs = tf.nn.softmax(logits=prob_logits)
 
         tensors = [state_vector, values, prob_logits, probs]
@@ -33,13 +31,13 @@ class MockNetEstimator:
 
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
-        'probs' and 'values'
+        'probs' and 'value'
 
         Returns
         -------
-        probs: np array
+        probs: array_like
             The probabilities returned by the net.
-        values: np array
+        value: array_like
             The value returned by the net.
         """
         if not hasattr(state, '__len__'):
@@ -50,8 +48,8 @@ class MockNetEstimator:
             probs = sess.run(
                 self.tensors['probs'],
                 feed_dict={self.tensors['state_vector']: state})
-            values = sess.run(
+            [value] = sess.run(
                 self.tensors['values'],
                 feed_dict={self.tensors['state_vector']: state})
 
-        return np.ravel(probs), values
+        return np.ravel(probs), value

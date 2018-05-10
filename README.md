@@ -1,2 +1,2 @@
 # alphago
-A pure python implementation of DeepMind's AlphaGo program.
+A pure python implementation of Google DeepMind's AlphaZero algorithm.

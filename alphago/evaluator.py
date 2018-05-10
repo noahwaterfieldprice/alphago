@@ -5,7 +5,7 @@ from collections import namedtuple
 GameLog = namedtuple("GameLog", "result actions game_states".split())
 
 
-def evaluate(game, players, num_games):
+def evaluate(game, players, num_games, verbose=True):
     """Compare two evaluators. Returns the number of evaluator1 wins
     and number of draws in the games, as well as the total number of
     games.
@@ -15,7 +15,8 @@ def evaluate(game, players, num_games):
     player1_results = {win: 0, loss: 0, draw: 0}
     game_logs = []
 
-    with tqdm(total=num_games) as pbar:
+    disable_tqdm = False if verbose else True
+    with tqdm(total=num_games, disable=disable_tqdm) as pbar:
         for game_no in range(num_games):
             for player in players.values():
                 player.reset()
