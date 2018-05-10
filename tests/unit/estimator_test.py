@@ -1,9 +1,13 @@
 import numpy as np
 
-from alphago.estimator import create_trivial_estimator, NACNetEstimator
 from alphago import mcts, MCTSNode
+from alphago.estimator import create_trivial_estimator, NACNetEstimator
+from alphago.games import NoughtsAndCrosses
+
 from .games.mock_game import MockGame
 from .mock_estimator import MockNetEstimator
+
+# TODO: Mock stuff properly in these tests
 
 
 def test_trivial_estimator():
@@ -13,8 +17,9 @@ def test_trivial_estimator():
     assert trivial_estimator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
 
 
-def test_initialising_basic_net_with_random_parameters():
-    nnet = NACNetEstimator()
+def test_initialising_basic_net_with_random_parameters():  # TODO: redo this on mock game
+    nac = NoughtsAndCrosses()
+    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
 
     # Initialise state of all 1s.
     states = np.ones((7, 9))
@@ -29,14 +34,15 @@ def test_initialising_basic_net_with_random_parameters():
 
 def test_neural_net_estimator():
     mock_game = MockGame()
-    nnet = MockNetEstimator(input_dim=1, output_dim=3)
+    nnet = MockNetEstimator(learning_rate=0.01)
 
     root = MCTSNode(0, player=1)
     action_probs = mcts(root, mock_game, nnet, 100, 1.0)
 
 
 def test_neural_net_estimate_game_state():
-    nnet = NACNetEstimator()
+    nac = NoughtsAndCrosses()
+    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
 
     test_game_state = np.random.randn(7, 9)
 
@@ -45,8 +51,9 @@ def test_neural_net_estimate_game_state():
 
 def test_can_use_two_neural_nets():
     np.random.seed(0)
-    nnet1 = NACNetEstimator()
-    nnet2 = NACNetEstimator()
+    nac = NoughtsAndCrosses()
+    nnet1 = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+    nnet2 = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
 
     test_game_state = np.random.randn(7, 9)
 
@@ -61,7 +68,8 @@ def test_can_use_two_neural_nets():
 
 def test_basic_nac_net_tensor_shapes():
     np.random.seed(0)
-    nnet = NACNetEstimator()
+    nac = NoughtsAndCrosses()
+    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
 
     batch_size = 5
 
@@ -75,7 +83,7 @@ def test_basic_nac_net_tensor_shapes():
         nnet.tensors['loss_probs'],
         nnet.tensors['loss_value'],
         nnet.tensors['probs'],
-        nnet.tensors['values'],
+        nnet.tensors['value'],
     ]
 
     computed_tensors = nnet.sess.run(
@@ -84,11 +92,8 @@ def test_basic_nac_net_tensor_shapes():
             nnet.tensors['pi']: pis,
             nnet.tensors['outcomes']: zs,
             })
-    loss = computed_tensors[0]
-    loss_probs = computed_tensors[1]
-    loss_value = computed_tensors[2]
-    probs = computed_tensors[3]
-    values = computed_tensors[4]
+
+    loss, loss_probs, loss_value, probs, value = computed_tensors
 
     # The loss should be positive
     assert loss_probs > 0
@@ -98,4 +103,4 @@ def test_basic_nac_net_tensor_shapes():
     # The loss should be a scalar.
     assert np.shape(loss) == ()
     assert np.shape(probs) == (batch_size, 9)
-    assert np.shape(values) == (batch_size, 1)
+    assert np.shape(value) == (batch_size, 1)

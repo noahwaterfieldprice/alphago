@@ -51,7 +51,7 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     replay_length: int
         The amount of training data to use. Only train on the most recent
         training data.
-    evaluator_games: int
+    num_evaluate_games: int
         Number of games to evaluate the players for.
     win_rate: float
         Number between 0 and 1. Only update self-play player when training
@@ -72,26 +72,25 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     # If it beats the current best network by at least 55% then it becomes
     # the new best network.
     # 1 is the fixed player, and 2 is the training player.
-    self_play_player = create_estimator()
-    training_player = create_estimator()
+    self_play_estimator = create_estimator()
+    training_estimator = create_estimator()
 
     if restore_step:
         restore_path = compute_checkpoint_name(restore_step, checkpoint_path)
-        self_play_player.restore(restore_path)
-        training_player.restore(restore_path)
+        self_play_estimator.restore(restore_path)
+        training_estimator.restore(restore_path)
 
     all_losses = []
 
     initial_step = restore_step + 1 if restore_step else 0
-    for alphago_step in range(initial_step, initial_step +
-                                            alphago_steps):
+    for alphago_step in range(initial_step, initial_step + alphago_steps):
         self_play_data = generate_self_play_data(
-            game, self_play_player, mcts_iters, c_puct, self_play_iters,
+            game, self_play_estimator, mcts_iters, c_puct, self_play_iters,
             verbose=verbose, save_file_path=self_play_file_path)
 
         training_data = process_training_data(self_play_data, replay_length)
-        losses = optimise(training_player, training_data, batch_size,
-                          training_iters, output_losses=True, verbose=verbose)
+        losses = optimise_estimator(training_estimator, training_data, batch_size,
+                                    training_iters, output_losses=True, verbose=verbose)
 
         all_losses.append(losses)
         if verbose:
@@ -99,58 +98,63 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
-            training_win_rate = evaluate_model(game, self_play_player,
-                                               training_player, mcts_iters,
-                                               c_puct, num_evaluate_games)
-            checkpoint_model(training_player, alphago_step, checkpoint_path)
+            training_win_rate = evaluate_model(game, self_play_estimator,
+                                               training_estimator, mcts_iters,
+                                               c_puct, num_evaluate_games,
+                                               verbose=verbose)
+            checkpoint_model(training_estimator, alphago_step, checkpoint_path)
 
             # If training player beats self-play player by a large enough
             # margin, then it becomes the new best estimator.
             if training_win_rate > win_rate:
                 # Create a new self player, with the weights of the most
-                # recent training_player.
+                # recent training_estimator.
                 if verbose:
                     print("Updating self-play player.")
                     print("Restoring from step: {}".format(alphago_step))
-                self_play_player = create_estimator()
+                self_play_estimator = create_estimator()
                 restore_path = compute_checkpoint_name(alphago_step,
                                                        checkpoint_path)
-                self_play_player.restore(restore_path)
+                self_play_estimator.restore(restore_path)
 
     return all_losses
 
 
-def optimise(estimator, training_data, batch_size, training_iters,
-             output_losses=True, verbose=True):
+def optimise_estimator(estimator, training_data, batch_size, training_iters,
+                       output_losses=True, verbose=True):
     losses = estimator.train(training_data, batch_size, training_iters,
                              verbose=verbose)
     if output_losses:
         return losses
 
 
-def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games):
+def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
+                   verbose=True):
     # Checkpoint the model.
     # TODO: Implement evaluation
     # TODO: Choose tau more systematically.
 
-    print("Evaluating. Self-player vs training, then training vs "
-          "self-player")
+    if verbose:
+        print("Evaluating. Self-player vs training, then training vs "
+              "self-player")
     wins1, wins2, draws = evaluate_estimators_in_both_positions(
         game, player1.create_estimate_fn(), player2.create_estimate_fn(),
-        mcts_iters, c_puct, num_games, tau=0.1)
+        mcts_iters, c_puct, num_games, tau=0.1, verbose=verbose)
 
-    print("Self-play player wins: {}, Training player wins: {}, "
-          "Draws: {}".format(wins1, wins2, draws))
+    if verbose:
+        print("Self-play player wins: {}, Training player wins: {}, "
+              "Draws: {}".format(wins1, wins2, draws))
     training_win_rate = wins2 / (wins1 + wins2 + draws)
-    print("Win rate for training player: {}".format(
-        training_win_rate))
+    if verbose:
+        print("Win rate for training player: {}".format(training_win_rate))
 
     # Also evaluate against a random player
     wins1, wins2, draws = evaluate_mcts_against_random_player(
         game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
-        tau=0.1)
-    print("Training player vs random. Wins: {}, Losses: {}, "
-          "Draws: {}".format(wins1, wins2, draws))
+        tau=0.1, verbose=verbose)
+    if verbose:
+        print("Training player vs random. Wins: {}, Losses: {}, "
+              "Draws: {}".format(wins1, wins2, draws))
 
     return training_win_rate
 
@@ -163,11 +167,13 @@ def checkpoint_model(player, step, path):
 
 
 def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
-                                        c_puct, num_evaluate_games, tau):
+                                        c_puct, num_evaluate_games, tau,
+                                        verbose=True):
     # Evaluate estimator1 vs estimator2.
     players = {1: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau),
                2: RandomPlayer(game)}
-    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
     wins1 = player1_results[1]
     wins2 = player1_results[-1]
     draws = player1_results[0]
@@ -175,7 +181,8 @@ def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
     # Evaluate estimator2 vs estimator1.
     players = {1: RandomPlayer(game),
                2: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau)}
-    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
     wins1 += player1_results[-1]
     wins2 += player1_results[1]
     draws += player1_results[0]
@@ -185,11 +192,13 @@ def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
 
 def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
                                           mcts_iters, c_puct,
-                                          num_evaluate_games, tau):
+                                          num_evaluate_games, tau,
+                                          verbose=True):
     # Evaluate estimator1 vs estimator2.
     players = {1: MCTSPlayer(game, estimator1, mcts_iters, c_puct, tau=tau),
                2: MCTSPlayer(game, estimator2, mcts_iters, c_puct, tau=tau)}
-    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
     wins1 = player1_results[1]
     wins2 = player1_results[-1]
     draws = player1_results[0]
@@ -197,7 +206,8 @@ def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
     # Evaluate estimator2 vs estimator1.
     players = {1: MCTSPlayer(game, estimator2, mcts_iters, c_puct, tau=tau),
                2: MCTSPlayer(game, estimator1, mcts_iters, c_puct, tau=tau)}
-    player1_results, _ = evaluate(game, players, num_evaluate_games)
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
     wins1 += player1_results[-1]
     wins2 += player1_results[1]
     draws += player1_results[0]

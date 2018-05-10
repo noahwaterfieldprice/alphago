@@ -20,8 +20,8 @@ class Game(abc.ABC):
         The space of all possible actions within the game.
     """
 
-    initial_state = NotImplemented # type: GameState
-    action_space = NotImplemented # type: Sequence[Action]
+    initial_state = NotImplemented  # type: GameState
+    action_space = NotImplemented  # type: Sequence[Action]
 
     @abc.abstractmethod
     def which_player(self, state: GameState) -> int:
