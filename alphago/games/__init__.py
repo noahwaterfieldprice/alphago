@@ -1,1 +1,1 @@
-from .noughts_and_crosses import NoughtsAndCrosses
+from .noughts_and_crosses import *
