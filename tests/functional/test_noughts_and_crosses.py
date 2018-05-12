@@ -62,4 +62,4 @@ class TestMxNNoughtsAndCrosses:
         nac_4x7 = nacmn.NoughtsAndCrosses(4, 7)
         assert nac_4x7.rows == 4
         assert nac_4x7.columns == 7
-        assert nac_4x7.initial_state == (np.nan,) * 4 * 7
+        assert nac_4x7.initial_state == (0,) * 4 * 7

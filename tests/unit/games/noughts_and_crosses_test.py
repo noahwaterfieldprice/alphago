@@ -3,11 +3,12 @@ import pytest
 from alphago.games import NoughtsAndCrosses
 
 
-def test_noughts_and_crosses_initial_state(mocker):
-    mock = mocker.MagicMock()
-    NoughtsAndCrosses.__init__(mock)
+# TODO: mock this file
 
-    assert mock.initial_state == (0,) * 9
+
+def test_noughts_and_crosses_initial_state():
+    nac = NoughtsAndCrosses()
+    assert nac.initial_state == (0,) * 9
 
 
 terminal_states = [
@@ -22,7 +23,7 @@ terminal_states = [
 
 
 @pytest.mark.parametrize("state", terminal_states)
-def test_is_terminal_returns_true_for_terminal_states(state, mocker):
+def test_is_terminal_returns_true_for_terminal_states(state):
     nac = NoughtsAndCrosses()
     assert nac.is_terminal(state) is True
 
@@ -35,9 +36,19 @@ non_terminal_states = [
 
 
 @pytest.mark.parametrize("state", non_terminal_states)
-def test_is_terminal_returns_false_for_non_terminal_states(state, mocker):
+def test_is_terminal_returns_false_for_non_terminal_states(state):
     nac = NoughtsAndCrosses()
     assert nac.is_terminal(state) is False
+
+
+players = (1, 2, 2, 2)
+
+
+@pytest.mark.parametrize("player, state",
+                         zip(players, [(0,) * 9] + non_terminal_states))
+def test_which_player_returns_correct_player(player, state, mocker):
+    mock = mocker.MagicMock()
+    assert NoughtsAndCrosses.which_player(mock, state) == player
 
 
 line_sums_list = [
@@ -67,13 +78,13 @@ def test_utility_raises_exception_on_non_terminal_input_state(state, mocker):
                                          "for a non-terminal state.")
 
 
-outcomes = ([{1: 1, 2: -1}] * 4 +
-            [{1: -1, 2: 1}] * 2 +
-            [{1: 0, 2: 0}])
+outcomes = ([{1: 1, 2: -1}] * 4 +  # player 1 wins
+            [{1: -1, 2: 1}] * 2 +  # player 2 wins
+            [{1: 0, 2: 0}])  # draw
 
 
 @pytest.mark.parametrize("state, outcome", zip(terminal_states, outcomes))
-def test_utility_function_returns_correct_outcomes(state, outcome, mocker):
+def test_utility_function_returns_correct_outcomes(state, outcome):
     nac = NoughtsAndCrosses()
     assert nac.utility(state) == outcome
 
@@ -126,16 +137,15 @@ expected_next_states_list = (next_states_move6, next_states_move7,
 @pytest.mark.parametrize("state, expected_next_states",
                          zip(states, expected_next_states_list))
 def test_generating_a_dict_of_all_possible_next_states(state,
-                                                       expected_next_states,
-                                                       mocker):
+                                                       expected_next_states):
     nac = NoughtsAndCrosses()
     assert nac.compute_next_states(state) == expected_next_states
 
 
 states = [
-   (0,) * 9,
-   (1, -1, 0, 0, 1, 0, 1, 0, -1),
-   (1, 1, 1, 1, -1, -1, -1, -1, 1),
+    (0,) * 9,
+    (1, -1, 0, 0, 1, 0, 1, 0, -1),
+    (1, 1, 1, 1, -1, -1, -1, -1, 1),
 ]
 div = "---+---+---"
 # additional newline character accounts for the one added to the output
@@ -148,7 +158,7 @@ outputs = [
 
 
 @pytest.mark.parametrize("state, expected_output", zip(states, outputs))
-def test_display_function_outputs_correct_strings(state, expected_output, capsys, mocker):
+def test_display_function_outputs_correct_strings(state, expected_output, capsys):
     NoughtsAndCrosses.display(state)
     output = capsys.readouterr().out
     assert output == expected_output

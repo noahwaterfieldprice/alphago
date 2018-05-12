@@ -11,5 +11,4 @@ def test_can_play_connect_four():
     while len(next_states) > 0:
         action = min(next_states)
         game_state = next_states[action]
-        print(action)
         next_states = game.compute_next_states(game_state)

@@ -458,9 +458,12 @@ def extremise_distribution(distribution: Dict[Any, float],
     assert tau > 0
     assert min(distribution.values()) >= 0
 
-    total = sum(v ** (1 / tau) for v in distribution.values())
+    max_value = max(distribution.values())
+    rescaled_distribution = {k: v / max_value for k, v in distribution.items()}
+
+    total = sum(v ** (1 / tau) for v in rescaled_distribution.values())
     extremised_distribution = {k: (v ** (1 / tau) / total)
-                               for k, v in distribution.items()}
+                               for k, v in rescaled_distribution.items()}
 
     return extremised_distribution
 

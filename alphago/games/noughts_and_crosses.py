@@ -46,8 +46,9 @@ class NoughtsAndCrosses(Game):
         self.initial_state = (0,) * 9  # type: GameState:
         self.action_space = tuple((i, j) for i in range(3)
                                   for j in range(3))  # type: Tuple[Action, ...]
-        self.action_indices = {a: self.action_space.index(a)
-                               for a in self.action_space}  # type:
+        self.action_indices = {
+            a: self.action_space.index(a)
+            for a in self.action_space}  # type: Dict[Action, int]
 
     def which_player(self, state: GameState) -> int:
         """Given a state, return an int indicating the player whose turn it is.
@@ -126,7 +127,7 @@ class NoughtsAndCrosses(Game):
         return {a: next_state for a, next_state
                 in zip(available_squares, next_states)}
 
-    def is_terminal(self, state):
+    def is_terminal(self, state: GameState) -> bool:
         """Given a state, returns whether it is terminal.
 
         Uses the fact that the noughts and crosses are represented by +1
@@ -155,7 +156,7 @@ class NoughtsAndCrosses(Game):
         # otherwise it is non-terminal
         return False
 
-    def utility(self, state):
+    def utility(self, state: GameState) -> Dict[int, int]:
         """Given a terminal noughts and crosses state, calculates the
         outcomes for both players. These outcomes are given by +1, -1
         and 0 for a win, loss, or draw, respectively.
@@ -194,7 +195,8 @@ class NoughtsAndCrosses(Game):
         raise ValueError("Utility can not be calculated for a "
                          "non-terminal state.")
 
-    def _calculate_line_sums(self, state):
+    @staticmethod
+    def _calculate_line_sums(state: GameState) -> np.ndarray:
         """Calculate line sums along horizontal and vertical directions
         and along major and minor diagonals.
 
@@ -220,7 +222,7 @@ class NoughtsAndCrosses(Game):
         return line_sums
 
     @staticmethod
-    def display(state):
+    def display(state: GameState) -> None:
         """Display the noughts and crosses state in a 2-D ASCII grid.
 
         Parameters
