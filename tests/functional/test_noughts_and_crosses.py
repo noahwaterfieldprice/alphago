@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from alphago.games.noughts_and_crosses import NoughtsAndCrosses
-import alphago.games.noughts_and_crosses_mxn as nacmn
+from alphago.games import NoughtsAndCrosses
 
 
 class TestBasic3x3NoughtsAndCrosses:
@@ -59,7 +58,7 @@ class TestBasic3x3NoughtsAndCrosses:
 class TestMxNNoughtsAndCrosses:
 
     def test_can_create_instance_of_mxn_game(self):
-        nac_4x7 = nacmn.NoughtsAndCrosses(4, 7)
+        nac_4x7 = NoughtsAndCrosses(rows=4, columns=7)
         assert nac_4x7.rows == 4
         assert nac_4x7.columns == 7
         assert nac_4x7.initial_state == (0,) * 4 * 7
