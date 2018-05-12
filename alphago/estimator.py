@@ -316,7 +316,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
                 inputs=dense1, num_outputs=32, weights_regularizer=regularizer,
                 activation_fn=tf.nn.relu)
 
-            values = tf.contrib.layers.fully_connected(
+            value = tf.contrib.layers.fully_connected(
                 inputs=dense2, num_outputs=1, weights_regularizer=regularizer,
                 activation_fn=tf.nn.tanh)
 
@@ -331,7 +331,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
             log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
             log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
 
-            loss_value = tf.losses.mean_squared_error(outcomes, values)
+            loss_value = tf.losses.mean_squared_error(outcomes, value)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
 
             loss = loss_value + loss_probs
@@ -350,8 +350,8 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, values, prob_logits, probs,
+        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
                    loss, loss_value, loss_probs, is_training]
-        names = "state_vector outcomes pi values prob_logits probs loss " \
+        names = "state_vector outcomes pi value prob_logits probs loss " \
                 "loss_value loss_probs is_training".split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
