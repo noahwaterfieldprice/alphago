@@ -1,16 +1,13 @@
 """Noughts and crosses game
 
 This module provides functionality for representing a game of noughts
-and crosses of abitrary size. The game state is represented by a tuple
-of shape (n_rows * n_columns,) with -1 for 'O', 1 for 'X' and 0 for
-empty square. The outcome of the game is given by a dictionary showing
-each player's outcome, where +1, -1 and 0 correspond to a win, loss or
-draw, respectively.
+and crosses of arbitrary size.
 
 Classes
 -------
-NoughtsAndCrossesMXN
-Noughts and crosses
+NoughtsAndCrosses
+    A class for representing a game of noughts and crosses (or
+    tic-tac-toe) that can
 """
 
 from typing import Dict, Tuple
@@ -25,32 +22,84 @@ __all__ = ["NoughtsAndCrosses"]
 
 
 class NoughtsAndCrosses(Game):
-    """ # TODO: Finish docstring
+    """A class to represent a game of noughts and crosses.
 
-    Methods
-    -------
-    is_terminal:
-        Return a bool indicating whether or not the input state is
-        terminal.
-    which_player:
-        Given a state, return and int indicating the player whose turn it
-        is.
-    next_states:
-        Given a state, return a dict of all possible next states.
-    utility:
-        Given a terminal state, return the outcomes for each player
-    display:
-        Display a noughts and crosses state as an ASCII grid.
+    The game state is represented by a tuple of shape (rows * columns,)
+    with -1 for 'O', 1 for 'X' and 0 for an empty square. The outcome
+    of the game is given by a dictionary showing each player's outcome,
+    where +1, -1 and 0 correspond to a win, loss or draw, respectively.
+
+    This class provides a number of methods for evaluating the state of
+    the game i.e. checking if the state is terminal, which player is to
+    play, what the next possible states are and what the utility of a
+    terminal state is. The state can also be displayed in ASCII format.
 
     Attributes
     ----------
-    initial_state:
-        A tuple representing the initial state of the game."""
+    rows, columns: int
+        The number of rows and columns of the noughts and crosses
+        board.
+    initial_state: tuple
+        A tuple representing the initial state of the game. This will be
+        a tuple of 0s of length rows * columns.
+    action_space: tuple[tuple]
+        A tuple of all the possible actions in the game, each
+        represented by a two-tuple (row, col) denoting the action of
+        drawing a symbol at that position. (0-based indexing)
+    action_indices: dict
+        A dictionary mapping each action to an index. (This is merely
+        an alternative representation of the action space, primarily
+        for use as a feature vector for a learning algorithm.)
+
+    Examples
+    --------
+    >>> from alphago.games import NoughtsAndCrosses
+    >>> nac = NoughtsAndCrosses(rows=3, columns=3)
+
+    Define a noughts and crosses board with only two moves left.
+
+    >>> penultimate_state = (0, 0, -1, -1, 1, 1, -1, 1, -1)
+    >>> nac.is_terminal(penultimate_state)
+    False
+    >>> nac.display(penultimate_state)
+    |   | o
+    ---+---+---
+    o | x | x
+    ---+---+---
+    o | x | o
+
+    Calculate the possible next states, of which there should only be
+    two, and which player's turn it is.
+
+    >>> next_states = nac.compute_next_states(penultimate_state)
+    >>> next_states
+    {(0, 0): (-1, 0, -1, -1, 1, 1, -1, 1, -1),
+    (0, 1): (0, -1, -1, -1, 1, 1, -1, 1, -1)}
+    >>> nac.which_player(penultimate_state)
+    2
+
+    Take the move in the top left corner, winning the game for player
+    2 and calculate its utility.
+
+    >>> action = (0, 0)
+    >>> next_state = next_states[action]
+    >>> nac.display(next_state)
+    o |   | o
+    ---+---+---
+    o | x | x
+    ---+---+---
+    o | x | o
+
+    >>> nac.is_terminal(next_state)
+    True
+    >>> nac.utility(next_state)
+    {1: -1, 2: 1}
+    """
 
     def __init__(self, rows: int = 3, columns: int = 3) -> None:
         self.rows = rows
         self.columns = columns
-        self.initial_state = (0,) * rows * columns
+        self.initial_state = (0,) * rows * columns  # type: Tuple[int, ...]
         self.action_space = tuple(
             (i, j) for i in range(self.rows)
             for j in range(self.columns))  # type: Tuple[Action, ...]
@@ -198,21 +247,6 @@ class NoughtsAndCrosses(Game):
              A dictionary mapping all possible legal actions from the input
              game state to the corresponding game states resulting from
              taking each action.
-
-
-         Examples
-         --------
-         >>> from alphago.games import NoughtsAndCrosses
-         >>> nac = NoughtsAndCrosses(3, 3)
-
-         Define a noughts and crosses board with only one move left.
-
-         >>> penultimate_state = (1, 0, -1, -1, 1, 1, 1, -1, -1)
-
-         Calculate the possible next states, of which there should only be one
-
-         >>> nac.compute_next_states(penultimate_state)
-         (0, 1): (1, 1, -1, -1, 1, 1, 1, -1, -1)
          """
         if self.is_terminal(state):
 
