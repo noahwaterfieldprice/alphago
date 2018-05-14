@@ -14,8 +14,8 @@ class TestBasic3x3NoughtsAndCrosses:
 
     def test_correctly_identifies_state_terminality(self):
         nac = NoughtsAndCrosses()
-        assert nac.is_terminal(self.terminal_state)
-        assert not nac.is_terminal(self.non_terminal_state)
+        assert nac.is_terminal(self.terminal_state) == True
+        assert nac.is_terminal(self.non_terminal_state) == False
 
     def test_exception_raised_when_utility_called_for_non_terminal_state(self):
         nac = NoughtsAndCrosses()
@@ -56,6 +56,8 @@ class TestBasic3x3NoughtsAndCrosses:
 
 class TestMxNNoughtsAndCrosses:
 
+    # TODO: Add more tests here
+
     def test_can_create_instance_of_mxn_game(self):
         nac_4x7 = NoughtsAndCrosses(rows=4, columns=7)
         assert nac_4x7.rows == 4
@@ -66,4 +68,32 @@ class TestMxNNoughtsAndCrosses:
 class TestUltimateNoughtsAndCrosses:
     def test_initial_state_is_correct(self):
         unac = UltimateNoughtsAndCrosses()
-        assert unac.initial_state == (-1,) + (0,) * 81
+        assert unac.initial_state == (0,) * 82
+
+    def test_correctly_identifies_state_terminality(self):
+        unac = UltimateNoughtsAndCrosses()
+        non_terminal_state = (0,  # TODO: remake this as valid state
+            0, 0, 0, -1, 0, 0, 0, 1, 0,
+            1, 1, 1, 0, 1, 0, 0, 0, 0,
+            -1, 0, 0, -1, -1, -1, -1, 0, 0,
+            0, -1, 0, 0, 1, 1, 0, 1, 0,
+            0, 0, -1, 0, 0, 0, 0, 0, -1,
+            0, 0, 0, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, -1, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1,
+        )
+        terminal_state = (2,) + (
+            1, 0, 1, -1, 0, 0, 0, 1, 0,
+            -1, 1, 1, 1, -1, 0, 0, -1, 0,
+            1, 0, -1, 0, 0, -1, 0, 1, 0,
+            0, 1, 0, 1, 1, 1, 0, 0, -1,
+            0, -1, 0, -1, -1, 1, 0, -1, 0,
+            -1, 1, 0, 0, 0, -1, -1, 0, 0,
+            0, -1, 0, -1, -1, -1, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0,
+        )
+
+        assert unac.is_terminal(terminal_state) is True
+        assert unac.is_terminal(non_terminal_state) is False
+
