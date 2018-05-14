@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import pytest
 
-from alphago.games import NoughtsAndCrosses
+from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
 
 
 class TestMByNNoughtsAndCrosses:
@@ -258,3 +258,73 @@ class TestMByNNoughtsAndCrosses:
 
         output = capsys.readouterr().out
         assert output == expected_output
+
+
+class TestUltimateNoughtsAndCrosses:
+    def test_initial_state_is_correct(self, mocker):
+        mock_game = mocker.MagicMock()
+        UltimateNoughtsAndCrosses.__init__(mock_game)
+
+        assert mock_game.initial_state == (0,) * 82
+
+    terminal_board = [0] * 81
+    terminal_board[18:27] = [1] * 9
+    terminal_board[54:56] = [-1] * 2
+    terminal_board[57:63] = [-1] * 6
+    terminal_state1 = (0,) + tuple(terminal_board)
+    meta_board1 = (1, 1, 1, 0, 0, 0, 0, -1, -1)
+    utilities1 = ({1: 1, 2: -1}, {1: 1, 2: -1}, {1: 1, 2: -1},
+                  ValueError, ValueError, ValueError,
+                  ValueError, {1: -1, 2: 1}, {1: -1, 2: 1})
+
+    terminal_state2 = (2,) + (
+        1, 0, 1, -1, 0, 0, 0, 1, 0,
+        -1, 1, 1, 1, -1, 0, 0, -1, 0,
+        1, 0, -1, 0, 0, -1, 0, 1, 0,
+        0, 1, 0, 1, 1, 1, 0, 0, -1,
+        0, -1, 0, -1, -1, 1, 0, -1, 0,
+        -1, 1, 0, 0, 0, -1, -1, 0, 0,
+        0, -1, 0, -1, -1, -1, 0, 1, 0,
+        0, 1, 0,   0, 0, 0,   0, 1, 0,
+        0, 1, 0,   0, 0, 0,   0, 1, 0,
+    )
+    meta_board2 = (1, -1, 0, 0, 1, -1, 0, -1, 1)
+    utilities2 = ({1: 1, 2: -1}, {1: -1, 2: 1}, ValueError,
+                  ValueError, {1: 1, 2: -1}, {1: -1, 2: 1},
+                  ValueError, {1: -1, 2: 1}, {1: 1, 2: -1})
+
+    terminal_states = (terminal_state1, terminal_state2)
+    meta_boards = (meta_board1, meta_board2)
+    utilities_list = (utilities1, utilities2)
+
+    @pytest.mark.parametrize("state, meta_board, utilities",
+                             zip(terminal_states, meta_boards, utilities_list))
+    def test_meta_board_is_calculated_correctly(self, state, meta_board, utilities, mocker):
+        mock_game = mocker.MagicMock()
+        utility_mock = mocker.MagicMock(side_effect=utilities)
+        mock_nac = mocker.MagicMock(utility=utility_mock)
+
+        # split non_terminal_state into sub boards
+        board = np.array(state[1:]).reshape(9, 9)
+        sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j * 3) + 3]
+                      for i in range(3) for j in range(3)]
+
+        mocker.patch("alphago.games.noughts_and_crosses.super", return_value=mock_nac)
+
+        expected_calls = [mocker.call(tuple(sub_board.ravel()))
+                          for sub_board in sub_boards]
+
+        assert UltimateNoughtsAndCrosses._compute_meta_board(mock_game, state) == meta_board
+        utility_mock.assert_has_calls(expected_calls)
+
+    def test_meta_board_is_passed_to_super_is_terminal_method(self, mocker):
+        mock_game = mocker.MagicMock()
+        mock_meta_board = mocker.MagicMock()
+        mock_game._compute_meta_board = mocker.MagicMock(return_value=mock_meta_board)
+        mock_state = mocker.MagicMock()
+        mock_is_terminal = mocker.MagicMock()
+        mock_nac = mocker.MagicMock(is_terminal=mock_is_terminal)
+        mocker.patch("alphago.games.noughts_and_crosses.super", return_value=mock_nac)
+
+        UltimateNoughtsAndCrosses.is_terminal(mock_game, mock_state)
+        mock_is_terminal.assert_called_once_with(mock_meta_board)

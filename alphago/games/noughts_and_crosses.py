@@ -300,6 +300,33 @@ class NoughtsAndCrosses(Game):
                                       self.rows, self.columns)
 
 
-class UltimateNoughtsAndCrosses:
+class UltimateNoughtsAndCrosses(NoughtsAndCrosses):
     """A class to represent the game of ultimate noughts and crosses
     (or tic-tac-toe)."""
+
+    def __init__(self):
+        self.initial_state = (0,) * 82
+
+    def _compute_meta_board(self, state):
+        board = np.array(state[1:]).reshape(9, 9)
+        sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j * 3) + 3]
+                      for i in range(3) for j in range(3)]
+
+        meta_board = []
+        for sub_board in sub_boards:
+            state = tuple(sub_board.ravel())
+            try:
+                utility = super().utility(state)
+                print(utility)
+            except ValueError:
+                symbol = 0
+            else:
+                sub_board_winner = max(utility, key=utility.get)
+                symbol = 1 if sub_board_winner == 1 else -1
+
+            meta_board.append(symbol)
+        return tuple(meta_board)
+
+    def is_terminal(self, state):
+        meta_board = self._compute_meta_board(state)
+        return super().is_terminal(meta_board)
