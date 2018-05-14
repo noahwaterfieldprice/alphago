@@ -18,11 +18,12 @@ from .game import Game
 GameState = Tuple[int, ...]
 Action = Tuple[int, int]
 
-__all__ = ["NoughtsAndCrosses"]
+__all__ = ["NoughtsAndCrosses", "UltimateNoughtsAndCrosses"]
 
 
 class NoughtsAndCrosses(Game):
-    """A class to represent a game of noughts and crosses.
+    """A class to represent the game of noughts and crosses (or
+    tic-tac-toe).
 
     The game state is represented by a tuple of shape (rows * columns,)
     with -1 for 'O', 1 for 'X' and 0 for an empty square. The outcome
@@ -84,11 +85,11 @@ class NoughtsAndCrosses(Game):
     >>> action = (0, 0)
     >>> next_state = next_states[action]
     >>> nac.display(next_state)
-    o |   | o
+     o |   | o
     ---+---+---
-    o | x | x
+     o | x | x
     ---+---+---
-    o | x | o
+     o | x | o
 
     >>> nac.is_terminal(next_state)
     True
@@ -297,3 +298,8 @@ class NoughtsAndCrosses(Game):
     def __repr__(self):
         return "{0}({1}, {2})".format(self.__class__.__name__,
                                       self.rows, self.columns)
+
+
+class UltimateNoughtsAndCrosses:
+    """A class to represent the game of ultimate noughts and crosses
+    (or tic-tac-toe)."""

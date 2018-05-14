@@ -1,7 +1,6 @@
-import numpy as np
 import pytest
 
-from alphago.games import NoughtsAndCrosses
+from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
 
 
 class TestBasic3x3NoughtsAndCrosses:
@@ -62,3 +61,9 @@ class TestMxNNoughtsAndCrosses:
         assert nac_4x7.rows == 4
         assert nac_4x7.columns == 7
         assert nac_4x7.initial_state == (0,) * 4 * 7
+
+
+class TestUltimateNoughtsAndCrosses:
+    def test_initial_state_is_correct(self):
+        unac = UltimateNoughtsAndCrosses()
+        assert unac.initial_state == (-1,) + (0,) * 81
