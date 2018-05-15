@@ -63,11 +63,11 @@ class NoughtsAndCrosses(Game):
     >>> nac.is_terminal(penultimate_state)
     False
     >>> nac.display(penultimate_state)
-    |   | o
+       |   | o
     ---+---+---
-    o | x | x
+     o | x | x
     ---+---+---
-    o | x | o
+     o | x | o
 
     Calculate the possible next states, of which there should only be
     two, and which player's turn it is.
@@ -300,14 +300,15 @@ class NoughtsAndCrosses(Game):
                                       self.rows, self.columns)
 
 
-class UltimateNoughtsAndCrosses(NoughtsAndCrosses):
+class UltimateNoughtsAndCrosses():
     """A class to represent the game of ultimate noughts and crosses
     (or tic-tac-toe)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.initial_state = (0,) * 82
+        self.sub_game = NoughtsAndCrosses()
 
-    def _compute_meta_board(self, state):
+    def _compute_meta_board(self, state: GameState) -> GameState:
         board = np.array(state[1:]).reshape(9, 9)
         sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j * 3) + 3]
                       for i in range(3) for j in range(3)]
@@ -316,8 +317,7 @@ class UltimateNoughtsAndCrosses(NoughtsAndCrosses):
         for sub_board in sub_boards:
             state = tuple(sub_board.ravel())
             try:
-                utility = super().utility(state)
-                print(utility)
+                utility = self.sub_game.utility(state)
             except ValueError:
                 symbol = 0
             else:
@@ -327,6 +327,10 @@ class UltimateNoughtsAndCrosses(NoughtsAndCrosses):
             meta_board.append(symbol)
         return tuple(meta_board)
 
-    def is_terminal(self, state):
+    def is_terminal(self, state: GameState) -> bool:
         meta_board = self._compute_meta_board(state)
-        return super().is_terminal(meta_board)
+        return self.sub_game.is_terminal(meta_board)
+
+    def utility(self, state: GameState) -> Dict[int, int]:
+        meta_board = self._compute_meta_board(state)
+        return self.sub_game.utility(meta_board)

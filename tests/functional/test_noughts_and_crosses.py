@@ -14,8 +14,8 @@ class TestBasic3x3NoughtsAndCrosses:
 
     def test_correctly_identifies_state_terminality(self):
         nac = NoughtsAndCrosses()
-        assert nac.is_terminal(self.terminal_state) == True
-        assert nac.is_terminal(self.non_terminal_state) == False
+        assert nac.is_terminal(self.terminal_state) is True
+        assert nac.is_terminal(self.non_terminal_state) is False
 
     def test_exception_raised_when_utility_called_for_non_terminal_state(self):
         nac = NoughtsAndCrosses()
@@ -66,34 +66,69 @@ class TestMxNNoughtsAndCrosses:
 
 
 class TestUltimateNoughtsAndCrosses:
+    non_terminal_state = (8,) + (
+        0, 1, 0, 0, -1, 0, -1, -1, 1,
+        0, 1, 0, 0, 1, 0, 0, -1, 0,
+        -1, 1, 0, 0, -1, 1, 0, 1, -1,
+        -1, 0, 1, 0, 0, -1, 1, 0, 0,
+        -1, 0, 0, 0, 1, -1, 1, 0, 0,
+        -1, 0, 0, 1, 0, -1, 1, 0, 0,
+        1, 1, 1, 0, 0, -1, -1, 0, 0,
+        0, 0, 0, 1, 0, -1, -1, 1, 0,
+        -1, 0, -1, 0, 0, 0, 0, 0, 1
+    )
+    non_terminal_state_meta_board = (1, 0, -1, -1, -1, 1, 1, 0, 0)
+
+    terminal_state = (2,) + (
+        1, 0, 1, -1, 0, 0, 0, 1, 0,
+        -1, 1, 1, 1, -1, 0, 0, -1, 0,
+        1, 0, -1, 0, 0, -1, 0, 1, 0,
+        0, 1, 0, 1, 1, 1, 0, 0, -1,
+        0, -1, 0, -1, -1, 1, 0, -1, 0,
+        -1, 1, 0, 0, 0, -1, -1, 0, 0,
+        0, -1, 0, -1, -1, -1, 0, 1, 0,
+        0, 1, 0, 0, 0, 0, 0, 1, 0,
+        0, 1, 0, 0, 0, 0, 0, 1, 0,
+    )
+    terminal_state_meta_board = (1, -1, 0, 0, 1, -1, 0, -1, 1)
+
+    terminal_state_draw = (1,) + (
+        1, -1, 1, 0, 1, -1, 1, -1, -1,
+        0, -1, 1, 1, 1, 1, 0, 1, -1,
+        -1, 0, 1, -1, 1, 0, 0, 0, -1,
+        -1, -1, -1, -1, 0, 0, 0, 1, 1,
+        1, 1, -1, -1, 1, 0, -1, 1, -1,
+        1, -1, 0, -1, 0, 0, 0, 1, 0,
+        0, 1, 1, 0, -1, 1, 0, 0, 0,
+        1, 1, 0, 0, -1, 0, -1, -1, -1,
+        -1, 1, -1, 0, -1, 1, 0, 0, 1
+    )
+    terminal_state_draw_meta_board = (1, 1, -1, -1, -1, 1, 1, -1, -1)
+
+    states = (non_terminal_state, terminal_state, terminal_state_draw)
+    meta_boards = (non_terminal_state_meta_board, terminal_state_meta_board,
+                   terminal_state_draw_meta_board)
+
     def test_initial_state_is_correct(self):
         unac = UltimateNoughtsAndCrosses()
         assert unac.initial_state == (0,) * 82
 
-    def test_correctly_identifies_state_terminality(self):
+    @pytest.mark.parametrize("state, terminality", zip(states, [False, True, True]))
+    def test_correctly_identifies_state_terminality(self, state, terminality):
         unac = UltimateNoughtsAndCrosses()
-        non_terminal_state = (0,  # TODO: remake this as valid state
-            0, 0, 0, -1, 0, 0, 0, 1, 0,
-            1, 1, 1, 0, 1, 0, 0, 0, 0,
-            -1, 0, 0, -1, -1, -1, -1, 0, 0,
-            0, -1, 0, 0, 1, 1, 0, 1, 0,
-            0, 0, -1, 0, 0, 0, 0, 0, -1,
-            0, 0, 0, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, -1, 0, 1, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 1,
-        )
-        terminal_state = (2,) + (
-            1, 0, 1, -1, 0, 0, 0, 1, 0,
-            -1, 1, 1, 1, -1, 0, 0, -1, 0,
-            1, 0, -1, 0, 0, -1, 0, 1, 0,
-            0, 1, 0, 1, 1, 1, 0, 0, -1,
-            0, -1, 0, -1, -1, 1, 0, -1, 0,
-            -1, 1, 0, 0, 0, -1, -1, 0, 0,
-            0, -1, 0, -1, -1, -1, 0, 1, 0,
-            0, 1, 0, 0, 0, 0, 0, 1, 0,
-            0, 1, 0, 0, 0, 0, 0, 1, 0,
-        )
 
-        assert unac.is_terminal(terminal_state) is True
-        assert unac.is_terminal(non_terminal_state) is False
+        assert unac.is_terminal(state) is terminality
 
+    @pytest.mark.parametrize("state, metaboard", zip(states, meta_boards))
+    def test_meta_board_is_calculated_correctly(self, state, metaboard):
+        unac = UltimateNoughtsAndCrosses()
+
+        assert unac._compute_meta_board(state) == metaboard
+
+    def test_exception_raised_when_utility_called_non_terminal_state(self):
+        unac = UltimateNoughtsAndCrosses()
+        with pytest.raises(ValueError) as exception_info:
+            unac.utility(self.non_terminal_state)
+
+        assert str(exception_info.value) == ("Utility can not be calculated "
+                                             "for a non-terminal state.")
