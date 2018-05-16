@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 import pytest
 
@@ -131,24 +133,41 @@ class TestMByNNoughtsAndCrosses:
 
 
 class TestUltimateNoughtsAndCrosses:
+
+    initial_state = UltimateGameState(last_sub_action=(0, 0), board=(0,) * 81)
+
+    action_space = tuple(UltimateAction(sub_board, sub_action)
+                         for sub_board in itertools.product(range(3), range(3))
+                         for sub_action in itertools.product(range(3), range(3)))
+
+    action_indices = {}
+    for action in action_space:
+        sub_board_row, sub_board_col = action.sub_board
+        sub_row, sub_col = action.sub_action
+        action_indices[action] = (sub_board_row * 27 + sub_board_col * 3 +
+                                  sub_row * 9 + sub_col)
+
+    index_to_action = {index: action for action, index
+                       in action_indices.items()}
+
     def test_initial_state_is_correct(self, mocker):
         mock_game = mocker.MagicMock()
         UltimateNoughtsAndCrosses.__init__(mock_game)
 
-        assert mock_game.initial_state == UltimateGameState(last_action=(0, 0), board=(0,) * 81)
+        assert mock_game.initial_state == self.initial_state
 
     terminal_board = [0] * 81
     terminal_board[18:27] = [1] * 9
     terminal_board[54:56] = [-1] * 2
     terminal_board[57:63] = [-1] * 6
-    terminal_state1 = UltimateGameState(last_action=(0, 0), board=tuple(terminal_board))
+    terminal_state1 = UltimateGameState(last_sub_action=(0, 0), board=tuple(terminal_board))
     meta_board1 = (1, 1, 1, 0, 0, 0, 0, -1, -1)
     utilities1 = ({1: 1, 2: -1}, {1: 1, 2: -1}, {1: 1, 2: -1},
                   ValueError, ValueError, ValueError,
                   ValueError, {1: -1, 2: 1}, {1: -1, 2: 1})
 
     terminal_state2 = UltimateGameState(
-        last_action=(0, 2),
+        last_sub_action=(0, 2),
         board=(
             1, 0, 1, -1, 0, 0, 0, 1, 0,
             -1, 1, 1, 1, -1, 0, 0, -1, 0,
@@ -166,7 +185,7 @@ class TestUltimateNoughtsAndCrosses:
                   ValueError, {1: -1, 2: 1}, {1: 1, 2: -1})
 
     terminal_state3 = UltimateGameState(
-        last_action=(0, 0),
+        last_sub_action=(0, 0),
         board=(
             0, -1, 0, -1, 0, 1, -1, 0, 0,
             1, 0, 1, 0, 1, 0, -1, 1, 0,
@@ -184,7 +203,7 @@ class TestUltimateNoughtsAndCrosses:
                   {1: -1, 2: 1}, {1: 1, 2: -1}, ValueError)
 
     terminal_state4 = UltimateGameState(
-        last_action=(0, 1),
+        last_sub_action=(0, 1),
         board=(
             1, -1, 1, 0, 1, -1, 1, -1, -1,
             0, -1, 1, 1, 1, 1, 0, 1, -1,
@@ -207,7 +226,8 @@ class TestUltimateNoughtsAndCrosses:
 
     @pytest.mark.parametrize("state, meta_board, utilities",
                              zip(terminal_states, meta_boards, utilities_list))
-    def test_meta_board_is_calculated_correctly(self, state, meta_board, utilities, mocker):
+    def test_meta_board_delegates_to_sub_game_utility_method(self, state, meta_board,
+                                                             utilities, mocker):
         mock_utility = mocker.MagicMock(side_effect=utilities)
         mock_nac = mocker.MagicMock(utility=mock_utility)
         mock_game = mocker.MagicMock(sub_game=mock_nac)
@@ -222,7 +242,7 @@ class TestUltimateNoughtsAndCrosses:
         assert UltimateNoughtsAndCrosses._compute_meta_board(mock_game, state) == meta_board
         mock_utility.assert_has_calls(expected_calls)
 
-    def test_meta_board_delegates_to_sub_game_is_terminal_method(self, mocker):
+    def test_is_terminal_calls_compute_meta_board(self, mocker):
         mock_is_terminal = mocker.MagicMock()
         mock_game = mocker.MagicMock(
             sub_game=mocker.MagicMock(is_terminal=mock_is_terminal),
@@ -232,7 +252,7 @@ class TestUltimateNoughtsAndCrosses:
         mock_game._compute_meta_board.assert_called_once_with(mock_state)
         mock_is_terminal.assert_called_once_with("some_meta_board")
 
-    def test_meta_board_delegates_to_sub_game_utility_method(self, mocker):
+    def test_utility_calls_compute_meta_board(self, mocker):
         mock_utility = mocker.MagicMock()
         mock_game = mocker.MagicMock(
             sub_game=mocker.MagicMock(utility=mock_utility),
@@ -249,3 +269,82 @@ class TestUltimateNoughtsAndCrosses:
         mock_state = mocker.MagicMock()
         UltimateNoughtsAndCrosses.which_player(mock_game, mock_state)
         mock_which_player.assert_called_once_with(mock_state.board)
+
+    def test_compute_next_states_raises_exception_on_terminal_input_state(self, mocker):
+        mock_game = mocker.MagicMock()
+        mock_game.is_terminal = mocker.MagicMock(return_value=True)
+        mock_state = mocker.MagicMock()
+        with pytest.raises(ValueError) as exception_info:
+            UltimateNoughtsAndCrosses.compute_next_states(mock_game, mock_state)
+        assert str(exception_info.value) == ("Next states can not be generated "
+                                             "for a terminal state.")
+
+    def test_compute_next_states_returns_correct_states_on_initial_state(self, mocker):
+        # generate dictionary of all next states (all of them)
+        next_states = {}
+        for action_index in range(81):
+            action = self.index_to_action[action_index]
+            board = list(self.initial_state.board)
+            board[action_index] = 1
+            next_state = UltimateGameState(last_sub_action=action.sub_action,
+                                           board=tuple(board))
+            next_states[action] = next_state
+
+        mock_is_terminal = mocker.MagicMock(return_value=False)
+        mock_which_player = mocker.MagicMock(return_value=1)
+        mock_game = mocker.MagicMock(is_terminal=mock_is_terminal,
+                                     which_player=mock_which_player,
+                                     initial_state=self.initial_state,
+                                     index_to_action=self.index_to_action)
+        assert UltimateNoughtsAndCrosses.compute_next_states(
+            mock_game, self.initial_state) == next_states
+
+    def test_compute_next_states_returns_correct_states_for_incomplete_sub_board(self, mocker):
+        first_state = UltimateGameState(last_sub_action=(0, 0), board=(1,) + (0,) * 80)
+        next_states = {}
+        sub_actions = (sub_action for sub_action in itertools.product(range(3), range(3))
+                       if sub_action != (0, 0))
+        for (sub_row, sub_col) in sub_actions:
+            action = UltimateAction(sub_board=(0, 0),
+                                    sub_action=(sub_row, sub_col))
+            board_index = sub_row * 9 + sub_col
+            board = list(first_state.board)
+            board[board_index] = -1
+            next_state = UltimateGameState(last_sub_action=(sub_row, sub_col),
+                                           board=tuple(board))
+            next_states[action] = next_state
+
+        mock_is_terminal = mocker.MagicMock(return_value=False)
+        mock_game = mocker.MagicMock(is_terminal=mock_is_terminal,
+                                     action_indices=self.action_indices,
+                                     sub_game=mocker.MagicMock(is_terminal=mock_is_terminal))
+        assert UltimateNoughtsAndCrosses.compute_next_states(
+            mock_game, first_state) == next_states
+
+    def test_compute_next_states_returns_correct_state_on_complete_sub_board(self, mocker):
+        # board with completed top left sub board
+        board = [0] * 81
+        board[0] = board[10] = board[20] = 1
+        board[3] = board[30] = board[60] = -1
+        state = UltimateGameState(last_sub_action=(0, 0), board=tuple(board))
+        next_states = {}
+        for action_index in range(81):
+            if board[action_index] == 0:
+                action = self.index_to_action[action_index]
+                board = list(self.initial_state.board)
+                board[action_index] = 1
+                next_state = UltimateGameState(last_sub_action=action.sub_action,
+                                               board=tuple(board))
+                next_states[action] = next_state
+
+        mock_is_terminal = mocker.MagicMock(return_value=False)
+        mock_which_player = mocker.MagicMock(return_value=1)
+        mock_sub_game = mocker.MagicMock(is_terminal=mocker.MagicMock(return_value=True))
+        mock_game = mocker.MagicMock(is_terminal=mock_is_terminal,
+                                     which_player=mock_which_player,
+                                     index_to_action=self.index_to_action,
+                                     sub_game=mock_sub_game)
+        assert UltimateNoughtsAndCrosses.compute_next_states(
+            mock_game, state) == next_states
+
+
