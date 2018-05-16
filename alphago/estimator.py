@@ -119,10 +119,9 @@ class AbstractNeuralNetEstimator(abc.ABC):
                      self.tensors['is_training']: True
                      })
 
-            writer.add_summary(summary, self.global_step)
-
             # Update the global step
             self.global_step += 1
+        writer.add_summary(summary, self.global_step)
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
