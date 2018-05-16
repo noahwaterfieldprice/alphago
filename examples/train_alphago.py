@@ -20,9 +20,9 @@ evaluate_every = 2
 alphago_steps = 1000
 mcts_iters = 100
 c_puct = 1.0
-replay_length = 10000
+replay_length = 100000
 num_evaluate_games = 20
-win_rate = 0.55
+win_rate = 0.8
 
 current_time_format = time.strftime('experiment-%Y-%m-%d_%H:%M:%S')
 path = "experiments/{}/".format(current_time_format)
