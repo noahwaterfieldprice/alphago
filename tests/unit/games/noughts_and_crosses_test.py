@@ -1,9 +1,8 @@
-import itertools
-
 import numpy as np
 import pytest
 
-from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
+from alphago.games.noughts_and_crosses import (NoughtsAndCrosses, UltimateNoughtsAndCrosses,
+                                               UltimateGameState, UltimateAction)
 from .constants import (terminal_states, terminal_line_sums_arrays, outcomes,
                         non_terminal_states, non_terminal_line_sums_arrays,
                         expected_next_states_list)
@@ -136,60 +135,66 @@ class TestUltimateNoughtsAndCrosses:
         mock_game = mocker.MagicMock()
         UltimateNoughtsAndCrosses.__init__(mock_game)
 
-        assert mock_game.initial_state == (0,) * 82
+        assert mock_game.initial_state == UltimateGameState(last_action=(0, 0), board=(0,) * 81)
 
     terminal_board = [0] * 81
     terminal_board[18:27] = [1] * 9
     terminal_board[54:56] = [-1] * 2
     terminal_board[57:63] = [-1] * 6
-    terminal_state1 = (0,) + tuple(terminal_board)
+    terminal_state1 = UltimateGameState(last_action=(0, 0), board=tuple(terminal_board))
     meta_board1 = (1, 1, 1, 0, 0, 0, 0, -1, -1)
     utilities1 = ({1: 1, 2: -1}, {1: 1, 2: -1}, {1: 1, 2: -1},
                   ValueError, ValueError, ValueError,
                   ValueError, {1: -1, 2: 1}, {1: -1, 2: 1})
 
-    terminal_state2 = (2,) + (
-        1, 0, 1, -1, 0, 0, 0, 1, 0,
-        -1, 1, 1, 1, -1, 0, 0, -1, 0,
-        1, 0, -1, 0, 0, -1, 0, 1, 0,
-        0, 1, 0, 1, 1, 1, 0, 0, -1,
-        0, -1, 0, -1, -1, 1, 0, -1, 0,
-        -1, 1, 0, 0, 0, -1, -1, 0, 0,
-        0, -1, 0, -1, -1, -1, 0, 1, 0,
-        0, 1, 0, 0, 0, 0, 0, 1, 0,
-        0, 1, 0, 0, 0, 0, 0, 1, 0,
+    terminal_state2 = UltimateGameState(
+        last_action=(0, 2),
+        board=(
+            1, 0, 1, -1, 0, 0, 0, 1, 0,
+            -1, 1, 1, 1, -1, 0, 0, -1, 0,
+            1, 0, -1, 0, 0, -1, 0, 1, 0,
+            0, 1, 0, 1, 1, 1, 0, 0, -1,
+            0, -1, 0, -1, -1, 1, 0, -1, 0,
+            -1, 1, 0, 0, 0, -1, -1, 0, 0,
+            0, -1, 0, -1, -1, -1, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0)
     )
     meta_board2 = (1, -1, 0, 0, 1, -1, 0, -1, 1)
     utilities2 = ({1: 1, 2: -1}, {1: -1, 2: 1}, ValueError,
                   ValueError, {1: 1, 2: -1}, {1: -1, 2: 1},
                   ValueError, {1: -1, 2: 1}, {1: 1, 2: -1})
 
-    terminal_state3 = (0,) + (
-        0, -1, 0, -1, 0, 1, -1, 0, 0,
-        1, 0, 1, 0, 1, 0, -1, 1, 0,
-        0, 1, 1, 1, 0, 0, 1, 0, 0,
-        -1, 0, 0, 0, 1, 0, 0, -1, 1,
-        -1, 0, 1, 0, 1, 0, 0, 0, 0,
-        -1, 0, 1, -1, 1, -1, -1, 0, 0,
-        1, -1, 0, 1, 0, -1, 0, 0, -1,
-        0, -1, 0, 1, 0, 0, 0, -1, -1,
-        0, -1, 0, 1, -1, 0, 0, 0, 1,
+    terminal_state3 = UltimateGameState(
+        last_action=(0, 0),
+        board=(
+            0, -1, 0, -1, 0, 1, -1, 0, 0,
+            1, 0, 1, 0, 1, 0, -1, 1, 0,
+            0, 1, 1, 1, 0, 0, 1, 0, 0,
+            -1, 0, 0, 0, 1, 0, 0, -1, 1,
+            -1, 0, 1, 0, 1, 0, 0, 0, 0,
+            -1, 0, 1, -1, 1, -1, -1, 0, 0,
+            1, -1, 0, 1, 0, -1, 0, 0, -1,
+            0, -1, 0, 1, 0, 0, 0, -1, -1,
+            0, -1, 0, 1, -1, 0, 0, 0, 1)
     )
     meta_board3 = (0, 1, 0, -1, 1, 0, -1, 1, 0)
     utilities3 = (ValueError, {1: 1, 2: -1}, ValueError,
                   {1: -1, 2: 1}, {1: 1, 2: -1}, ValueError,
                   {1: -1, 2: 1}, {1: 1, 2: -1}, ValueError)
 
-    terminal_state4 = (1,) + (
-        1, -1, 1, 0, 1, -1, 1, -1, -1,
-        0, -1, 1, 1, 1, 1, 0, 1, -1,
-        -1, 0, 1, -1, 1, 0, 0, 0, -1,
-        -1, -1, -1, -1, 0, 0, 0, 1, 1,
-        1, 1, -1, -1, 1, 0, -1, 1, -1,
-        1, -1, 0, -1, 0, 0, 0, 1, 0,
-        0, 1, 1, 0, -1, 1, 0, 0, 0,
-        1, 1, 0, 0, -1, 0, -1, -1, -1,
-        -1, 1, -1, 0, -1, 1, 0, 0, 1
+    terminal_state4 = UltimateGameState(
+        last_action=(0, 1),
+        board=(
+            1, -1, 1, 0, 1, -1, 1, -1, -1,
+            0, -1, 1, 1, 1, 1, 0, 1, -1,
+            -1, 0, 1, -1, 1, 0, 0, 0, -1,
+            -1, -1, -1, -1, 0, 0, 0, 1, 1,
+            1, 1, -1, -1, 1, 0, -1, 1, -1,
+            1, -1, 0, -1, 0, 0, 0, 1, 0,
+            0, 1, 1, 0, -1, 1, 0, 0, 0,
+            1, 1, 0, 0, -1, 0, -1, -1, -1,
+            -1, 1, -1, 0, -1, 1, 0, 0, 1)
     )
     meta_board4 = (1, 1, -1, -1, -1, 1, 1, -1, -1)
     utilities4 = ({1: 1, 2: -1}, {1: 1, 2: -1}, {1: -1, 2: 1},
@@ -207,7 +212,7 @@ class TestUltimateNoughtsAndCrosses:
         mock_nac = mocker.MagicMock(utility=mock_utility)
         mock_game = mocker.MagicMock(sub_game=mock_nac)
         # split state into sub boards
-        board = np.array(state[1:]).reshape(9, 9)
+        board = np.array(state.board).reshape(9, 9)
         sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j * 3) + 3]
                       for i in range(3) for j in range(3)]
 
@@ -217,22 +222,30 @@ class TestUltimateNoughtsAndCrosses:
         assert UltimateNoughtsAndCrosses._compute_meta_board(mock_game, state) == meta_board
         mock_utility.assert_has_calls(expected_calls)
 
-    def test_meta_board_is_passed_to_sub_game_is_terminal_method(self, mocker):
+    def test_meta_board_delegates_to_sub_game_is_terminal_method(self, mocker):
         mock_is_terminal = mocker.MagicMock()
         mock_game = mocker.MagicMock(
             sub_game=mocker.MagicMock(is_terminal=mock_is_terminal),
             _compute_meta_board=mocker.MagicMock(return_value="some_meta_board"))
-
-        UltimateNoughtsAndCrosses.is_terminal(mock_game, "some_state")
-        mock_game._compute_meta_board.assert_called_once_with("some_state")
+        mock_state = mocker.MagicMock()
+        UltimateNoughtsAndCrosses.is_terminal(mock_game, mock_state)
+        mock_game._compute_meta_board.assert_called_once_with(mock_state)
         mock_is_terminal.assert_called_once_with("some_meta_board")
 
-    def test_meta_board_is_passed_to_sub_game_utility_method(self, mocker):
+    def test_meta_board_delegates_to_sub_game_utility_method(self, mocker):
         mock_utility = mocker.MagicMock()
         mock_game = mocker.MagicMock(
             sub_game=mocker.MagicMock(utility=mock_utility),
             _compute_meta_board=mocker.MagicMock(return_value="some_meta_board"))
-        UltimateNoughtsAndCrosses.utility(mock_game, "some_state")
+        mock_state = mocker.MagicMock()
+        UltimateNoughtsAndCrosses.utility(mock_game, mock_state)
 
-        mock_game._compute_meta_board.assert_called_once_with("some_state")
+        mock_game._compute_meta_board.assert_called_once_with(mock_state)
         mock_utility.assert_called_once_with("some_meta_board")
+
+    def test_which_player_delegates_to_sub_game_which_player(self, mocker):
+        mock_which_player = mocker.MagicMock()
+        mock_game = mocker.MagicMock(sub_game=mocker.MagicMock(which_player=mock_which_player))
+        mock_state = mocker.MagicMock()
+        UltimateNoughtsAndCrosses.which_player(mock_game, mock_state)
+        mock_which_player.assert_called_once_with(mock_state.board)

@@ -9,12 +9,13 @@ NoughtsAndCrosses
     A class for representing a game of noughts and crosses (or
     tic-tac-toe) that can
 """
-
-from typing import Dict, Tuple
+import inspect
+from typing import Dict, NamedTuple, Tuple
 
 import numpy as np
 
 from .game import Game
+from ..utilities import memoize
 GameState = Tuple[int, ...]
 Action = Tuple[int, int]
 
@@ -300,24 +301,33 @@ class NoughtsAndCrosses(Game):
                                       self.rows, self.columns)
 
 
+class UltimateAction(NamedTuple):
+    sub_board: tuple
+    action: tuple
+
+
+class UltimateGameState(NamedTuple):
+    last_action: tuple
+    board: tuple
+
+
 class UltimateNoughtsAndCrosses():
     """A class to represent the game of ultimate noughts and crosses
     (or tic-tac-toe)."""
 
     def __init__(self) -> None:
-        self.initial_state = (0,) * 82
+        self.initial_state = UltimateGameState((0, 0), (0,) * 81)
         self.sub_game = NoughtsAndCrosses()
 
-    def _compute_meta_board(self, state: GameState) -> GameState:
-        board = np.array(state[1:]).reshape(9, 9)
+    def _compute_meta_board(self, state: UltimateGameState) -> GameState:
+        board = np.array(state.board).reshape(9, 9)
         sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j * 3) + 3]
                       for i in range(3) for j in range(3)]
-
         meta_board = []
         for sub_board in sub_boards:
-            state = tuple(sub_board.ravel())
+            sub_board_state = tuple(sub_board.ravel())
             try:
-                utility = self.sub_game.utility(state)
+                utility = self.sub_game.utility(sub_board_state)
             except ValueError:
                 symbol = 0
             else:
@@ -327,10 +337,17 @@ class UltimateNoughtsAndCrosses():
             meta_board.append(symbol)
         return tuple(meta_board)
 
-    def is_terminal(self, state: GameState) -> bool:
+    def is_terminal(self, state: UltimateGameState) -> bool:
         meta_board = self._compute_meta_board(state)
         return self.sub_game.is_terminal(meta_board)
 
-    def utility(self, state: GameState) -> Dict[int, int]:
+    def utility(self, state: UltimateGameState) -> Dict[int, int]:
         meta_board = self._compute_meta_board(state)
         return self.sub_game.utility(meta_board)
+
+    def which_player(self, state: UltimateGameState) -> int:
+        return self.sub_game.which_player(state.board)
+
+    def compute_next_states(self, state):
+        pass
+
