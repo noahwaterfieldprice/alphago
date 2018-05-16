@@ -78,14 +78,21 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     self_play_estimator = create_estimator()
     training_estimator = create_estimator()
 
-    # graph = tf.Graph()
-    #
-    # with graph.as_default():
-    #     success_rate_summary = tf.placeholder(tf.float32,
-    #                                           name='success_rate_summary')
-    #     tf.summary.scalar('success_rate', success_rate_summary)
-    #     merged_summary = tf.summary.merge([success_rate_summary])
-    #     tf.global_variables_initializer().run()
+    graph = tf.Graph()
+    sess = tf.Session(graph=graph)
+
+    with graph.as_default():
+        tf_success_rate = tf.placeholder(tf.float32,
+                                              name='success_rate_summary')
+        success_rate_summary = tf.summary.scalar('success_rate_summary',
+                                   tf_success_rate)
+        tf_success_rate_random = tf.placeholder(
+            tf.float32, name='success_rate_random')
+        success_rate_random_summary = tf.summary.scalar(
+            'success_rate_random', tf_success_rate_random)
+        merged_summary = tf.summary.merge([success_rate_summary,
+                                           success_rate_random_summary])
+        sess.run(tf.global_variables_initializer())
 
     writer = tf.summary.FileWriter(summary_path)
 
@@ -108,10 +115,17 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
-            success_rate = evaluate_model(game, self_play_estimator,
-                                          training_estimator, mcts_iters,
-                                          c_puct, num_evaluate_games,
-                                          verbose=verbose)
+            success_rate, success_rate_random = \
+                evaluate_model(game, self_play_estimator,
+                               training_estimator, mcts_iters, c_puct,
+                               num_evaluate_games, verbose=verbose)
+
+            summary = sess.run(merged_summary,
+                               feed_dict=
+                               {tf_success_rate: success_rate,
+                                tf_success_rate_random: success_rate_random})
+            writer.add_summary(summary, training_estimator.global_step)
+
             checkpoint_model(training_estimator, alphago_step, checkpoint_path)
 
             # If training player beats self-play player by a large enough
@@ -163,11 +177,13 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
     wins1, wins2, draws = evaluate_mcts_against_random_player(
         game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
         tau=0.1, verbose=verbose)
+
+    success_rate_random = (wins2 + draws) / (wins1 + wins2 + draws)
     if verbose:
         print("Training player vs random. Wins: {}, Losses: {}, "
               "Draws: {}".format(wins1, wins2, draws))
 
-    return success_rate
+    return success_rate, success_rate_random
 
 
 def checkpoint_model(player, step, path):
