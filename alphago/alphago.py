@@ -178,7 +178,7 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
         game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
         tau=0.1, verbose=verbose)
 
-    success_rate_random = (wins2 + draws) / (wins1 + wins2 + draws)
+    success_rate_random = (wins1 + draws) / (wins1 + wins2 + draws)
     if verbose:
         print("Training player vs random. Wins: {}, Losses: {}, "
               "Draws: {}".format(wins1, wins2, draws))
