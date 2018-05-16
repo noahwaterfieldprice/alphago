@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 from tqdm import tqdm
+import tensorflow as tf
 
 from .player import MCTSPlayer, RandomPlayer
 from .evaluator import evaluate
@@ -18,8 +19,8 @@ def compute_checkpoint_name(step, path):
 
 
 def train_alphago(game, create_estimator, self_play_iters, training_iters,
-                  checkpoint_path, alphago_steps=100, evaluate_every=1,
-                  batch_size=32, mcts_iters=100, c_puct=1.0,
+                  checkpoint_path, summary_path, alphago_steps=100,
+                  evaluate_every=1, batch_size=32, mcts_iters=100, c_puct=1.0,
                   replay_length=100000, num_evaluate_games=500,
                   win_rate=0.55, verbose=True, restore_step=None,
                   self_play_file_path=None):
@@ -38,6 +39,8 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
         Number of training iters to use for each training step.
     checkpoint_path: str
         Where to save the checkpoints to.
+    summary_path: str
+        Where to save the summaries (tensorboard) to.
     alphago_steps: int
         Number of steps to run the alphago loop for.
     evaluate_every: int
@@ -75,6 +78,17 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     self_play_estimator = create_estimator()
     training_estimator = create_estimator()
 
+    # graph = tf.Graph()
+    #
+    # with graph.as_default():
+    #     success_rate_summary = tf.placeholder(tf.float32,
+    #                                           name='success_rate_summary')
+    #     tf.summary.scalar('success_rate', success_rate_summary)
+    #     merged_summary = tf.summary.merge([success_rate_summary])
+    #     tf.global_variables_initializer().run()
+
+    writer = tf.summary.FileWriter(summary_path)
+
     if restore_step:
         restore_path = compute_checkpoint_name(restore_step, checkpoint_path)
         self_play_estimator.restore(restore_path)
@@ -89,24 +103,20 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
             verbose=verbose, save_file_path=self_play_file_path)
 
         training_data = process_training_data(self_play_data, replay_length)
-        losses = optimise_estimator(training_estimator, training_data, batch_size,
-                                    training_iters, output_losses=True, verbose=verbose)
-
-        all_losses.append(losses)
-        if verbose:
-            print("Mean loss: {}".format(np.mean(losses)))
+        optimise_estimator(training_estimator, training_data, batch_size,
+                           training_iters, writer, verbose=verbose)
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
-            training_win_rate = evaluate_model(game, self_play_estimator,
-                                               training_estimator, mcts_iters,
-                                               c_puct, num_evaluate_games,
-                                               verbose=verbose)
+            success_rate = evaluate_model(game, self_play_estimator,
+                                          training_estimator, mcts_iters,
+                                          c_puct, num_evaluate_games,
+                                          verbose=verbose)
             checkpoint_model(training_estimator, alphago_step, checkpoint_path)
 
             # If training player beats self-play player by a large enough
             # margin, then it becomes the new best estimator.
-            if training_win_rate > win_rate:
+            if success_rate > win_rate:
                 # Create a new self player, with the weights of the most
                 # recent training_estimator.
                 if verbose:
@@ -121,11 +131,10 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 
 
 def optimise_estimator(estimator, training_data, batch_size, training_iters,
-                       output_losses=True, verbose=True):
-    losses = estimator.train(training_data, batch_size, training_iters,
-                             verbose=verbose)
-    if output_losses:
-        return losses
+                       writer, verbose=True):
+    summary = estimator.train(training_data, batch_size, training_iters,
+                              writer, verbose=verbose)
+    return summary
 
 
 def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
@@ -144,9 +153,11 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
     if verbose:
         print("Self-play player wins: {}, Training player wins: {}, "
               "Draws: {}".format(wins1, wins2, draws))
-    training_win_rate = wins2 / (wins1 + wins2 + draws)
+
+    success_rate = (wins2 + draws) / (wins1 + wins2 + draws)
     if verbose:
-        print("Win rate for training player: {}".format(training_win_rate))
+        print("Win + draw rate for training player: {}".format(
+              success_rate))
 
     # Also evaluate against a random player
     wins1, wins2, draws = evaluate_mcts_against_random_player(
@@ -156,7 +167,7 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
         print("Training player vs random. Wins: {}, Losses: {}, "
               "Draws: {}".format(wins1, wins2, draws))
 
-    return training_win_rate
+    return success_rate
 
 
 def checkpoint_model(player, step, path):

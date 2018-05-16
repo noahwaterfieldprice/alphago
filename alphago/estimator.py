@@ -82,7 +82,8 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
         return np.ravel(probs), value
 
-    def train(self, training_data, batch_size, training_iters, verbose=True):
+    def train(self, training_data, batch_size, training_iters,
+              writer, verbose=True):
         """Trains the net on the training data.
 
         Parameters
@@ -96,7 +97,6 @@ class AbstractNeuralNetEstimator(abc.ABC):
         verbose: bool
             Print out progress if True, else don't print anything.
         """
-        losses = []
         disable_tqdm = False if verbose else True
         for _ in tqdm(range(training_iters), disable=disable_tqdm):
             batch_indices = np.random.choice(len(training_data), batch_size,
@@ -109,20 +109,20 @@ class AbstractNeuralNetEstimator(abc.ABC):
             zs = np.array([x[2] for x in batch_data])
             zs = zs[:, np.newaxis]
 
-            value, probs, loss, _ = self.sess.run(
-                [self.tensors['value'], self.tensors['probs'],
-                    self.tensors['loss'], self.train_op], feed_dict={
-                        self.tensors['state_vector']: states,
-                        self.tensors['pi']: pis,
-                        self.tensors['outcomes']: zs,
-                        self.tensors['is_training']: True
-                        })
+            summary, value, probs, loss, _ = self.sess.run(
+                [self.tensors['summary'], self.tensors['value'],
+                 self.tensors['probs'], self.tensors['loss'],
+                 self.train_op], feed_dict={
+                     self.tensors['state_vector']: states,
+                     self.tensors['pi']: pis,
+                     self.tensors['outcomes']: zs,
+                     self.tensors['is_training']: True
+                     })
+
+            writer.add_summary(summary, self.global_step)
 
             # Update the global step
             self.global_step += 1
-            losses.append(loss)
-
-        return losses
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
@@ -247,7 +247,11 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
                 tf.train.MomentumOptimizer(self.learning_rate,
                                            momentum=0.9).minimize(loss)
 
-            # Initialise all variables
+            # Create summary variables for tensorboard
+            loss_summary = tf.summary.scalar('loss', loss)
+
+            summary = tf.summary.merge([loss_summary])
+
             self.sess.run(tf.global_variables_initializer())
 
             # Create a saver.
@@ -257,9 +261,9 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training]
+                   loss, loss_value, loss_probs, is_training, summary]
         names = ("state_vector outcomes pi value prob_logits probs loss "
-                 "loss_value loss_probs is_training").split()
+                 "loss_value loss_probs is_training summary").split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
 
