@@ -1,10 +1,10 @@
 import pytest
 
 from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
+from alphago.games.noughts_and_crosses import UltimateAction, UltimateGameState
 
 
 class TestBasic3x3NoughtsAndCrosses:
-
     terminal_state = (1, 1, 1, -1, 1, -1, 1, -1, -1)
     non_terminal_state = (1, -1, 0, 0, -1, 1, 0, 1, -1)
 
@@ -32,6 +32,11 @@ class TestBasic3x3NoughtsAndCrosses:
         # draw
         terminal_state_draw = (1, 1, -1, -1, -1, 1, 1, -1, 1)
         assert nac.utility(terminal_state_draw) == {1: 0, 2: 0}
+
+    def test_which_player_returns_correct_player(self):
+        nac = NoughtsAndCrosses()
+
+        assert nac.which_player(self.non_terminal_state) == 1
 
     def test_generating_possible_next_states(self):
         nac = NoughtsAndCrosses()
@@ -66,42 +71,48 @@ class TestMxNNoughtsAndCrosses:
 
 
 class TestUltimateNoughtsAndCrosses:
-    non_terminal_state = (8,) + (
-        0, 1, 0, 0, -1, 0, -1, -1, 1,
-        0, 1, 0, 0, 1, 0, 0, -1, 0,
-        -1, 1, 0, 0, -1, 1, 0, 1, -1,
-        -1, 0, 1, 0, 0, -1, 1, 0, 0,
-        -1, 0, 0, 0, 1, -1, 1, 0, 0,
-        -1, 0, 0, 1, 0, -1, 1, 0, 0,
-        1, 1, 1, 0, 0, -1, -1, 0, 0,
-        0, 0, 0, 1, 0, -1, -1, 1, 0,
-        -1, 0, -1, 0, 0, 0, 0, 0, 1
+    non_terminal_state = UltimateGameState(
+        last_action=(2, 2),
+        board=(
+            0, 1, 0, 0, -1, 0, -1, -1, 1,
+            0, 1, 0, 0, 1, 0, 0, -1, 0,
+            -1, 1, 0, 0, -1, 1, 0, 1, -1,
+            -1, 0, 1, 0, 0, -1, 1, 0, 0,
+            -1, 0, 0, 0, 1, -1, 1, 0, 0,
+            -1, 0, 0, 1, 0, -1, 1, 0, 0,
+            1, 1, 1, 0, 0, -1, -1, 0, 0,
+            0, 0, 0, 1, 0, -1, -1, 1, 0,
+            -1, 0, -1, 0, 0, 0, 0, 0, 1)
     )
     non_terminal_state_meta_board = (1, 0, -1, -1, -1, 1, 1, 0, 0)
 
-    terminal_state = (2,) + (
-        1, 0, 1, -1, 0, 0, 0, 1, 0,
-        -1, 1, 1, 1, -1, 0, 0, -1, 0,
-        1, 0, -1, 0, 0, -1, 0, 1, 0,
-        0, 1, 0, 1, 1, 1, 0, 0, -1,
-        0, -1, 0, -1, -1, 1, 0, -1, 0,
-        -1, 1, 0, 0, 0, -1, -1, 0, 0,
-        0, -1, 0, -1, -1, -1, 0, 1, 0,
-        0, 1, 0, 0, 0, 0, 0, 1, 0,
-        0, 1, 0, 0, 0, 0, 0, 1, 0,
+    terminal_state = UltimateGameState(
+        last_action=(0, 2),
+        board=(
+            1, 0, 1, -1, 0, 0, 0, 1, 0,
+            -1, 1, 1, 1, -1, 0, 0, -1, 0,
+            1, 0, -1, 0, 0, -1, 0, 1, 0,
+            0, 1, 0, 1, 1, 1, 0, 0, -1,
+            0, -1, 0, -1, -1, 1, 0, -1, 0,
+            -1, 1, 0, 0, 0, -1, -1, 0, 0,
+            0, -1, 0, -1, -1, -1, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 0)
     )
     terminal_state_meta_board = (1, -1, 0, 0, 1, -1, 0, -1, 1)
 
-    terminal_state_draw = (1,) + (
-        1, -1, 1, 0, 1, -1, 1, -1, -1,
-        0, -1, 1, 1, 1, 1, 0, 1, -1,
-        -1, 0, 1, -1, 1, 0, 0, 0, -1,
-        -1, -1, -1, -1, 0, 0, 0, 1, 1,
-        1, 1, -1, -1, 1, 0, -1, 1, -1,
-        1, -1, 0, -1, 0, 0, 0, 1, 0,
-        0, 1, 1, 0, -1, 1, 0, 0, 0,
-        1, 1, 0, 0, -1, 0, -1, -1, -1,
-        -1, 1, -1, 0, -1, 1, 0, 0, 1
+    terminal_state_draw = UltimateGameState(
+        last_action=(0, 1),
+        board=(
+            1, -1, 1, 0, 1, -1, 1, -1, -1,
+            0, -1, 1, 1, 1, 1, 0, 1, -1,
+            -1, 0, 1, -1, 1, 0, 0, 0, -1,
+            -1, -1, -1, -1, 0, 0, 0, 1, 1,
+            1, 1, -1, -1, 1, 0, -1, 1, -1,
+            1, -1, 0, -1, 0, 0, 0, 1, 0,
+            0, 1, 1, 0, -1, 1, 0, 0, 0,
+            1, 1, 0, 0, -1, 0, -1, -1, -1,
+            -1, 1, -1, 0, -1, 1, 0, 0, 1)
     )
     terminal_state_draw_meta_board = (1, 1, -1, -1, -1, 1, 1, -1, -1)
 
@@ -111,7 +122,7 @@ class TestUltimateNoughtsAndCrosses:
 
     def test_initial_state_is_correct(self):
         unac = UltimateNoughtsAndCrosses()
-        assert unac.initial_state == (0,) * 82
+        assert unac.initial_state == UltimateGameState(last_action=(0, 0), board=(0,) * 81)
 
     @pytest.mark.parametrize("state, terminality", zip(states, [False, True, True]))
     def test_correctly_identifies_state_terminality(self, state, terminality):
@@ -132,3 +143,30 @@ class TestUltimateNoughtsAndCrosses:
 
         assert str(exception_info.value) == ("Utility can not be calculated "
                                              "for a non-terminal state.")
+
+    def test_calculating_utility_of_terminal_state(self):
+        unac = UltimateNoughtsAndCrosses()
+        # player 1 wins
+        assert unac.utility(self.terminal_state) == {1: 1, 2: -1}
+        # draw
+        assert unac.utility(self.terminal_state_draw) == {1: 0, 2: 0}
+
+    def test_which_player_returns_correct_player(self):
+        unac = UltimateNoughtsAndCrosses()
+
+        assert unac.which_player(self.non_terminal_state) == 1
+
+    def test_generating_next_possible_states(self):
+        unac = UltimateNoughtsAndCrosses()
+        sub_game_possible_actions = (0, 1), (0, 2), (1, 2), (2, 0), (2, 1)
+        possible_actions = (UltimateAction(sub_board=(2, 2), action=action)
+                            for action in sub_game_possible_actions)
+        expected_next_states = {}
+        for action in possible_actions:
+            (sub_board_row, sub_board_col), (sub_row, sub_col) = action
+            board_index = sub_board_row * 27 + sub_board_col * 3 + sub_row * 9 + sub_col
+            next_board = list(self.non_terminal_state.board)
+            next_board[board_index] = 1
+            expected_next_states[action] = UltimateGameState(last_action=action, board=next_board)
+
+        assert unac.compute_next_states(self.non_terminal_state) == expected_next_states

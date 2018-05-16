@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 
 
@@ -30,3 +32,8 @@ def memoize(func):
         return result
 
     return memoized_func
+
+
+def memoize_instance(instance):
+    for name, fn in inspect.getmembers(instance, inspect.ismethod):
+        setattr(instance, name, memoize(fn))
