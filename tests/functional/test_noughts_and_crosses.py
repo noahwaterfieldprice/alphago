@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 
 from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
@@ -71,8 +73,13 @@ class TestMxNNoughtsAndCrosses:
 
 
 class TestUltimateNoughtsAndCrosses:
+
+    initial_state = UltimateGameState(last_sub_action=(0, 0),
+                                      board=(0,) * 81)
+    initial_metaboard = (0,) * 9
+
     non_terminal_state = UltimateGameState(
-        last_action=(2, 2),
+        last_sub_action=(2, 2),
         board=(
             0, 1, 0, 0, -1, 0, -1, -1, 1,
             0, 1, 0, 0, 1, 0, 0, -1, 0,
@@ -87,7 +94,7 @@ class TestUltimateNoughtsAndCrosses:
     non_terminal_state_meta_board = (1, 0, -1, -1, -1, 1, 1, 0, 0)
 
     terminal_state = UltimateGameState(
-        last_action=(0, 2),
+        last_sub_action=(0, 2),
         board=(
             1, 0, 1, -1, 0, 0, 0, 1, 0,
             -1, 1, 1, 1, -1, 0, 0, -1, 0,
@@ -102,7 +109,7 @@ class TestUltimateNoughtsAndCrosses:
     terminal_state_meta_board = (1, -1, 0, 0, 1, -1, 0, -1, 1)
 
     terminal_state_draw = UltimateGameState(
-        last_action=(0, 1),
+        last_sub_action=(0, 1),
         board=(
             1, -1, 1, 0, 1, -1, 1, -1, -1,
             0, -1, 1, 1, 1, 1, 0, 1, -1,
@@ -116,15 +123,15 @@ class TestUltimateNoughtsAndCrosses:
     )
     terminal_state_draw_meta_board = (1, 1, -1, -1, -1, 1, 1, -1, -1)
 
-    states = (non_terminal_state, terminal_state, terminal_state_draw)
-    meta_boards = (non_terminal_state_meta_board, terminal_state_meta_board,
-                   terminal_state_draw_meta_board)
+    states = (initial_state, non_terminal_state, terminal_state, terminal_state_draw)
+    meta_boards = (initial_metaboard, non_terminal_state_meta_board,
+                   terminal_state_meta_board, terminal_state_draw_meta_board)
 
     def test_initial_state_is_correct(self):
         unac = UltimateNoughtsAndCrosses()
-        assert unac.initial_state == UltimateGameState(last_action=(0, 0), board=(0,) * 81)
+        assert unac.initial_state == self.initial_state
 
-    @pytest.mark.parametrize("state, terminality", zip(states, [False, True, True]))
+    @pytest.mark.parametrize("state, terminality", zip(states, [False, False, True, True]))
     def test_correctly_identifies_state_terminality(self, state, terminality):
         unac = UltimateNoughtsAndCrosses()
 
@@ -159,7 +166,7 @@ class TestUltimateNoughtsAndCrosses:
     def test_generating_next_possible_states(self):
         unac = UltimateNoughtsAndCrosses()
         sub_game_possible_actions = (0, 1), (0, 2), (1, 2), (2, 0), (2, 1)
-        possible_actions = (UltimateAction(sub_board=(2, 2), action=action)
+        possible_actions = (UltimateAction(sub_board=(2, 2), sub_action=action)
                             for action in sub_game_possible_actions)
         expected_next_states = {}
         for action in possible_actions:
@@ -167,6 +174,7 @@ class TestUltimateNoughtsAndCrosses:
             board_index = sub_board_row * 27 + sub_board_col * 3 + sub_row * 9 + sub_col
             next_board = list(self.non_terminal_state.board)
             next_board[board_index] = 1
-            expected_next_states[action] = UltimateGameState(last_action=action, board=next_board)
+            expected_next_states[action] = UltimateGameState(last_sub_action=action.sub_action,
+                                                             board=tuple(next_board))
 
         assert unac.compute_next_states(self.non_terminal_state) == expected_next_states
