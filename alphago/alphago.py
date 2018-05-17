@@ -107,19 +107,21 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
         training_estimator.restore(restore_path)
 
     all_losses = []
+    self_play_data = None
 
     initial_step = restore_step + 1 if restore_step else 0
     for alphago_step in range(initial_step, initial_step + alphago_steps):
+
         self_play_data = generate_self_play_data(
             game, self_play_estimator, mcts_iters, c_puct, self_play_iters,
-            verbose=verbose, save_file_path=self_play_file_path)
+            verbose=verbose, data=self_play_data)
 
         training_data = process_training_data(self_play_data, replay_length)
         optimise_estimator(training_estimator, training_data, batch_size,
                            training_iters, writer, verbose=verbose)
 
         # Evaluate the players and choose the best.
-        if alphago_step % evaluate_every == 0:
+        if alphago_step % evaluate_every == 0 and alphago_step > 0:
             success_rate, success_rate_random, success_rate_optimal = \
                 evaluate_model(game, self_play_estimator,
                                training_estimator, mcts_iters, c_puct,
@@ -283,13 +285,15 @@ def evaluate_estimators_in_both_positions(game, estimator1, estimator2,
 
 
 def generate_self_play_data(game, estimator, mcts_iters, c_puct, num_iters,
-                            save_file_path=None, verbose=True):
+                            data=None, verbose=True):
     """Generates self play data for a number of iterations for a given
     estimator. Saves to save_file_path, if given.
     """
-    if save_file_path is not None:
-        with open(save_file_path, 'r') as f:
-            data = json.load(save_file_path)
+    # if save_file_path is not None:
+    #     with open(save_file_path, 'r') as f:
+    #         data = json.load(save_file_path)
+    #     index = max(data.keys()) + 1
+    if data is not None:
         index = max(data.keys()) + 1
     else:
         data = OrderedDict()
@@ -300,10 +304,11 @@ def generate_self_play_data(game, estimator, mcts_iters, c_puct, num_iters,
     for _ in tqdm(range(num_iters), disable=disable_tqdm):
         data[index] = self_play(
             game, estimator.create_estimate_fn(), mcts_iters, c_puct)
+        index += 1
 
-    if save_file_path is not None:
-        with open(save_file_path, 'w') as f:
-            json.dump(data, f)
+    # if save_file_path is not None:
+    #     with open(save_file_path, 'w') as f:
+    #         json.dump(data, f)
 
     return data
 
@@ -385,6 +390,9 @@ def process_training_data(self_play_data, replay_length=None):
     for index, game_log in self_play_data.items():
         for (state, action, probs_vector, z) in game_log:
             training_data.append((state, probs_vector, z))
+    
+    print("Training data length: {}".format(len(training_data)))
+    print("Self play data length: {}".format(len(self_play_data)))
 
     if replay_length is not None:
         training_data = training_data[-replay_length:]
