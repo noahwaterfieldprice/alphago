@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
 
-from .player import MCTSPlayer, RandomPlayer
+from .player import MCTSPlayer, RandomPlayer, OptimalPlayer
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
 from .utilities import sample_distribution
@@ -82,16 +82,21 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
     sess = tf.Session(graph=graph)
 
     with graph.as_default():
-        tf_success_rate = tf.placeholder(tf.float32,
-                                              name='success_rate_summary')
-        success_rate_summary = tf.summary.scalar('success_rate_summary',
-                                   tf_success_rate)
+        tf_success_rate = tf.placeholder(
+            tf.float32, name='success_rate_summary')
+        success_rate_summary = tf.summary.scalar(
+            'success_rate_summary', tf_success_rate)
         tf_success_rate_random = tf.placeholder(
             tf.float32, name='success_rate_random')
         success_rate_random_summary = tf.summary.scalar(
             'success_rate_random', tf_success_rate_random)
+        tf_success_rate_optimal = tf.placeholder(
+            tf.float32, name='success_rate_optimal')
+        success_rate_optimal_summary = tf.summary.scalar(
+            'success_rate_optimal', tf_success_rate_optimal)
         merged_summary = tf.summary.merge([success_rate_summary,
-                                           success_rate_random_summary])
+                                           success_rate_random_summary,
+                                           success_rate_optimal_summary])
         sess.run(tf.global_variables_initializer())
 
     writer = tf.summary.FileWriter(summary_path)
@@ -115,7 +120,7 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
-            success_rate, success_rate_random = \
+            success_rate, success_rate_random, success_rate_optimal = \
                 evaluate_model(game, self_play_estimator,
                                training_estimator, mcts_iters, c_puct,
                                num_evaluate_games, verbose=verbose)
@@ -123,7 +128,8 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
             summary = sess.run(merged_summary,
                                feed_dict=
                                {tf_success_rate: success_rate,
-                                tf_success_rate_random: success_rate_random})
+                                tf_success_rate_random: success_rate_random,
+                                tf_success_rate_optimal: success_rate_optimal})
             writer.add_summary(summary, training_estimator.global_step)
 
             checkpoint_model(training_estimator, alphago_step, checkpoint_path)
@@ -177,13 +183,23 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
     wins1, wins2, draws = evaluate_mcts_against_random_player(
         game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
         tau=0.1, verbose=verbose)
-
     success_rate_random = (wins1 + draws) / (wins1 + wins2 + draws)
+
     if verbose:
         print("Training player vs random. Wins: {}, Losses: {}, "
               "Draws: {}".format(wins1, wins2, draws))
 
-    return success_rate, success_rate_random
+    # Also evaluate against an optimal player
+    wins1, wins2, draws = evaluate_mcts_against_optimal_player(
+        game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
+        tau=0.1, verbose=verbose)
+    success_rate_optimal = (wins1 + draws) / (wins1 + wins2 + draws)
+
+    if verbose:
+        print("Training player vs optimal. Wins: {}, Losses: {}, "
+              "Draws: {}".format(wins1, wins2, draws))
+
+    return success_rate, success_rate_random, success_rate_optimal
 
 
 def checkpoint_model(player, step, path):
@@ -191,6 +207,30 @@ def checkpoint_model(player, step, path):
     """
     checkpoint_name = compute_checkpoint_name(step, path)
     player.save(checkpoint_name)
+
+
+def evaluate_mcts_against_optimal_player(game, estimator, mcts_iters,
+                                         c_puct, num_evaluate_games, tau,
+                                         verbose=True):
+    # Evaluate estimator1 vs estimator2.
+    players = {1: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau),
+               2: OptimalPlayer(game)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
+    wins1 = player1_results[1]
+    wins2 = player1_results[-1]
+    draws = player1_results[0]
+
+    # Evaluate estimator2 vs estimator1.
+    players = {1: OptimalPlayer(game),
+               2: MCTSPlayer(game, estimator, mcts_iters, c_puct, tau=tau)}
+    player1_results, _ = evaluate(game, players, num_evaluate_games,
+                                  verbose=verbose)
+    wins1 += player1_results[-1]
+    wins2 += player1_results[1]
+    draws += player1_results[0]
+
+    return wins1, wins2, draws
 
 
 def evaluate_mcts_against_random_player(game, estimator, mcts_iters,
