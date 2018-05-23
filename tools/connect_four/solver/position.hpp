@@ -189,10 +189,16 @@ namespace GameSolver { namespace Connect4 {
         return popcount(compute_winning_position(current_position | move, mask));
       }
 
+      bool public_isWinningMove(int col) const
+      {
+          return winning_position() & possible() & column_mask(col);
+      }
+
       /**
        * Default constructor, build an empty position.
        */
       Position() : current_position{0}, mask{0}, moves{0} {}
+
 
     private:
       uint64_t current_position; // bitmap of the current_player stones
