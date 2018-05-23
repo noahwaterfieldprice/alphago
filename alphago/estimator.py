@@ -190,7 +190,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
             input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
-            l2_weight = 1e-4
+            l2_weight = 1e-5
             regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
             is_training = tf.placeholder(tf.bool)
             use_batch_norm = False
@@ -344,6 +344,13 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
                 tf.train.MomentumOptimizer(self.learning_rate,
                                            momentum=0.9).minimize(loss)
 
+            # Create summary variables for tensorboard
+            loss_summary = tf.summary.scalar('loss', loss)
+
+            summary = tf.summary.merge([loss_summary])
+
+            self.sess.run(tf.global_variables_initializer())
+
             # Initialise all variables
             self.sess.run(tf.global_variables_initializer())
 
@@ -354,7 +361,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training]
+                   loss, loss_value, loss_probs, is_training, summary]
         names = "state_vector outcomes pi value prob_logits probs loss " \
-                "loss_value loss_probs is_training".split()
+                "loss_value loss_probs is_training summary".split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
