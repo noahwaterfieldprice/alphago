@@ -3,7 +3,6 @@ import numpy as np
 from .utilities import memoize
 
 
-
 def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
     if game.is_terminal(state):
         return game.utility(state)[1], None
