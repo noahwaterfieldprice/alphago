@@ -18,19 +18,9 @@
 
 #include "solver.hpp"
 #include <iostream>
-#include <sys/time.h>
+#include <fstream>
 
 using namespace GameSolver::Connect4;
-
-/*
- * Get micro-second precision timestamp
- * uses unix gettimeofday function
- */
-unsigned long long getTimeMicrosec() {
-  timeval NOW;
-  gettimeofday(&NOW, NULL);
-  return NOW.tv_sec*1000000LL + NOW.tv_usec;
-}
 
 /*
  * Main function.
@@ -43,41 +33,51 @@ unsigned long long getTimeMicrosec() {
  *  Any invalid position (invalid sequence of move, or already won game)
  *  will generate an error message to standard error and an empty line to standard output.
  */
-int main(int argc, char** argv) {
+int sign(int x) {
+  if (x > 0) return 1;
+  if (x < 0) return -1;
+  return 0;
+}
 
+int main() {
   Solver solver;
 
-  for (int move = 1; move <= 7; move++) {
-
-    Position P;
-    P.play(line);
-    solver.reset();
-    int score = solver.solve(P, weak);
-
-  }
-
-
-  bool weak = false;
-  if(argc > 1 && argv[1][0] == '-' && argv[1][1] == 'w') weak = true;
-
-  std::string line;
-
-  for(int l = 1; std::getline(std::cin, line); l++) {
-    Position P;
-    if(P.play(line) != line.size())
-    {
-      std::cerr << "Line " << l << ": Invalid move " << (P.nbMoves() + 1) << " \"" << line << "\"" << std::endl;
+  std::ifstream input_file ("connect_four_states.txt");
+  std::ofstream output_file ("connect_four_solved_states.txt");
+  std::string state;
+  if (input_file.is_open() && output_file.is_open())
+  {
+    while (std::getline(input_file, state))
+    { int max_score = -10000, best_move;
+      for (int move = 1; move <= 7; move++) {
+        Position P;
+        P.play(state);
+        int score;
+        if (P.public_isWinningMove(move - 1)) {
+          score = 100000;
+        } else {
+          Position P;
+          solver.reset();
+          std::string next_state = state + std::to_string(move);
+          unsigned long next_state_length = P.play(next_state);
+          if (next_state_length != next_state.size()) {
+            // illegal move
+            continue;
+          }
+          score = -solver.solve(P, false);
+          if (score > max_score) {
+            max_score = score;
+            best_move = move;
+          }
+        }
+      }
+      output_file << state << " " << best_move << " " << sign(max_score) << std::endl;
     }
-    else
-    {
-      solver.reset();
-      unsigned long long start_time = getTimeMicrosec();
-      int score = solver.solve(P, weak);
-      unsigned long long end_time = getTimeMicrosec();
-      std::cout << line << " " << score << " " << solver.getNodeCount() << " " << (end_time - start_time);
-    }
-    std::cout << std::endl;
+    input_file.close();
+    output_file.close();
   }
 }
+
+
 
 

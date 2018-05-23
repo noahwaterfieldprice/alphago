@@ -1,3 +1,0 @@
-solver.o: solver.cpp solver.hpp position.hpp TranspositionTable.hpp \
-  MoveSorter.hpp
-main.o: main.cpp solver.hpp position.hpp TranspositionTable.hpp
