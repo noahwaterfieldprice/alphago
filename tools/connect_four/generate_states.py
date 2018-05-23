@@ -24,6 +24,10 @@ def generate_states(n, min_length=1):
         l = np.random.randint(min_length, 43)
         state = np.random.choice(7, l)
 
+        # Check no columns are overfull.
+        if max([np.sum(state == i) for i in range(7)]) > 6:
+            continue
+
         state_array = action_list_to_state(state)
 
         if not game.is_terminal(state_array):
