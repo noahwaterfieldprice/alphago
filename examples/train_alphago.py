@@ -6,23 +6,25 @@ from alphago.alphago import train_alphago
 
 from alphago.utilities import memoize_instance
 
-learning_rate = 1e-4
-game = NoughtsAndCrosses()
+learning_rate = 1e-2
+game = NoughtsAndCrosses(rows=3, columns=4)
 
 memoize_instance(game)
+
 
 def create_estimator():
     return NACNetEstimator(learning_rate=learning_rate, action_indices=game.action_indices)
 
-self_play_iters = 10
-training_iters = 1000
-evaluate_every = 2
-alphago_steps = 1000
-mcts_iters = 100
+
+self_play_iters = 20
+training_iters = 10000
+evaluate_every = 5
+alphago_steps = 10000
+mcts_iters = 30
 c_puct = 1.0
 replay_length = 100000
-num_evaluate_games = 20
-win_rate = 0.8
+num_evaluate_games = 50
+win_rate = 0.7
 
 current_time_format = time.strftime('experiment-%Y-%m-%d_%H:%M:%S')
 path = "experiments/{}/".format(current_time_format)
