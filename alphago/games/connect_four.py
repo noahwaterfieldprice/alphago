@@ -36,7 +36,8 @@ class ConnectFour(Game):
         """
         return (np.sum(np.abs(state)) % 2) + 1
 
-    def _calculate_line_sums_4_by_4(self, state):
+    @staticmethod
+    def _calculate_line_sums_4_by_4(state):
         """Calculates the line sums for a 4x4 grid.
 
         Parameters
@@ -61,7 +62,8 @@ class ConnectFour(Game):
 
         return line_sums
 
-    def _calculate_line_sums(self, state):
+    @staticmethod
+    def _calculate_line_sums(state):
         """Calculates the line sums for the connect four game state.
 
         Parameters
@@ -78,7 +80,7 @@ class ConnectFour(Game):
         grid = np.array(state).reshape(6, 7)
         subgrids = (grid[i:i+4, j:j+4] for i in range(3) for j in range(4))
         tuple_subgrids = (tuple(subgrid.flatten()) for subgrid in subgrids)
-        line_sums_list = [self._calculate_line_sums_4_by_4(subgrid)
+        line_sums_list = [ConnectFour._calculate_line_sums_4_by_4(subgrid)
                           for subgrid in tuple_subgrids]
         return np.concatenate(line_sums_list)
 
@@ -197,3 +199,58 @@ class ConnectFour(Game):
 
         ascii_grid = divider.join(output_rows)
         print(ascii_grid)
+
+
+def action_list_to_state(action_list, index_from_zero=True):
+    """Converts a list of columns played into a game state.
+    """
+    columns = {action: [] for action in range(7)}
+    for i, action in enumerate(action_list):
+        player = (i % 2) + 1
+        player_symbol = 2 * (i % 2) - 1
+        columns[action].append(player_symbol)
+    
+    for action in range(7):
+        n = len(columns[action])
+        columns[action].extend([0 for j in range(6-n)])
+
+    state = np.zeros((6, 7), int)
+    for action in range(7):
+        for i in range(6):
+            state[i][action] = columns[action][5-i]
+
+    return tuple(state.ravel())
+
+
+def heuristic(state):
+    """Computes a heuristic score for the first player on the given state.
+
+    The heuristic is the number of remaining ways for player 1 to win (ignoring
+    player 2's moves) minus the number of remaining ways for player 2 to win
+    (ignoring player 1's moves).
+
+    Parameters
+    ----------
+    state: tuple
+        The Connect Four state. Length 42 tuple reading across the rows.
+    
+    Returns
+    -------
+    heuristic: int
+        The number of remaining ways for player 1 to win (ignoring player 2's
+        moves) minus the number of remaining ways for player 2 to win (ignoring
+        player 1's moves).
+    """
+    # First fill the state with 1s, and count the connect fours for player 1.
+    # Then fill the state with -1s and count the connect fours for player 2.
+    state_1 = np.array(state)
+    state_1 = np.where(state_1 == 0, 1, state_1)
+    line_sums = ConnectFour._calculate_line_sums(state_1)
+    num_wins_1 = np.sum(line_sums == 4)
+
+    state_2 = np.array(state)
+    state_2 = np.where(state_2 == 0, -1, state_2)
+    line_sums = ConnectFour._calculate_line_sums(state_2)
+    num_wins_2 = np.sum(line_sums == -4)
+
+    return num_wins_1 - num_wins_2
