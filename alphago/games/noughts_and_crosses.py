@@ -397,5 +397,6 @@ class UltimateNoughtsAndCrosses:
                 next_states[action] = next_state
             return next_states
 
-
-
+    def display(self, state: UltimateGameState) -> None:
+        game = NoughtsAndCrosses(rows=9, columns = 9)
+        game.display(state.board)
