@@ -12,6 +12,7 @@ game_name = 'connect_four'
 
 #memoize_instance(game)
 
+
 def create_estimator():
     return ConnectFourNet(learning_rate=learning_rate, action_indices=game.action_indices)
 

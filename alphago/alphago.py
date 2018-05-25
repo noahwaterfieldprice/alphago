@@ -173,7 +173,7 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
               "self-player")
     wins1, wins2, draws = evaluate_estimators_in_both_positions(
         game, player1.create_estimate_fn(), player2.create_estimate_fn(),
-        mcts_iters, c_puct, num_games, tau=0.1, verbose=verbose)
+        mcts_iters, c_puct, num_games, tau=0.01, verbose=verbose)
 
     if verbose:
         print("Self-play player wins: {}, Training player wins: {}, "
@@ -187,7 +187,7 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games,
     # Also evaluate against a random player
     wins1, wins2, draws = evaluate_mcts_against_random_player(
         game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
-        tau=0.1, verbose=verbose)
+        tau=0.01, verbose=verbose)
     success_rate_random = (wins1 + draws) / (wins1 + wins2 + draws)
 
     if verbose:
