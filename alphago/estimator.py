@@ -305,26 +305,35 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
                 activation_fn=tf.nn.relu)
 
             conv3 = tf.contrib.layers.conv2d(
-                inputs=conv2, num_outputs=16, kernel_size=[3, 3],
+                inputs=conv2, num_outputs=32, kernel_size=[3, 3],
                 padding='SAME', weights_regularizer=regularizer,
                 activation_fn=tf.nn.relu)
 
-            conv3_flat = tf.contrib.layers.flatten(conv3)
+            conv4 = tf.contrib.layers.conv2d(
+                inputs=conv3, num_outputs=64, kernel_size=[3, 3],
+                padding='SAME', weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu)
+
+            conv4_flat = tf.contrib.layers.flatten(conv4)
 
             dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv3_flat, num_outputs=32,
+                inputs=conv4_flat, num_outputs=64,
                 weights_regularizer=regularizer, activation_fn=tf.nn.relu)
 
             dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=32, weights_regularizer=regularizer,
+                inputs=dense1, num_outputs=128, weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu)
+
+            dense3 = tf.contrib.layers.fully_connected(
+                inputs=dense2, num_outputs=256, weights_regularizer=regularizer,
                 activation_fn=tf.nn.relu)
 
             value = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=1, weights_regularizer=regularizer,
+                inputs=dense3, num_outputs=1, weights_regularizer=regularizer,
                 activation_fn=tf.nn.tanh)
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=7, weights_regularizer=regularizer,
+                inputs=dense3, num_outputs=7, weights_regularizer=regularizer,
                 activation_fn=None)
             probs = tf.nn.softmax(logits=prob_logits)
 
@@ -344,6 +353,11 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
                 tf.train.MomentumOptimizer(self.learning_rate,
                                            momentum=0.9).minimize(loss)
 
+            # Create summary variables for tensorboard
+            loss_summary = tf.summary.scalar('loss', loss)
+
+            summary = tf.summary.merge([loss_summary])
+
             # Initialise all variables
             self.sess.run(tf.global_variables_initializer())
 
@@ -354,7 +368,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         self.global_step = 0
 
         tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training]
+                   loss, loss_value, loss_probs, is_training, summary]
         names = "state_vector outcomes pi value prob_logits probs loss " \
-                "loss_value loss_probs is_training".split()
+                "loss_value loss_probs is_training summary".split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
