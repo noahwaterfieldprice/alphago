@@ -201,8 +201,19 @@ class ConnectFour(Game):
         print(ascii_grid)
 
 
-def action_list_to_state(action_list, index_from_zero=True):
+def action_list_to_state(action_list):
     """Converts a list of columns played into a game state.
+
+    Parameters
+    ----------
+    action_list: list
+        The list of played columns corresponding to this state. The columns are
+        indexed from 0.
+
+    Returns
+    -------
+    state: tuple
+        A tuple representing the state.
     """
     columns = {action: [] for action in range(7)}
     for i, action in enumerate(action_list):
