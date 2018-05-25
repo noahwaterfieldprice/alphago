@@ -57,6 +57,11 @@ if __name__ == "__main__":
             solved_states.append((action_list, action, outcome))
 
     training_data = solved_states_to_training_data(solved_states)
+    np.random.shuffle(training_data)
+    dev_fraction = 0.2
+    num_dev = int(dev_fraction * len(training_data))
+    dev_data = training_data[:num_dev]
+    training_data = training_data[num_dev:]
 
     learning_rate = 1e-3
     game = ConnectFour()
@@ -70,6 +75,7 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter(summary_path)
 
     estimator = ConnectFourNet(learning_rate=learning_rate,
+                               l2_weight=1e-1,
                                action_indices=game.action_indices)
 
     num_steps = 1000
@@ -77,7 +83,39 @@ if __name__ == "__main__":
     training_iters = 1000
     batch_size = 32
 
+    # Create the tensorflow summary for dev loss
+    graph = tf.Graph()
+    sess = tf.Session(graph=graph)
+
+    with graph.as_default():
+        tf_dev_loss = tf.placeholder(
+            tf.float32, name='dev_loss_summary')
+        dev_loss_summary = tf.summary.scalar(
+            'dev_loss_summary', tf_dev_loss)
+        tf_dev_loss_value = tf.placeholder(
+            tf.float32, name='dev_loss_value_summary')
+        dev_loss_value_summary = tf.summary.scalar(
+            'dev_loss_value_summary', tf_dev_loss_value)
+        tf_dev_loss_probs = tf.placeholder(
+            tf.float32, name='dev_loss_probs_summary')
+        dev_loss_probs_summary = tf.summary.scalar(
+            'dev_loss_probs_summary', tf_dev_loss_probs)
+        merged_summary = tf.summary.merge(
+            [dev_loss_summary, dev_loss_value_summary, dev_loss_probs_summary])
+        sess.run(tf.global_variables_initializer())
+
+
     for step in range(1000):
         print("Step: {}".format(step))
         optimise_estimator(estimator, training_data, batch_size,
                            training_iters, writer, verbose=verbose)
+
+        # Now compute dev loss
+        dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(
+            dev_data, batch_size)
+        summary = sess.run(merged_summary,
+                           feed_dict={
+                               tf_dev_loss: dev_loss,
+                               tf_dev_loss_value: dev_loss_value,
+                               tf_dev_loss_probs: dev_loss_probs})
+        writer.add_summary(summary, estimator.global_step)
