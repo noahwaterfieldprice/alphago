@@ -49,8 +49,9 @@ def create_trivial_estimator(next_states_function):
 
 class AbstractNeuralNetEstimator(abc.ABC):
 
-    def __init__(self, learning_rate=1e-2):
+    def __init__(self, learning_rate=1e-2, l2_weight=1e-4):
         self.learning_rate = learning_rate
+        self.l2_weight = l2_weight
         self._initialise_net()
 
     @abc.abstractmethod
@@ -81,6 +82,54 @@ class AbstractNeuralNetEstimator(abc.ABC):
                 self.tensors['is_training']: False})
 
         return np.ravel(probs), value
+
+    def loss(self, data, batch_size):
+        """Computes the loss of the network on the data.
+
+        Parameters
+        ----------
+        data: list
+            A list consisting of (state, probs, z) tuples, where player is the
+            player in the state and z is the utility to player in the last state
+            from the corresponding self-play game.
+        batch_size: int
+
+        Returns
+        -------
+        loss: float
+            The loss of the network on the given data.
+        loss_value: float
+            The loss of the value part of the network.
+        loss_probs: float
+            The loss of the probability part of the network.
+        """
+        iters = int(len(data) / batch_size)
+        losses = []
+        loss_value_list = []
+        loss_probs_list = []
+        for i in range(iters):
+            batch_indices = range(i, i + batch_size)
+            batch_data = [data[i] for i in batch_indices]
+
+            # Set up the states, probs, zs arrays.
+            states = np.array([x[0] for x in batch_data])
+            pis = np.array([x[1] for x in batch_data])
+            zs = np.array([x[2] for x in batch_data])
+            zs = zs[:, np.newaxis]
+
+            loss, loss_value, loss_probs = self.sess.run(
+                [self.tensors['loss'], self.tensors['loss_value'],
+                 self.tensors['loss_probs']], feed_dict={
+                    self.tensors['state_vector']: states,
+                    self.tensors['pi']: pis,
+                    self.tensors['outcomes']: zs,
+                    self.tensors['is_training']: False
+                    })
+            losses.append(loss)
+            loss_value_list.append(loss_value)
+            loss_probs_list.append(loss_probs)
+
+        return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
 
     def train(self, training_data, batch_size, training_iters,
               writer, verbose=True):
@@ -169,8 +218,8 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
     game_state_shape = (1, 12)
 
-    def __init__(self, learning_rate, action_indices):
-        super().__init__(learning_rate)
+    def __init__(self, learning_rate, l2_weight, action_indices):
+        super().__init__(learning_rate, l2_weight)
         self.action_indices = action_indices
 
     def _initialise_net(self):
@@ -190,8 +239,8 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
             input_layer = tf.reshape(state_vector, [-1, 3, 4, 1])
 
-            l2_weight = 1e-5
-            regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
+            regularizer = tf.contrib.layers.l2_regularizer(
+                scale=self.l2_weight)
             is_training = tf.placeholder(tf.bool)
             use_batch_norm = False
 
@@ -277,8 +326,8 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
 
-    def __init__(self, learning_rate, action_indices):
-        super().__init__(learning_rate)
+    def __init__(self, learning_rate, l2_weight, action_indices):
+        super().__init__(learning_rate, l2_weight)
         self.action_indices = action_indices
 
     def _initialise_net(self):
@@ -298,8 +347,8 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
 
             input_layer = tf.reshape(state_vector, [-1, 6, 7, 1])
 
-            l2_weight = 1e-4
-            regularizer = tf.contrib.layers.l2_regularizer(scale=l2_weight)
+            regularizer = tf.contrib.layers.l2_regularizer(
+                scale=self.l2_weight)
             is_training = tf.placeholder(tf.bool)
 
             conv1 = tf.contrib.layers.conv2d(
