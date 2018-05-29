@@ -1,5 +1,6 @@
 """This file trains a connect four net with supervised learning.
 """
+import argparse
 import time
 
 import numpy as np
@@ -45,7 +46,11 @@ def solved_states_to_training_data(solved_states):
 
 
 if __name__ == "__main__":
-    input_file = "tools/connect_four/solver/connect_four_solved_states_chris.txt"
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_file', help='Input file name')
+
+    args = parser.parse_args()
+    input_file = args.input_file
 
     solved_states = []
     with open(input_file, 'r') as f:
@@ -62,8 +67,9 @@ if __name__ == "__main__":
     num_dev = int(dev_fraction * len(training_data))
     dev_data = training_data[:num_dev]
     training_data = training_data[num_dev:]
+    num_train = len(training_data)
 
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     game = ConnectFour()
     game_name = 'connect_four-sl'
 
@@ -80,8 +86,8 @@ if __name__ == "__main__":
 
     num_steps = 1000
     verbose = True
-    training_iters = 1000
     batch_size = 32
+    training_iters = int(num_train / batch_size)
 
     # Create the tensorflow summary for dev loss
     graph = tf.Graph()
@@ -103,7 +109,6 @@ if __name__ == "__main__":
         merged_summary = tf.summary.merge(
             [dev_loss_summary, dev_loss_value_summary, dev_loss_probs_summary])
         sess.run(tf.global_variables_initializer())
-
 
     for step in range(1000):
         print("Step: {}".format(step))

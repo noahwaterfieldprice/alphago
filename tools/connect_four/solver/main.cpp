@@ -39,16 +39,29 @@ int sign(int x) {
   return 0;
 }
 
-int main() {
+int main(int argc, char** argv) {
   Solver solver;
 
-  std::ifstream input_file ("connect_four_states.txt");
-  std::ofstream output_file ("connect_four_solved_states.txt");
+  if (argc < 3) {
+    std::cout << "Input and output file names must be specified. Run as 'c4solver input_name output_name'" << std::endl;
+    return 0;
+  }
+  std::string input_file_name = argv[1];
+  std::string output_file_name = argv[2];
+  std::cout << "Input file: " << input_file_name << std::endl;
+  std::cout << "Output file: " << output_file_name << std::endl;
+
+  std::ifstream input_file (input_file_name);
+  std::ofstream output_file (output_file_name);
   std::string state;
+  int count = 0;
   if (input_file.is_open() && output_file.is_open())
   {
     while (std::getline(input_file, state))
-    { int max_score = -10000, best_move;
+    {
+      if (count % 1000 == 0)
+        std::cout << "Completed " << count << std::endl;
+      int max_score = -10000, best_move = -1;
       for (int move = 1; move <= 7; move++) {
         Position P;
         P.play(state);
@@ -72,6 +85,7 @@ int main() {
         }
       }
       output_file << state << " " << best_move << " " << sign(max_score) << std::endl;
+      count += 1;
     }
     input_file.close();
     output_file.close();
