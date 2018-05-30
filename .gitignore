@@ -3,6 +3,7 @@
 
 # distribution/packaging
 *.egg-info/
+Pipfile.lock
 
 # py.test  files
 .pytest_cache
@@ -13,3 +14,8 @@ assets/
 
 # Notes
 papers/
+
+
+# Compiled files
+*.o
+.depend
