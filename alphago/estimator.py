@@ -49,6 +49,7 @@ def create_trivial_estimator(next_states_function):
 
 
 class AbstractNeuralNetEstimator(abc.ABC):
+    game_state_shape = NotImplemented
 
     def __init__(self, learning_rate=1e-2, l2_weight=1e-4, value_weight=1):
         self.learning_rate = learning_rate
@@ -58,12 +59,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
     @abc.abstractmethod
     def _initialise_net(self):
-        self.tensors = {}
-        self.global_step = 0
-        self.sess = None
-        self.train_op = None
-        self.saver = None
-        pass
+        """Initialise the neural network and all associated tensors."""
 
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
@@ -176,7 +172,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
             return summary
 
     def train(self, training_data, batch_size, training_iters,
-               mode='reinforcement', writer=None, verbose=True):
+              mode='reinforcement', writer=None, verbose=True):
         """Trains the net on the training data.
 
         Parameters
@@ -214,8 +210,6 @@ class AbstractNeuralNetEstimator(abc.ABC):
             self._train_reinforcement(training_data, batch_size, training_iters,
                                       writer, verbose)
         elif mode == 'supervised':
-            if training_iters == -1:
-                training_iters = len(training_data) // batch_size
             self._train_supervised(training_data, batch_size, training_iters,
                                    writer, verbose)
 
@@ -244,12 +238,22 @@ class AbstractNeuralNetEstimator(abc.ABC):
         they are processed sequentially in batches. The number of
         batches trained on is equal to the number training iterations.
         """
-        training_indices = [i for i in range(len(training_data))]
+        size = len(training_data)
+        training_indices = [i for i in range(size)]
         random.shuffle(training_indices)
 
+        # calculate training iterations for single epoch if required
+        if training_iters == -1:
+            training_iters = (len(training_data) + batch_size - 1) // batch_size
+
+        # generate batch indices, the final batch may be smaller if
+        # `batch_size` doesn't evenly divide into size of training data
+        batch_indices_list = [
+            training_indices[i * batch_size:min(size, (i + 1) * batch_size)]
+            for i in range(training_iters)]
+
         disable_tqdm = False if verbose else True
-        for i in tqdm(range(training_iters), disable=disable_tqdm):
-            batch_indices = training_indices[i * batch_size:(i + 1) * batch_size]
+        for batch_indices in tqdm(batch_indices_list, disable=disable_tqdm):
             batch = [training_data[ix] for ix in batch_indices]
             summary = self.train_step(batch, return_summary=True)
             if writer is not None:
