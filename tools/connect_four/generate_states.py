@@ -1,10 +1,10 @@
 import argparse
-
+from typing import Iterable
 import random
+
 from tqdm import tqdm
 
 from alphago.games.connect_four import action_list_to_state, ConnectFour
-
 
 
 def generate_states(num_states, min_length=1):
@@ -36,6 +36,22 @@ def generate_states(num_states, min_length=1):
                 pbar.update(1)
 
     return states
+
+
+def combine_connect_four_states_files(input_filepaths: Iterable[str],
+                                      output_filepath: str) -> None:
+    """Combine the results of multiple solved connect four games into a single file."""
+    solutions = set()
+    for filepath in input_filepaths:
+        with open(filepath) as input_file:
+            for line in input_file.readlines():
+                solution = tuple(map(int, line.split()))
+                solutions.add(solution)
+
+    sorted_solutions = sorted(solutions, key=lambda x: x[0])
+    with open(output_filepath, 'w') as output_file:
+        lines = "\n".join([" ".join(map(str, solution)) for solution in sorted_solutions])
+        output_file.writelines(lines)
 
 
 if __name__ == "__main__":
