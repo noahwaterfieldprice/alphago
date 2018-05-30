@@ -69,24 +69,32 @@ if __name__ == "__main__":
     training_data = training_data[num_dev:]
     num_train = len(training_data)
 
+    # Hyperparameters
     learning_rate = 1e-4
+    batch_size = 32
+    l2_weight = 1e-1
+    value_weight = 1e-2
+
+    hyp_string = "lr={},batch_size={},value_weight={},l2_weight={}," \
+        "num_train={}".format(
+        learning_rate, batch_size, value_weight, l2_weight, num_train)
+
     game = ConnectFour()
     game_name = 'connect_four-sl'
 
     current_time_format = time.strftime('%Y-%m-%d_%H:%M:%S')
-    path = "experiments/{}-{}/".format(game_name, current_time_format)
+    path = "experiments/{}-{}-{}/".format(game_name, hyp_string, current_time_format)
     checkpoint_path = path + 'checkpoints/'
     summary_path = path + 'logs/'
 
     writer = tf.summary.FileWriter(summary_path)
 
     estimator = ConnectFourNet(learning_rate=learning_rate,
-                               l2_weight=1e-1,
+                               l2_weight=l2_weight, value_weight=value_weight,
                                action_indices=game.action_indices)
 
     num_steps = 1000
     verbose = True
-    batch_size = 32
     training_iters = int(num_train / batch_size)
 
     # Create the tensorflow summary for dev loss
@@ -113,7 +121,8 @@ if __name__ == "__main__":
     for step in range(1000):
         print("Step: {}".format(step))
         optimise_estimator(estimator, training_data, batch_size,
-                           training_iters, writer, verbose=verbose)
+                           training_iters, writer, verbose=verbose,
+                           with_replacement=False)
 
         # Now compute dev loss
         dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(

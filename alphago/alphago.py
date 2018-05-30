@@ -156,7 +156,7 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
 
 
 def optimise_estimator(estimator, training_data, batch_size, training_iters,
-                       writer, verbose=True):
+                       writer, verbose=True, with_replacement=True):
     summary = estimator.train(training_data, batch_size, training_iters,
                               writer, verbose=verbose)
     return summary

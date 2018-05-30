@@ -1,4 +1,5 @@
 import abc
+from random import shuffle
 
 import numpy as np
 import tensorflow as tf
@@ -49,9 +50,10 @@ def create_trivial_estimator(next_states_function):
 
 class AbstractNeuralNetEstimator(abc.ABC):
 
-    def __init__(self, learning_rate=1e-2, l2_weight=1e-4):
+    def __init__(self, learning_rate=1e-2, l2_weight=1e-4, value_weight=1):
         self.learning_rate = learning_rate
         self.l2_weight = l2_weight
+        self.value_weight = value_weight
         self._initialise_net()
 
     @abc.abstractmethod
@@ -131,8 +133,43 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
         return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
 
+    def train_step(self, batch):
+        """Trains the network on the batch.
+
+        Parameters
+        ----------
+        batch: list
+            A list consisting of (state, probs, z) tuples, where player is the
+            player in the state and z is the utility to player int he last
+            state from the corresponding self-play game.
+        
+        Returns
+        -------
+        summary:
+            The summary tensor, run on the batch.
+        """
+        # Set up the states, probs, zs arrays.
+        states = np.array([x[0] for x in batch])
+        pis = np.array([x[1] for x in batch])
+        zs = np.array([x[2] for x in batch])
+        zs = zs[:, np.newaxis]
+
+        summary, value, probs, loss, _ = self.sess.run(
+            [self.tensors['summary'], self.tensors['value'],
+             self.tensors['probs'], self.tensors['loss'],
+             self.train_op], feed_dict={
+                 self.tensors['state_vector']: states,
+                 self.tensors['pi']: pis,
+                 self.tensors['outcomes']: zs,
+                 self.tensors['is_training']: True
+                 })
+
+        # Update the global step
+        self.global_step += 1
+        return summary
+
     def train(self, training_data, batch_size, training_iters,
-              writer, verbose=True):
+              writer, verbose=True, with_replacement=True):
         """Trains the net on the training data.
 
         Parameters
@@ -145,32 +182,26 @@ class AbstractNeuralNetEstimator(abc.ABC):
         training_iters: int
         verbose: bool
             Print out progress if True, else don't print anything.
+        with_replacement: bool
+            If True, then sample each batch from the whole training data with
+            replacement. Otherwise, just shuffle the training data and train
+            from start to finish.
         """
+        training_indices = [i for i in range(len(training_data))]
+        shuffle(training_indices)
+
         disable_tqdm = False if verbose else True
-        for _ in tqdm(range(training_iters), disable=disable_tqdm):
-            batch_indices = np.random.choice(len(training_data), batch_size,
-                                             replace=True)
-            batch_data = [training_data[i] for i in batch_indices]
+        for i in tqdm(range(training_iters), disable=disable_tqdm):
+            if with_replacement:
+                batch_indices = np.random.choice(len(training_data), batch_size,
+                                                 replace=True)
+            else:
+                batch_indices = training_indices[i * batch_size:(i+1) * batch_size]
+            batch = [training_data[ix] for ix in batch_indices]
 
-            # Set up the states, probs, zs arrays.
-            states = np.array([x[0] for x in batch_data])
-            pis = np.array([x[1] for x in batch_data])
-            zs = np.array([x[2] for x in batch_data])
-            zs = zs[:, np.newaxis]
+            summary = self.train_step(batch)
 
-            summary, value, probs, loss, _ = self.sess.run(
-                [self.tensors['summary'], self.tensors['value'],
-                 self.tensors['probs'], self.tensors['loss'],
-                 self.train_op], feed_dict={
-                     self.tensors['state_vector']: states,
-                     self.tensors['pi']: pis,
-                     self.tensors['outcomes']: zs,
-                     self.tensors['is_training']: True
-                     })
-
-            # Update the global step
-            self.global_step += 1
-        writer.add_summary(summary, self.global_step)
+            writer.add_summary(summary, self.global_step)
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
@@ -218,8 +249,8 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
     game_state_shape = (1, 12)
 
-    def __init__(self, learning_rate, l2_weight, action_indices):
-        super().__init__(learning_rate, l2_weight)
+    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+        super().__init__(learning_rate, l2_weight, value_weight)
         self.action_indices = action_indices
 
     def _initialise_net(self):
@@ -296,7 +327,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             loss_value = tf.losses.mean_squared_error(outcomes, value)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
 
-            loss = loss_value + loss_probs
+            loss = self.value_weight * loss_value + loss_probs
 
             # Set up the training op
             self.train_op = \
@@ -326,8 +357,8 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
 
-    def __init__(self, learning_rate, l2_weight, action_indices):
-        super().__init__(learning_rate, l2_weight)
+    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+        super().__init__(learning_rate, l2_weight, value_weight)
         self.action_indices = action_indices
 
     def _initialise_net(self):
@@ -403,7 +434,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
             loss_value = tf.losses.mean_squared_error(outcomes, value)
             loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
 
-            loss = loss_value + loss_probs
+            loss = self.value_weight * loss_value + loss_probs
 
             # Set up the training op
             self.train_op = \

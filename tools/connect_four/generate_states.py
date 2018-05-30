@@ -1,16 +1,19 @@
+import argparse
+
 import random
+from tqdm import tqdm
 
 from alphago.games.connect_four import action_list_to_state, ConnectFour
 
 
 
-def generate_states(n, min_length=1):
-    """Generates n random connect four states, uniformly in length, and then
-    uniformly across states of that length.
+def generate_states(num_states, min_length=1):
+    """Generates num_states random connect four states, uniformly in length,
+    and then uniformly across states of that length.
 
     Parameters
     ----------
-    n: int
+    num_states: int
         The number of states to generate.
 
     Returns
@@ -20,22 +23,33 @@ def generate_states(n, min_length=1):
     """
     states = set()
     game = ConnectFour()
-    while len(states) <= n:
-        cols = [i for i in range(7)] * 6
-        random.shuffle(cols)
-        l = random.randint(min_length, 43)
-        state = cols[:l]
-        state_array = action_list_to_state(state)
+    with tqdm(total=num_states) as pbar:
+        while len(states) <= num_states:
+            cols = [i for i in range(7)] * 6
+            random.shuffle(cols)
+            l = random.randint(min_length, 43)
+            state = cols[:l]
+            state_array = action_list_to_state(state)
 
-        if not game.is_terminal(state_array):
-            states.add(tuple(x + 1 for x in state))
+            if not game.is_terminal(state_array):
+                states.add(tuple(x + 1 for x in state))
+                pbar.update(1)
 
     return states
 
 
 if __name__ == "__main__":
-    states = generate_states(100000, 8)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output_file', help='File name to output result to')
+    parser.add_argument('num_states', help='Number of states to generate')
+    parser.add_argument('min_moves', help='The minimum number of moves for each sequence')
 
-    with open('output.txt', 'w') as f:
+    args = parser.parse_args()
+
+    min_moves = int(args.min_moves)
+    num_states = int(args.num_states)
+    states = generate_states(num_states, min_moves)
+
+    with open(args.output_file, 'w') as f:
         string_states = [''.join((str(x) for x in state)) for state in states]
         f.write('\n'.join(string_states))
