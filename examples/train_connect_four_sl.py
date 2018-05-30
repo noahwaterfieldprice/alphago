@@ -11,7 +11,6 @@ from alphago.estimator import ConnectFourNet
 from alphago.alphago import optimise_estimator
 
 
-
 def solved_states_to_training_data(solved_states):
     """Converts a list of tuples to training data for AlphaGo.
 
@@ -42,7 +41,6 @@ def solved_states_to_training_data(solved_states):
         training_data.append((state, probs_vector, outcome))
 
     return training_data
-
 
 
 if __name__ == "__main__":

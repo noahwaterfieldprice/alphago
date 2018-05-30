@@ -14,7 +14,7 @@ GameState, Action = Tuple[int, ...], int
 
 class ConnectFour(Game):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.initial_state = (0,) * 42
         self.action_space = tuple(i for i in range(7))
         self.action_indices = {a: self.action_space.index(a) for a in

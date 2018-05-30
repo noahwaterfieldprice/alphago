@@ -1,5 +1,5 @@
 import abc
-from random import shuffle
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -58,6 +58,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
     @abc.abstractmethod
     def _initialise_net(self):
+        self.tensors = {}
+        self.global_step = 0
+        self.sess = None
+        self.train_op = None
+        self.saver = None
         pass
 
     def __call__(self, state):
@@ -126,23 +131,25 @@ class AbstractNeuralNetEstimator(abc.ABC):
                     self.tensors['pi']: pis,
                     self.tensors['outcomes']: zs,
                     self.tensors['is_training']: False
-                    })
+                })
             losses.append(loss)
             loss_value_list.append(loss_value)
             loss_probs_list.append(loss_probs)
 
         return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
 
-    def train_step(self, batch):
+    def train_step(self, batch, return_summary=False):
         """Trains the network on the batch.
 
         Parameters
         ----------
         batch: list
-            A list consisting of (state, probs, z) tuples, where player is the
-            player in the state and z is the utility to player int he last
-            state from the corresponding self-play game.
-        
+            A list consisting of (state, probs, z) tuples, where player
+            is the player in the state and z is the utility to player in
+            the last state from the corresponding self-play game.
+        return_summary: bool
+            Whether to return the TensforFlow summary tensor for use in
+            Tensorboard.
         Returns
         -------
         summary:
@@ -157,51 +164,96 @@ class AbstractNeuralNetEstimator(abc.ABC):
         summary, value, probs, loss, _ = self.sess.run(
             [self.tensors['summary'], self.tensors['value'],
              self.tensors['probs'], self.tensors['loss'],
-             self.train_op], feed_dict={
-                 self.tensors['state_vector']: states,
-                 self.tensors['pi']: pis,
-                 self.tensors['outcomes']: zs,
-                 self.tensors['is_training']: True
-                 })
+             self.train_op],
+            feed_dict={self.tensors['state_vector']: states,
+                       self.tensors['pi']: pis,
+                       self.tensors['outcomes']: zs,
+                       self.tensors['is_training']: True})
 
         # Update the global step
         self.global_step += 1
-        return summary
+        if return_summary:
+            return summary
 
     def train(self, training_data, batch_size, training_iters,
-              writer, verbose=True, with_replacement=True):
+               mode='reinforcement', writer=None, verbose=True):
         """Trains the net on the training data.
 
         Parameters
         ----------
         training_data: list
-            A list consisting of (state, probs, z) tuples, where player is the
-            player in the state and z is the utility to player in the last state
-            from the corresponding self-play game.
+            A list consisting of (state, probs, z) tuples, where player
+            is the player in the state and z is the utility to player in
+            the last state from the corresponding self-play game.
         batch_size: int
         training_iters: int
+            The number of training iterations to run, where a training
+            iteration corresponds to updating the net on a single batch
+            of training data. If this is set to -1 in supervised mode,
+            it will run for a whole epoch, i.e. process the entire data
+            set exactly once.
+        mode: str, {'reinforcement', 'supervised'}
+            The mode of training. If running in reinforcement mode then
+            the batch data are sampled randomly from the training data
+            at each training iteration. If running in supervised mode,
+            then the data is randomly ordered and then each training
+            iteration steps through the data in batches.
+        writer: tf.summary.FileWriter
+            A FileWriter object for writing TensorFlow summaries to.
         verbose: bool
             Print out progress if True, else don't print anything.
-        with_replacement: bool
-            If True, then sample each batch from the whole training data with
-            replacement. Otherwise, just shuffle the training data and train
-            from start to finish.
+        """
+
+        if mode not in ['reinforcement', 'supervised']:
+            raise ValueError("`mode` must be 'reinforcement', 'supervised'.")
+
+        if mode == 'reinforcement':
+            if training_iters == -1:
+                raise ValueError("`training_iters` must be > 1 for "
+                                 "reinforcement mode.")
+            self._train_reinforcement(training_data, batch_size, training_iters,
+                                      writer, verbose)
+        elif mode == 'supervised':
+            if training_iters == -1:
+                training_iters = len(training_data) // batch_size
+            self._train_supervised(training_data, batch_size, training_iters,
+                                   writer, verbose)
+
+    def _train_reinforcement(self, training_data, batch_size, training_iters,
+                             writer, verbose):
+        """Train the net in reinforcement learning mode.
+
+        In this case, a random batch is sampled for the data every
+        training iteration. This may mean that the same data points are
+        trained on multiple times before the every data point is in the
+        training data is considered.
+        """
+        disable_tqdm = False if verbose else True
+        for _ in tqdm(range(training_iters), disable=disable_tqdm):
+            batch_indices = np.random.choice(len(training_data), batch_size)
+            batch = [training_data[ix] for ix in batch_indices]
+            summary = self.train_step(batch, return_summary=True)
+            if writer is not None:
+                writer.add_summary(summary, self.global_step)
+
+    def _train_supervised(self, training_data, batch_size, training_iters,
+                          writer, verbose):
+        """Train the net in supervised learning mode.
+
+        In this case, the training data are randomly shuffled and then
+        they are processed sequentially in batches. The number of
+        batches trained on is equal to the number training iterations.
         """
         training_indices = [i for i in range(len(training_data))]
-        shuffle(training_indices)
+        random.shuffle(training_indices)
 
         disable_tqdm = False if verbose else True
         for i in tqdm(range(training_iters), disable=disable_tqdm):
-            if with_replacement:
-                batch_indices = np.random.choice(len(training_data), batch_size,
-                                                 replace=True)
-            else:
-                batch_indices = training_indices[i * batch_size:(i+1) * batch_size]
+            batch_indices = training_indices[i * batch_size:(i + 1) * batch_size]
             batch = [training_data[ix] for ix in batch_indices]
-
-            summary = self.train_step(batch)
-
-            writer.add_summary(summary, self.global_step)
+            summary = self.train_step(batch, return_summary=True)
+            if writer is not None:
+                writer.add_summary(summary, self.global_step)
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
@@ -246,8 +298,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
 
 class NACNetEstimator(AbstractNeuralNetEstimator):
-
-    game_state_shape = (1, 12)
+    game_state_shape = (1, 9)
 
     def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
         super().__init__(learning_rate, l2_weight, value_weight)
@@ -264,11 +315,11 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 12,))
-            pi = tf.placeholder(tf.float32, shape=(None, 12))
+            state_vector = tf.placeholder(tf.float32, shape=(None, 9,))
+            pi = tf.placeholder(tf.float32, shape=(None, 9))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
-            input_layer = tf.reshape(state_vector, [-1, 3, 4, 1])
+            input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
             regularizer = tf.contrib.layers.l2_regularizer(
                 scale=self.l2_weight)
@@ -314,7 +365,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
                 activation_fn=tf.nn.tanh)
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=12, weights_regularizer=regularizer,
+                inputs=dense1, num_outputs=9, weights_regularizer=regularizer,
                 activation_fn=None)
             probs = tf.nn.softmax(logits=prob_logits)
 
