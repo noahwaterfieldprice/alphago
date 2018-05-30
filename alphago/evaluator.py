@@ -1,11 +1,15 @@
+from collections import namedtuple
+from typing import Sequence
+
 from tqdm import tqdm
 
-from collections import namedtuple
+from .games import Game
+from .player import Player
 
 GameLog = namedtuple("GameLog", "result actions game_states".split())
 
 
-def evaluate(game, players, num_games, verbose=True):
+def evaluate(game: Game, players, num_games, verbose=True):
     """Compare two evaluators. Returns the number of evaluator1 wins
     and number of draws in the games, as well as the total number of
     games.
@@ -50,7 +54,8 @@ def play(game, players):
     game: Game
         An object representing the game to be played.
     players: dict of Player
-        An dictionary with keys the player numbers and values the players.
+        An dictionary with keys the player numbers and values the
+        players.
 
     Returns
     -------
@@ -79,3 +84,18 @@ def play(game, players):
         game_states.append(game_state)
 
     return actions, game_states
+
+
+def run_tournament(game: Game, players: Sequence[Player],
+                   num_rounds: int):
+    """Run a tournament of a the given game between the players and
+    return the results.
+
+    Each round constitutes a round-robin, with each player playing
+    every other player.
+
+    Parameters
+    ----------
+    game: Game
+        An object representing the game to be played.
+    """

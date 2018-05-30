@@ -5,7 +5,7 @@ from .backwards_induction import backwards_induction
 # TODO: write tests and docstrings for all this!!!
 
 
-class AbstractPlayer:
+class Player:
 
     def __init__(self, game):
         self.game = game
@@ -23,7 +23,7 @@ class AbstractPlayer:
         return f"{self.__class__.__name__}({self.game})"
 
 
-class RandomPlayer(AbstractPlayer):
+class RandomPlayer(Player):
 
     def choose_action(self, game_state, return_probabilities=False):
         next_states = self.game.compute_next_states(game_state)
@@ -37,7 +37,7 @@ class RandomPlayer(AbstractPlayer):
         return action
 
 
-class MCTSPlayer(AbstractPlayer):
+class MCTSPlayer(Player):
 
     def __init__(self, game, estimator, mcts_iters, c_puct, tau=1):
         super().__init__(game)
@@ -87,7 +87,7 @@ class MCTSPlayer(AbstractPlayer):
         self.current_node = None
 
 
-class OptimalPlayer(AbstractPlayer):  # TODO: Add UTs
+class OptimalPlayer(Player):  # TODO: Add UTs
 
     def choose_action(self, game_state, return_probabilities=False):
         value, action = backwards_induction(self.game, game_state)

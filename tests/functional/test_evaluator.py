@@ -8,7 +8,6 @@ from alphago.evaluator import evaluate, play
 
 
 def test_playing_two_random_players_against_each_other():
-    # Seed the random number generator.
     np.random.seed(0)
     mock_game = MockGame()
 
@@ -27,7 +26,6 @@ def test_playing_two_random_players_against_each_other():
 
 
 def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
-    # Seed the random number generator.
     np.random.seed(0)
     mock_game = MockGame()
 
@@ -45,7 +43,6 @@ def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
 
 
 def test_evaluator_on_noughts_and_crosses():
-    # Seed the random number generator.
     np.random.seed(0)
 
     nac = NoughtsAndCrosses()
@@ -81,3 +78,8 @@ def test_evaluator_on_noughts_and_crosses():
 #         nac, evaluator1, evaluator2, mcts_iters=100, num_games=6)
 #
 #     # TODO: This doesn't seem to be deterministic.
+
+
+def test_running_tournament_between_mcts_players():
+    np.random.seed(0)
+    mock_game = MockGame()
