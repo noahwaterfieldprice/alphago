@@ -99,7 +99,7 @@ EXPECTED_LINE_SUMS = [
                                                          EXPECTED_LINE_SUMS))
 def test_connect_four_line_sums_4_by_4(grid, expected_line_sums, mocker):
     mock = mocker.MagicMock()
-    line_sums = ConnectFour._calculate_line_sums_4_by_4(mock, grid)
+    line_sums = ConnectFour._calculate_line_sums_4_by_4(grid)
     assert np.all(line_sums == expected_line_sums)
 
 

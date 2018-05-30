@@ -19,7 +19,8 @@ def test_trivial_estimator():
 
 def test_initialising_basic_net_with_random_parameters():  # TODO: redo this on mock game
     nac = NoughtsAndCrosses()
-    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+    nnet = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                           action_indices=nac.action_indices)
 
     # Initialise state of all 1s.
     states = np.ones((7, 9))
@@ -42,7 +43,8 @@ def test_neural_net_estimator():
 
 def test_neural_net_estimate_game_state():
     nac = NoughtsAndCrosses()
-    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+    nnet = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                           action_indices=nac.action_indices)
 
     test_game_state = np.random.randn(7, 9)
 
@@ -52,8 +54,10 @@ def test_neural_net_estimate_game_state():
 def test_can_use_two_neural_nets():
     np.random.seed(0)
     nac = NoughtsAndCrosses()
-    nnet1 = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
-    nnet2 = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+    nnet1 = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                            action_indices=nac.action_indices)
+    nnet2 = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                            action_indices=nac.action_indices)
 
     test_game_state = np.random.randn(7, 9)
 
@@ -69,7 +73,8 @@ def test_can_use_two_neural_nets():
 def test_basic_nac_net_tensor_shapes():
     np.random.seed(0)
     nac = NoughtsAndCrosses()
-    nnet = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+    nnet = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                           action_indices=nac.action_indices)
 
     batch_size = 5
 
