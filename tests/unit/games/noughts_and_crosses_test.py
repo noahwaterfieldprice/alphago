@@ -321,6 +321,7 @@ class TestUltimateNoughtsAndCrosses:
         assert UltimateNoughtsAndCrosses.compute_next_states(
             mock_game, first_state) == next_states
 
+    @pytest.mark.skip(reason="not implemented yet.")
     def test_compute_next_states_returns_correct_state_on_complete_sub_board(self, mocker):
         # board with completed top left sub board
         board = [0] * 81
@@ -346,5 +347,3 @@ class TestUltimateNoughtsAndCrosses:
                                      sub_game=mock_sub_game)
         assert UltimateNoughtsAndCrosses.compute_next_states(
             mock_game, state) == next_states
-
-

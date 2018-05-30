@@ -298,7 +298,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
 
 class NACNetEstimator(AbstractNeuralNetEstimator):
-    game_state_shape = (1, 12)
+    game_state_shape = (1, 9)
 
     def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
         super().__init__(learning_rate, l2_weight, value_weight)
@@ -315,11 +315,11 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 12,))
-            pi = tf.placeholder(tf.float32, shape=(None, 12))
+            state_vector = tf.placeholder(tf.float32, shape=(None, 9,))
+            pi = tf.placeholder(tf.float32, shape=(None, 9))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
-            input_layer = tf.reshape(state_vector, [-1, 3, 4, 1])
+            input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
             regularizer = tf.contrib.layers.l2_regularizer(
                 scale=self.l2_weight)
@@ -365,7 +365,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
                 activation_fn=tf.nn.tanh)
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=12, weights_regularizer=regularizer,
+                inputs=dense1, num_outputs=9, weights_regularizer=regularizer,
                 activation_fn=None)
             probs = tf.nn.softmax(logits=prob_logits)
 
