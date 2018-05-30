@@ -1,15 +1,15 @@
 import pytest
 
-from alphago.player import AbstractPlayer, MCTSPlayer, RandomPlayer
+from alphago.player import Player, MCTSPlayer, RandomPlayer
 from .games.mock_game import MockGame
 
 
-class TestAbstractPlayer:
+class TestPlayer:
 
     def test_string_representation_of_player(self, mocker):
         mock_game = MockGame()
         mock_player = mocker.MagicMock()
-        mock_player.__repr__ = AbstractPlayer.__repr__
+        mock_player.__repr__ = Player.__repr__
         mock_player.game = mock_game
 
         assert repr(mock_player) == "{0}({1})".format(
@@ -19,13 +19,13 @@ class TestAbstractPlayer:
 
     def test_calculating_action_probabilities(self, mocker):
         mock_player = mocker.MagicMock()
-        mock_player.choose_action = AbstractPlayer.choose_action
+        mock_player.choose_action = Player.choose_action
 
         with pytest.raises(NotImplementedError):
             mock_player.choose_action(mock_player, "some_game_state")
 
 
-class TestRandomPlayer(TestAbstractPlayer):
+class TestRandomPlayer(TestPlayer):
 
     def test_calculating_action_probabilities(self, mocker):
         mock_game = MockGame()
@@ -42,7 +42,7 @@ class TestRandomPlayer(TestAbstractPlayer):
         assert action_probs == expected_action_probs
 
 
-class TestMCTSPlayer(TestAbstractPlayer):
+class TestMCTSPlayer(TestPlayer):
 
     def test_mcts_is_called_with_right_arguments(self, mocker):
         mock_game = MockGame()
