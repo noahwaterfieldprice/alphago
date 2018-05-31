@@ -397,7 +397,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             self.sess.run(tf.global_variables_initializer())
 
             # Create a saver.
-            self.saver = tf.train.Saver()
+            self.saver = tf.train.Saver(max_to_keep=20)
 
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
@@ -505,7 +505,7 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
             self.sess.run(tf.global_variables_initializer())
 
             # Create a saver.
-            self.saver = tf.train.Saver()
+            self.saver = tf.train.Saver(max_to_keep=20)
 
         # Initialise global step (the number of training steps taken).
         self.global_step = 0

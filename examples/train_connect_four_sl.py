@@ -9,6 +9,11 @@ import tensorflow as tf
 from alphago.games.connect_four import action_list_to_state, ConnectFour
 from alphago.estimator import ConnectFourNet
 from alphago.alphago import optimise_estimator
+from tools.summary_scalars import SummaryScalars
+
+
+def compute_checkpoint_name(step, path):
+    return path + "{}.checkpoint".format(step)
 
 
 def solved_states_to_training_data(solved_states):
@@ -65,14 +70,18 @@ if __name__ == "__main__":
     num_dev = int(dev_fraction * len(training_data))
     dev_data = training_data[:num_dev]
     training_data = training_data[num_dev:]
-    num_train = len(training_data)
 
     # Hyperparameters
     learning_rate = 1e-4
     batch_size = 32
     l2_weight = 1e-1
     value_weight = 1e-2
+    num_train = len(training_data)
 
+    checkpoint_every = 30
+    num_steps = 1000
+
+    # Build the hyperparameter string
     hyp_string = "lr={},batch_size={},value_weight={},l2_weight={}," \
         "num_train={}".format(
         learning_rate, batch_size, value_weight, l2_weight, num_train)
@@ -83,51 +92,35 @@ if __name__ == "__main__":
     current_time_format = time.strftime('%Y-%m-%d_%H:%M:%S')
     path = "experiments/{}-{}-{}/".format(game_name, hyp_string, current_time_format)
     checkpoint_path = path + 'checkpoints/'
-    summary_path = path + 'logs/'
-
-    writer = tf.summary.FileWriter(summary_path)
 
     estimator = ConnectFourNet(learning_rate=learning_rate,
                                l2_weight=l2_weight, value_weight=value_weight,
                                action_indices=game.action_indices)
 
-    num_steps = 1000
+    summary_path = path + 'logs/'
+    scalar_names = ['dev_loss', 'dev_loss_value', 'dev_loss_probs']
+    summary_scalars = SummaryScalars(scalar_names)
+
     verbose = True
     training_iters = int(num_train / batch_size)
 
-    # Create the tensorflow summary for dev loss
-    graph = tf.Graph()
-    sess = tf.Session(graph=graph)
+    writer = tf.summary.FileWriter(summary_path)
 
-    with graph.as_default():
-        tf_dev_loss = tf.placeholder(
-            tf.float32, name='dev_loss_summary')
-        dev_loss_summary = tf.summary.scalar(
-            'dev_loss_summary', tf_dev_loss)
-        tf_dev_loss_value = tf.placeholder(
-            tf.float32, name='dev_loss_value_summary')
-        dev_loss_value_summary = tf.summary.scalar(
-            'dev_loss_value_summary', tf_dev_loss_value)
-        tf_dev_loss_probs = tf.placeholder(
-            tf.float32, name='dev_loss_probs_summary')
-        dev_loss_probs_summary = tf.summary.scalar(
-            'dev_loss_probs_summary', tf_dev_loss_probs)
-        merged_summary = tf.summary.merge(
-            [dev_loss_summary, dev_loss_value_summary, dev_loss_probs_summary])
-        sess.run(tf.global_variables_initializer())
-
-    for step in range(1000):
+    for step in range(num_steps):
         print("Step: {}".format(step))
         optimise_estimator(estimator, training_data, batch_size,
-                           training_iters, writer, verbose=verbose,
-                           with_replacement=False)
+                           training_iters, mode='supervised', writer=writer,
+                           verbose=verbose)
 
         # Now compute dev loss
         dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(
             dev_data, batch_size)
-        summary = sess.run(merged_summary,
-                           feed_dict={
-                               tf_dev_loss: dev_loss,
-                               tf_dev_loss_value: dev_loss_value,
-                               tf_dev_loss_probs: dev_loss_probs})
-        writer.add_summary(summary, estimator.global_step)
+
+        summary_scalars.run({'dev_loss': dev_loss,
+                             'dev_loss_value': dev_loss_value,
+                             'dev_loss_probs': dev_loss_probs},
+                             estimator.global_step, writer)
+
+        if step % checkpoint_every == 0:
+            checkpoint_name = compute_checkpoint_name(step, checkpoint_path)
+            estimator.save(checkpoint_name)
