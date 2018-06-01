@@ -2,7 +2,6 @@ from collections import namedtuple, defaultdict
 import itertools
 from typing import Dict, List, Tuple
 
-import numpy as np
 from tqdm import tqdm
 
 from .games import Game
@@ -108,16 +107,44 @@ def run_tournament(game: Game, players: Dict[int, Player],
     """
     results = defaultdict(int)
     pairings = tuple(itertools.combinations(players.keys(), 2))
-    for round_number in range(num_rounds):
-        with tqdm(total=len(pairings)) as pbar:
-            pbar.set_description(f"Round {round_number}")
+    num_games = num_rounds * 2 * len(pairings)
+    with tqdm(total=num_games) as pbar:
+        for round_number in range(num_rounds):
+            pbar.set_description(f"Round {round_number + 1}")
             for (i, j) in pairings:
                 # play i vs j
                 pair = {1: players[i], 2: players[j]}
                 *_, utility = play(game, pair)
                 update_results(i, j, utility, results)
+                pbar.update(1)
                 # play j vs i
                 pair = {2: players[i], 1: players[j]}
+                *_, utility = play(game, pair)
+                update_results(j, i, utility, results)
+                pbar.update(1)
+
+
+    results_list = [(i, j, n) for (i, j), n in sorted(results.items())]
+    return results_list
+
+
+def compare_against_players(game: Game, player_info: Tuple[int, Player],
+                            comparison_players: Dict[int, Player],
+                            num_rounds: int):
+    results = defaultdict(int)
+    i, player = player_info
+    num_games = num_rounds * 2 * len(comparison_players)
+    with tqdm(total=num_games) as pbar:
+        for round_number in range(num_rounds):
+            pbar.set_description(f"Round {round_number + 1}")
+            for j in comparison_players:
+                # play i vs j
+                pair = {1: player, 2: comparison_players[j]}
+                *_, utility = play(game, pair)
+                update_results(i, j, utility, results)
+                pbar.update(1)
+                # play j vs i
+                pair = {2: player, 1: comparison_players[j]}
                 *_, utility = play(game, pair)
                 update_results(j, i, utility, results)
                 pbar.update(1)
