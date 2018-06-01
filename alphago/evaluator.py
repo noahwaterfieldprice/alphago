@@ -1,5 +1,6 @@
 from collections import namedtuple
-from typing import Sequence
+import itertools
+from typing import Dict
 
 from tqdm import tqdm
 
@@ -86,7 +87,7 @@ def play(game, players):
     return actions, game_states
 
 
-def run_tournament(game: Game, players: Sequence[Player],
+def run_tournament(game: Game, players: Dict[int, Player],
                    num_rounds: int):
     """Run a tournament of a the given game between the players and
     return the results.
@@ -96,6 +97,15 @@ def run_tournament(game: Game, players: Sequence[Player],
 
     Parameters
     ----------
-    game: Game
+    game:
         An object representing the game to be played.
+    players:
+        A dictionary mapping player
     """
+
+    pairings = itertools.combinations(players.keys, 2)
+    for (i, j) in pairings:
+        pair = {1: players[i], 2: players[j]}
+        play(game, pair)
+        pair = {2: players[i], 1: players[j]}
+        play(game, pair)

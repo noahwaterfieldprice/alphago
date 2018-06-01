@@ -74,6 +74,8 @@ def elo(game_results):
     """
     player_indices = compute_player_indices(game_results)
     wins = compute_win_matrix(game_results, player_indices)
+    # ensure that there are no games in which players played themselves
+    assert np.all(wins.diagonal() == 0)
 
     gamma = np.random.rand(len(player_indices))
     gamma = gamma / np.sum(gamma)
@@ -85,12 +87,12 @@ def update_gamma(gamma, wins):
     """Updates gamma by one step.
     """
     # Create a matrix with (i, j) entry gamma[i] + gamma[j].
-    gamma_sum = gamma[:, np.newaxis] + gamma[:, np.newaxis].T
+    gamma_sum = gamma[:, np.newaxis] + gamma
 
     # Pairings has (i, j) entry equal to the number of pairings between
     # i and j. That is, number of times i beats j plus number of times j
     # beats i.
-    pairings = wins + wins.T
+    pairings = wins + wins.T  # N_ij
 
     gamma = np.sum(wins, axis=1) / np.sum(pairings / gamma_sum, axis=1)
     gamma = gamma / np.sum(gamma)

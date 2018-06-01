@@ -5,7 +5,7 @@
 *.egg-info/
 Pipfile.lock
 
-# py.test  files
+# py.test files
 .pytest_cache
 pytest_report.html
 .coverage
