@@ -12,11 +12,13 @@ class SummaryScalars:
         with graph.as_default():
             self.placeholders = {name: tf.placeholder(tf.float32, name=name)
                                  for name in scalar_names}
+
             self.summaries = {name: tf.summary.scalar(name, placeholder) for
                               name, placeholder in self.placeholders.items()}
 
             self.merged_summary = tf.summary.merge([summary for summary in
                                                self.summaries.values()])
+
             self.sess.run(tf.global_variables_initializer())
 
     def run(self, scalar_values, global_step, writer):

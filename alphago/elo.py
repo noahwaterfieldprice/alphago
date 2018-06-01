@@ -1,3 +1,5 @@
+from typing import Dict, Sequence, Tuple
+
 import numpy as np
 
 
@@ -8,13 +10,14 @@ def compute_player_indices(game_results):
     """
     player_indices = {}
     player_index = 0
+    players = set()
     for i, j, _ in game_results:
-        if i not in player_indices:
-            player_indices[i] = player_index
-            player_index += 1
-        if j not in player_indices:
-            player_indices[j] = player_index
-            player_index += 1
+        players.add(i)
+        players.add(j)
+
+    for player in sorted(players):
+        player_indices[player] = player_index
+        player_index += 1
 
     return player_indices
 
@@ -55,7 +58,8 @@ def compute_win_matrix(game_results, player_indices):
     return wins
 
 
-def elo(game_results):
+def elo(game_results: Sequence[Tuple], reference_gammas: Dict[int, float] =
+    None):
     """Computes the elo ratings for players given some game results.
 
     Uses the model:
@@ -63,9 +67,11 @@ def elo(game_results):
 
     Parameters
     ----------
-    game_results: list
-        A list where the elements are tuples (i, j, n). This means i beat j
+    game_results:
+        A sequence where the elements are tuples (i, j, n). This means i beat j
         n times.
+    reference_gammas:
+        Fix some of the gammas as reference values.
 
     Results
     -------
@@ -75,10 +81,17 @@ def elo(game_results):
     player_indices = compute_player_indices(game_results)
     wins = compute_win_matrix(game_results, player_indices)
 
+    # Initialise gamma randomly
     gamma = np.random.rand(len(player_indices))
-    gamma = gamma / np.sum(gamma)
 
-    return run_mm(gamma, wins)
+    # Fix reference values, if given
+    reference_gammas_v = np.zeros(len(player_indices))
+    if reference_gammas:
+        for i, g in reference_gammas:
+            reference_gammas_v[player_indices[i]] = g
+    gamma = np.where(reference_gammas_v > 0, reference_gammas_v, gamma)
+
+    return run_mm(gamma, wins, reference_gammas=reference_gammas_v)
 
 
 def update_gamma(gamma, wins):
@@ -93,12 +106,16 @@ def update_gamma(gamma, wins):
     pairings = wins + wins.T
 
     gamma = np.sum(wins, axis=1) / np.sum(pairings / gamma_sum, axis=1)
-    gamma = gamma / np.sum(gamma)
     return gamma.ravel()
 
 
-def run_mm(initial_gamma, wins, num_iters=30):
+def run_mm(initial_gamma, wins, num_iters=30, reference_gammas: np.ndarray =
+    None):
     """Runs minorisation maximisation (Hunter).
+
+    Optionally use reference_gammas to fix some of the gamma values. Then
+    this algorithm computes the maximum likelihood gamma values with these
+    reference gammas fixed.
 
     Parameters
     ----------
@@ -109,6 +126,9 @@ def run_mm(initial_gamma, wins, num_iters=30):
         An N x N matrix, where there are N players.
     num_iters: int
         The number of iterations to run the algorithm for.
+    reference_gammas:
+        A numpy array with ith entry either 0, if no reference gamma,
+        or a positive float with the fixed value of gamma for the ith player.
     """
     gamma = initial_gamma / np.sum(initial_gamma)
     assert np.all(gamma > 0)
@@ -116,6 +136,11 @@ def run_mm(initial_gamma, wins, num_iters=30):
     for it in range(num_iters):
         # Update gamma
         gamma = update_gamma(gamma, wins)
+
+        # Fix reference values, if given
+        if reference_gammas is not None:
+            gamma = np.where(reference_gammas > 0, reference_gammas, gamma)
+
         log_likelihood = compute_log_likelihood(wins, gamma)
         print("Log likelihood: {}".format(log_likelihood))
 
