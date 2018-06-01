@@ -18,7 +18,7 @@ def test_playing_two_random_players_against_each_other():
     # Check the players aren't equal.
     assert player1 is not player2
 
-    actions, game_states = play(mock_game, players)
+    actions, game_states, utility = play(mock_game, players)
 
     assert mock_game.is_terminal(game_states[-1])
     assert actions == [1, 1, 1]
@@ -29,7 +29,7 @@ def test_evaluator_can_compare_two_mcts_players_with_trivial_estimator():
     np.random.seed(0)
     mock_game = MockGame()
 
-    estimator = create_trivial_estimator(mock_game.compute_next_states)
+    estimator = create_trivial_estimator(mock_game)
     player1 = MCTSPlayer(mock_game, estimator, 100, 0.5)
     player2 = MCTSPlayer(mock_game, estimator, 100, 0.5)
     players = {1: player1, 2: player2}
@@ -46,7 +46,7 @@ def test_evaluator_on_noughts_and_crosses():
     np.random.seed(0)
 
     nac = NoughtsAndCrosses()
-    estimator = create_trivial_estimator(nac.compute_next_states)
+    estimator = create_trivial_estimator(nac)
     player1 = MCTSPlayer(nac, estimator, 100, 0.5)
     player2 = MCTSPlayer(nac, estimator, 100, 0.5)
     players = {1: player1, 2: player2}

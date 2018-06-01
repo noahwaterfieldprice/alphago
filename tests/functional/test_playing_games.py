@@ -31,7 +31,7 @@ def test_mcts_noughts_and_crosses_player_gives_optimal_moves(state, optimal_acti
     np.random.seed(0)
 
     nac = NoughtsAndCrosses()
-    estimator = create_trivial_estimator(nac.compute_next_states)
+    estimator = create_trivial_estimator(nac)
     player = MCTSPlayer(game=nac, estimator=estimator, mcts_iters=100,
                         c_puct=0.5, tau=1)
     action, action_probs = player.choose_action(state, return_probabilities=True)
