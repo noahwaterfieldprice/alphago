@@ -67,6 +67,21 @@ def test_update_gamma():
     expected2 = 2 / (6 / 4 + 2 / 5)
 
     expected = np.array([expected0, expected1, expected2])
-    expected /= np.sum(expected)
     computed = update_gamma(initial_gamma, wins)
     assert (expected == computed).all()
+
+
+def test_reference_gammas():
+    initial_gamma = np.array([1, 1, 1])
+    wins = np.array([[0, 30, 40],
+                     [1, 0, 20],
+                     [2, 0, 0]])
+
+    initial_ll = compute_log_likelihood(wins, initial_gamma)
+
+    reference_gammas = np.array([0, 17, 0])
+    gamma = run_mm(initial_gamma, wins, reference_gammas=reference_gammas)
+    final_ll = compute_log_likelihood(wins, gamma)
+    assert initial_ll < final_ll
+
+    assert gamma[1] == reference_gammas[1]
