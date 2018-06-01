@@ -5,16 +5,17 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+from .games import Game
 
-def create_trivial_estimator(next_states_function):
+
+def create_trivial_estimator(game: Game):
     """Create a trivial evaluator function given a next states function
     for a game.
 
     Parameters
     ----------
-    next_states_function: func
-        Returns a dictionary from actions available in the current state to the
-        resulting game states.
+    game:
+
 
     Returns
     -------
@@ -42,10 +43,33 @@ def create_trivial_estimator(next_states_function):
         value: float
             The evaluator's estimate of the value of the state 'state'.
          """
-        next_states = next_states_function(state)
-        return {action: 1 / len(next_states) for action in next_states}, 0
+        next_states = game.compute_next_states(state)
+        uniform_prior_probs = {action: 1 / len(next_states)
+                               for action in next_states}
+        return uniform_prior_probs, 0
 
     return trivial_estimator
+
+
+def create_rollout_estimator(game, num_rollouts):
+    # TODO: test this and write docstring
+    def rollout_estimator(state):
+        next_states = game.compute_next_states(state)
+        uniform_prior_probs = {action: 1 / len(next_states)
+                               for action in next_states}
+        player_no = game.which_player(state)
+        total_value = 0
+        for _ in range(num_rollouts):
+            while not game.is_terminal(state):
+                next_states = game.compute_next_states(state)
+                state = random.choice(list(next_states.values()))
+
+            total_value += game.utility(state)[player_no]
+        mean_value = total_value / num_rollouts
+
+        return uniform_prior_probs, mean_value
+
+    return rollout_estimator
 
 
 class AbstractNeuralNetEstimator(abc.ABC):

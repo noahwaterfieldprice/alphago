@@ -12,7 +12,7 @@ from .mock_estimator import MockNetEstimator
 
 def test_trivial_estimator():
     mock_game = MockGame()
-    trivial_estimator = create_trivial_estimator(mock_game.compute_next_states)
+    trivial_estimator = create_trivial_estimator(mock_game)
 
     assert trivial_estimator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
 

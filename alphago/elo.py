@@ -3,10 +3,21 @@ from typing import Dict, Sequence, Tuple
 import numpy as np
 
 
-def compute_player_indices(game_results):
+def compute_player_indices(game_results: Sequence[Tuple]) -> Dict[int, int]:
     """Computes a dictionary for players with keys the player and values an
     index for the player. The index is in the range 0 up to the number of
     players minus 1.
+
+    Parameters
+    ----------
+    game_results:
+        A sequence of tuples (i, j, n), where this denotes that
+        player i beat player j n times.
+
+    Returns
+    -------
+    Dict[int, int]:
+        A dictionary mapping player numbers to player indices.
     """
     player_indices = {}
     player_index = 0
@@ -51,7 +62,8 @@ def compute_win_matrix(game_results, player_indices):
     players = set(i for i, _, _ in game_results)
     players.union(set(j for _, j, _ in game_results))
     num_players = len(players)
-    wins = np.zeros(num_players, num_players)
+    print(num_players)
+    wins = np.zeros(shape=(num_players, num_players))
     for i, j, n in game_results:
         wins[player_indices[i], player_indices[j]] += n
 
@@ -68,8 +80,8 @@ def elo(game_results: Sequence[Tuple], reference_gammas: Dict[int, float] =
     Parameters
     ----------
     game_results:
-        A sequence where the elements are tuples (i, j, n). This means i beat j
-        n times.
+        A sequence of tuples (i, j, n), where this denotes that
+        player i beat player j n times.
     reference_gammas:
         Fix some of the gammas as reference values.
 
@@ -80,6 +92,8 @@ def elo(game_results: Sequence[Tuple], reference_gammas: Dict[int, float] =
     """
     player_indices = compute_player_indices(game_results)
     wins = compute_win_matrix(game_results, player_indices)
+    # ensure that there are no games in which players played themselves
+    assert np.all(wins.diagonal() == 0)
 
     # Initialise gamma randomly
     gamma = np.random.rand(len(player_indices))
@@ -89,21 +103,28 @@ def elo(game_results: Sequence[Tuple], reference_gammas: Dict[int, float] =
     if reference_gammas:
         for i, g in reference_gammas:
             reference_gammas_v[player_indices[i]] = g
-    gamma = np.where(reference_gammas_v > 0, reference_gammas_v, gamma)
+    max_likelihood_gammas = np.where(reference_gammas_v > 0,
+                                     reference_gammas_v, gamma)
 
-    return run_mm(gamma, wins, reference_gammas=reference_gammas_v)
+    gammas = {}
+    for player_no, gamma in zip(player_indices.keys(),
+                                max_likelihood_gammas):
+        player_index = player_indices[player_no]
+        gammas[player_no] = max_likelihood_gammas[player_index]
+
+    return gammas
 
 
 def update_gamma(gamma, wins):
     """Updates gamma by one step.
     """
     # Create a matrix with (i, j) entry gamma[i] + gamma[j].
-    gamma_sum = gamma[:, np.newaxis] + gamma[:, np.newaxis].T
+    gamma_sum = gamma[:, np.newaxis] + gamma
 
     # Pairings has (i, j) entry equal to the number of pairings between
     # i and j. That is, number of times i beats j plus number of times j
     # beats i.
-    pairings = wins + wins.T
+    pairings = wins + wins.T  # N_ij
 
     gamma = np.sum(wins, axis=1) / np.sum(pairings / gamma_sum, axis=1)
     return gamma.ravel()

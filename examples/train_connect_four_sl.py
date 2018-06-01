@@ -40,7 +40,7 @@ def solved_states_to_training_data(solved_states):
         # Set the probs vector to be 1 for the optimal action, and 0 for all
         # other actions.
         probs_vector = np.zeros(7, float)
-        probs_vector[action-1] = 1
+        probs_vector[action - 1] = 1
 
         # Store in training_data.
         training_data.append((state, probs_vector, outcome))
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     solved_states = []
     with open(input_file, 'r') as f:
         for line in f:
-            data = line.split(' ')
+            data = line.split()
             action_list = [int(c) for c in data[0]]
             action = int(data[1])
             outcome = int(data[2])
@@ -82,8 +82,8 @@ if __name__ == "__main__":
     num_steps = 1000
 
     # Build the hyperparameter string
-    hyp_string = "lr={},batch_size={},value_weight={},l2_weight={}," \
-        "num_train={}".format(
+    hyp_string = (
+        "lr={},batch_size={},value_weight={},l2_weight={},num_train={}").format(
         learning_rate, batch_size, value_weight, l2_weight, num_train)
 
     game = ConnectFour()
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     summary_scalars = SummaryScalars(scalar_names)
 
     verbose = True
-    training_iters = int(num_train / batch_size)
+    training_iters = -1
 
     writer = tf.summary.FileWriter(summary_path)
 
@@ -124,3 +124,5 @@ if __name__ == "__main__":
         if step % checkpoint_every == 0:
             checkpoint_name = compute_checkpoint_name(step, checkpoint_path)
             estimator.save(checkpoint_name)
+
+
