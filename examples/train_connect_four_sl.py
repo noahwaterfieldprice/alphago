@@ -124,3 +124,5 @@ if __name__ == "__main__":
         if step % checkpoint_every == 0:
             checkpoint_name = compute_checkpoint_name(step, checkpoint_path)
             estimator.save(checkpoint_name)
+
+
