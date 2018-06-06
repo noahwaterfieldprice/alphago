@@ -137,4 +137,33 @@ namespace GameSolver { namespace Connect4 {
       // example for WIDTH=7: columnOrder = {3, 4, 2, 5, 1, 6, 0}
     }
 
+    std::pair<int, int> Solver::optimal_move(std::string state)
+    {
+      // Returns the optimal move in the position. Uses the weak solver.
+      int max_score = -10000, best_move = -1;
+      for (int move = 1; move <= 7; move++) {
+        Position P;
+        P.play(state);
+        int score;
+        if (P.public_isWinningMove(move - 1)) {
+          score = 100000;
+        } else {
+          Position P;
+          reset();
+          std::string next_state = state + std::to_string(move);
+          unsigned long next_state_length = P.play(next_state);
+          if (next_state_length != next_state.size()) {
+            // illegal move
+            continue;
+          }
+          score = -solve(P, false);
+          if (score > max_score) {
+            max_score = score;
+            best_move = move;
+          }
+        }
+      }
+      return std::make_pair(best_move, max_score);
+    }
+
 }} // namespace GameSolver::Connect4
