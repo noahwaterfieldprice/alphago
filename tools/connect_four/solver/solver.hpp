@@ -51,6 +51,8 @@ namespace GameSolver { namespace Connect4 {
 
     int solve(const Position &P, bool weak = false);
 
+    std::pair<int, int> optimal_move(std::string state);
+
     unsigned long long getNodeCount() 
     {
       return nodeCount;
