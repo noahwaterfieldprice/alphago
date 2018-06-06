@@ -1,6 +1,8 @@
+import numpy as np
+
 from .utilities import sample_distribution
 from . import mcts, MCTSNode
-from .backwards_induction import backwards_induction
+from .backwards_induction import backwards_induction, solve_game_alpha_beta
 
 # TODO: write tests and docstrings for all this!!!
 
@@ -91,6 +93,25 @@ class OptimalPlayer(Player):  # TODO: Add UTs
 
     def choose_action(self, game_state, return_probabilities=False):
         value, action = backwards_induction(self.game, game_state)
+
+        if return_probabilities:
+            action_probs = {action: 1}
+            return action, action_probs
+        return action
+
+
+class AlphaBetaPlayer(Player):
+
+    def __init__(self, game, max_depth=10, heuristic=None):
+        super().__init__(game)
+        self.max_depth = max_depth
+        self.heuristic = heuristic
+
+
+    def choose_action(self, game_state, return_probabilities=False):
+        value, action = solve_game_alpha_beta(self.game, game_state, -np.inf,
+                                              np.inf, self.max_depth,
+                                              self.heuristic)
 
         if return_probabilities:
             action_probs = {action: 1}
