@@ -8,8 +8,8 @@ from alphago.games.connect_four import action_list_to_state, ConnectFour
 
 
 def generate_states(num_states, min_length=1):
-    """Generates num_states random connect four states, uniformly in length,
-    and then uniformly across states of that length.
+    """Generates num_states random connect four states, uniformly in
+    length, and then uniformly across states of that length.
 
     Parameters
     ----------
@@ -40,7 +40,8 @@ def generate_states(num_states, min_length=1):
 
 def combine_connect_four_states_files(input_filepaths: Iterable[str],
                                       output_filepath: str) -> None:
-    """Combine the results of multiple solved connect four games into a single file."""
+    """Combine the results of multiple solved connect four games into
+    a single file."""
     solutions = set()
     for filepath in input_filepaths:
         with open(filepath) as input_file:

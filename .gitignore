@@ -15,6 +15,10 @@ assets/
 # Notes
 papers/
 
+# Local data files
+experiments/
+examples/experiments/
+
 
 # Compiled files
 *.o
