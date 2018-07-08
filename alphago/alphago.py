@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import json
 
 import numpy as np
 from tqdm import tqdm
@@ -122,7 +121,7 @@ def train_alphago(game, create_estimator, self_play_iters, training_iters,
         if len(training_data) < 100:
             continue
         optimise_estimator(training_estimator, training_data, batch_size,
-                           training_iters, writer, verbose=verbose)
+                           training_iters, writer=writer, verbose=verbose)
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:

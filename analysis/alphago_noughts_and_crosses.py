@@ -10,21 +10,21 @@ memoize_instance(game)
 
 
 def create_estimator():
-    return NACNetEstimator(learning_rate=learning_rate, action_indices=game.action_indices)
+    return NACNetEstimator(learning_rate=learning_rate, action_indices=game.action_indices, l2_weight=0.1)
 
 
-self_play_iters = 10
+self_play_iters = 20
 training_iters = 1000
-evaluate_every = 2
-alphago_steps = 1000
-mcts_iters = 200
+evaluate_every = 5
+alphago_steps = 2000
+mcts_iters = 30
 c_puct = 1.0
 replay_length = 10000
-num_evaluate_games = 20
-win_rate = 0.55
+num_evaluate_games = 30
+win_rate = 0.8
 
 checkpoint_path = 'checkpoints/'
-restore_step = None
+pre_step = None
 
 losses = train_alphago(game, create_estimator, self_play_iters=self_play_iters,
                        training_iters=training_iters,
@@ -34,4 +34,4 @@ losses = train_alphago(game, create_estimator, self_play_iters=self_play_iters,
                        mcts_iters=mcts_iters, c_puct=c_puct,
                        replay_length=replay_length,
                        num_evaluate_games=num_evaluate_games, win_rate=win_rate,
-                       restore_step=restore_step, verbose=True)
+                       restore_step=None, verbose=True, summary_path="experiments/")

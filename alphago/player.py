@@ -107,7 +107,6 @@ class AlphaBetaPlayer(Player):
         self.max_depth = max_depth
         self.heuristic = heuristic
 
-
     def choose_action(self, game_state, return_probabilities=False):
         value, action = solve_game_alpha_beta(self.game, game_state, -np.inf,
                                               np.inf, self.max_depth,
