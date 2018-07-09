@@ -33,9 +33,9 @@ class TestRandomPlayer(TestPlayer):
         mock_player.choose_action = RandomPlayer.choose_action
         mock_player.game = mock_game
 
-        next_states = mock_game.compute_next_states(mock_game.initial_state)
-        expected_action_probs = {action: 1 / len(next_states)
-                                 for action in next_states.keys()}
+        actions = mock_game.legal_actions(mock_game.initial_state)
+        expected_action_probs = {action: 1 / len(actions)
+                                 for action in actions}
 
         action, action_probs = mock_player.choose_action(
             mock_player, mock_game.initial_state, return_probabilities=True)

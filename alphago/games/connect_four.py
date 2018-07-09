@@ -20,7 +20,7 @@ class ConnectFour(Game):
         self.action_indices = {a: self.action_space.index(a) for a in
                                self.action_space}
 
-    def which_player(self, state):
+    def current_player(self, state):
         """Returns the player to play in the current state.
 
         Parameters
@@ -141,7 +141,7 @@ class ConnectFour(Game):
         raise ValueError("Utility cannot be calculated for a "
                          "non-terminal state.")
 
-    def compute_next_states(self, state):
+    def legal_actions(self, state):
         """Computes the next states possible from this state.
 
         Parameters
@@ -155,7 +155,7 @@ class ConnectFour(Game):
             Dictionary with keys the available actions and values the state
             resulting from being in state 'state' and taking the action.
         """
-        player = self.which_player(state)
+        player = self.current_player(state)
         marker = 1 if player == 1 else -1
 
         next_states = {}

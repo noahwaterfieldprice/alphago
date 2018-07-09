@@ -233,7 +233,7 @@ def test_mcts_value_at_children_of_root():
 #
 #     def next_states_wrapper(state):
 #         assert not mock_game.is_terminal(state)
-#         return mock_game.compute_next_states(state)
+#         return mock_game.legal_actions(state)
 #
 #
 #

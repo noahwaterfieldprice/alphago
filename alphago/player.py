@@ -28,7 +28,7 @@ class Player:
 class RandomPlayer(Player):
 
     def choose_action(self, game_state, return_probabilities=False):
-        next_states = self.game.compute_next_states(game_state)
+        next_states = self.game.legal_actions(game_state)
         action_probs = {action: 1 / len(next_states)
                         for action in next_states.keys()}
 
@@ -53,7 +53,7 @@ class MCTSPlayer(Player):
         # TODO: need to test using existing MCTS tree vs creating new one
         # TODO: improve exception string, maybe define custom exception
         if self.current_node is None:
-            player_no = self.game.which_player(game_state)
+            player_no = self.game.current_player(game_state)
             self.current_node = MCTSNode(game_state, player_no)
         if game_state != self.current_node.game_state:
             raise ValueError("Input game state must match that of the "

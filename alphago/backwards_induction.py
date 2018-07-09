@@ -7,7 +7,7 @@ def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
     if game.is_terminal(state):
         return game.utility(state)[1], None
 
-    player = game.which_player(state)
+    player = game.current_player(state)
 
     if heuristic is not None and depth == 0:
         # The heuristic is for player 1, so we negate it if it's player 2's
@@ -17,7 +17,7 @@ def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
     # Always use player 1's values. Player 1 wants to maximise, player 2 wants
     # to minimise.
     if player == 1:
-        next_states = game.compute_next_states(state)
+        next_states = game.legal_actions(state)
         v = -np.inf
         best_action = None
         for action, child_state in next_states.items():
@@ -32,7 +32,7 @@ def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
         return v, best_action
     else:
         # We are player 2 -- try to minimise player 1's value.
-        next_states = game.compute_next_states(state)
+        next_states = game.legal_actions(state)
         v = np.inf
         best_action = None
         for action, child_state in next_states.items():
@@ -58,16 +58,16 @@ def solve_game(best_actions, game, state):
     else:
         # If the state is not terminal, then the player plays the move that
         # maximises their utility
-        player = game.which_player(state)
-        next_states = game.compute_next_states(state)
+        player = game.current_player(state)
+        actions = game.legal_actions(state)
 
         child_utilities = {}
-        for action, child_state in next_states.items():
+        for action, child_state in actions.items():
             child_utility, _ = solve_game(
                 best_actions, game, child_state)
             child_utilities[action] = child_utility
-        best_action = max(child_utilities.keys(), key=lambda x:
-                          child_utilities[x][player])
+        best_action = max(child_utilities.keys(),
+                          key=lambda x: child_utilities[x][player])
 
         best_actions[state] = best_action
         return child_utilities[best_action], best_action

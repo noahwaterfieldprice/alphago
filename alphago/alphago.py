@@ -342,7 +342,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
         action_probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
-    node = MCTSNode(game.initial_state, game.which_player(game.initial_state))
+    node = MCTSNode(game.initial_state, game.current_player(game.initial_state))
 
     game_state_list = [node.game_state]
     action_probs_list = []
@@ -430,7 +430,7 @@ def process_self_play_data(states_, actions_, action_probs_, game,
     game: Game
         An object representing the game to be played.
     action_indices: dict
-        A dictionary mapping actions (in the form of the compute_next_states
+        A dictionary mapping actions (in the form of the legal_actions
         function) to action indices (to be used for training the neural
         network).
 
@@ -451,7 +451,7 @@ def process_self_play_data(states_, actions_, action_probs_, game,
     for state, action, probs in zip(states_, actions_, action_probs_):
         # Get the player in the state, and the value to this player of the
         # terminal state.
-        player = game.which_player(state)
+        player = game.current_player(state)
         z = outcome[player]
 
         # Convert the probs dictionary to a numpy array using action_indices.

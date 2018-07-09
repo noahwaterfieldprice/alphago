@@ -7,28 +7,45 @@ Classes
 -------
 NoughtsAndCrosses
     A class for representing a game of noughts and crosses (or
-    tic-tac-toe) that can
+    tic-tac-toe) for any given two dimensions i.e. rows and columns
+
+UltimateNoughtsAndCrosses
+    A class for representing a game of ultimate noughts and crosses (or
+    ultimate tic-tac-toe).
 """
+import functools
 import itertools
+import operator
 from typing import Dict, NamedTuple, Tuple
 
 import numpy as np
 
 from .game import Game
-GameState = Tuple[int, ...]
-Action = Tuple[int, int]
 
 __all__ = ["NoughtsAndCrosses", "UltimateNoughtsAndCrosses"]
+
+
+class GameState(NamedTuple):
+    player1_board: int
+    player2_board: int
+    current_player: int
+
+
+class Action(NamedTuple):
+    row: int
+    column: int
 
 
 class NoughtsAndCrosses(Game):
     """A class to represent the game of noughts and crosses (or
     tic-tac-toe).
 
-    The game state is represented by a tuple of shape (rows * columns,)
-    with -1 for 'O', 1 for 'X' and 0 for an empty square. The outcome
-    of the game is given by a dictionary showing each player's outcome,
-    where +1, -1 and 0 correspond to a win, loss or draw, respectively.
+    The game state is represented by a named tuple consisting of
+        (player1_board, player2_board, current_player)
+    where each players board is represented by (rows * cols)-bit binary
+    number.The outcome of the game is given by a dictionary showing each
+    player's outcome, where +1, -1 and 0 correspond to a win, loss or
+    draw, respectively.
 
     This class provides a number of methods for evaluating the state of
     the game i.e. checking if the state is terminal, which player is to
@@ -37,17 +54,17 @@ class NoughtsAndCrosses(Game):
 
     Attributes
     ----------
-    rows, columns: int
+    rows, columns:
         The number of rows and columns of the noughts and crosses
         board.
-    initial_state: tuple
+    initial_state:
         A tuple representing the initial state of the game. This will be
         a tuple of 0s of length rows * columns.
-    action_space: tuple[tuple]
+    action_space:
         A tuple of all the possible actions in the game, each
         represented by a two-tuple (row, col) denoting the action of
         drawing a symbol at that position. (0-based indexing)
-    action_indices: dict
+    action_indices:
         A dictionary mapping each action to an index. (This is merely
         an alternative representation of the action space, primarily
         for use as a feature vector for a learning algorithm.)
@@ -59,7 +76,7 @@ class NoughtsAndCrosses(Game):
 
     Define a noughts and crosses board with only two moves left.
 
-    >>> penultimate_state = (0, 0, -1, -1, 1, 1, -1, 1, -1)
+    >>> penultimate_state = (0b000110010, 0b100001101, 2)
     >>> nac.is_terminal(penultimate_state)
     False
     >>> nac.display(penultimate_state)
@@ -72,18 +89,17 @@ class NoughtsAndCrosses(Game):
     Calculate the possible next states, of which there should only be
     two, and which player's turn it is.
 
-    >>> next_states = nac.compute_next_states(penultimate_state)
-    >>> next_states
-    {(0, 0): (-1, 0, -1, -1, 1, 1, -1, 1, -1),
-    (0, 1): (0, -1, -1, -1, 1, 1, -1, 1, -1)}
-    >>> nac.which_player(penultimate_state)
+    >>> legal_actions = nac.legal_actions(penultimate_state)
+    >>> legal_actions
+    {(2, 0): (50, 333, 1), (2, 1): (50, 397, 1)}
+    >>> nac.current_player(penultimate_state)
     2
 
     Take the move in the top left corner, winning the game for player
     2 and calculate its utility.
 
-    >>> action = (0, 0)
-    >>> next_state = next_states[action]
+    >>> action = (2, 0)
+    >>> next_state = legal_actions[action]
     >>> nac.display(next_state)
      o |   | o
     ---+---+---
@@ -100,40 +116,65 @@ class NoughtsAndCrosses(Game):
     def __init__(self, rows: int = 3, columns: int = 3) -> None:
         self.rows = rows
         self.columns = columns
-        self.initial_state = (0,) * rows * columns  # type: Tuple[int, ...]
-        self.action_space = tuple(
-            (i, j) for i in range(self.rows)
-            for j in range(self.columns))  # type: Tuple[Action, ...]
+        self.initial_state = GameState(0, 0, 1)  # type: GameState
+        self.action_space = tuple(Action(row, col)
+                                  for row in range(self.rows)
+                                  for col in range(self.columns)
+                                  )  # type: Tuple[Action, ...]
         self.action_indices = {
             a: self.action_space.index(a)
             for a in self.action_space}  # type: Dict[Action, int]
 
-    def _calculate_line_sums(self, state: GameState
-                             ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Calculate line sums along horizontal and vertical directions
-        and along major and minor diagonals.
+        self._actions_to_binary = {Action(row, col): 1 << self.columns * row + col
+                                   for row in range(self.rows)
+                                   for col in range(self.columns)}
 
-        Parameters
-        ----------
-        state: tuple
-            A 1-D array representing a noughts and crosses game state.
+        self._win_bitmasks = self._calculate_win_bitmasks()
 
-        Returns
-        -------
-        tuple[ndarray]
-            A tuple of arrays of sums along all the possible
-            horizontal, vertical and diagonal directions, respectively.
-        """
-        grid = np.array(state).reshape(self.rows, self.columns)
-        horizontals = np.sum(grid, axis=1)
-        verticals = np.sum(grid, axis=0)
-        axis_difference = abs(self.rows - self.columns)
-        major_diagonals = [np.sum(grid.diagonal(offset=i))
-                           for i in range(axis_difference + 1)]
-        minor_diagonals = [np.sum(np.fliplr(grid).diagonal(offset=i))
-                           for i in range(axis_difference + 1)]
-        diagonals = np.concatenate([major_diagonals, minor_diagonals])
-        return horizontals, verticals, diagonals
+    def _calculate_win_bitmasks(self):  # TODO: split into smaller functions
+        row_wins, column_wins, diagonal_wins = [], [], []
+        # construct bitmasks for wins corresponding to a full row
+        for row in range(self.rows):
+            row_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[Action(row, column)]
+                               for column in range(self.columns)])
+            row_wins.append(row_win)
+
+        # construct bitmasks for wins corresponding to a full column
+        for column in range(self.columns):
+            column_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[(row, column)]
+                               for row in range(self.rows)])
+            column_wins.append(column_win)
+
+        # determine if board is non-square and in which direction
+        row_excess = max(0, self.rows - self.columns)
+        col_excess = max(0, self.columns - self.rows)
+
+        # construct bitmasks for win corresponding to a full major diagonal
+        min_dim, max_dim = sorted([self.rows, self.columns])
+        major_diagonals = [[(i + row_offset, i + col_offset)
+                            for i in range(min_dim)]
+                           for row_offset in range(row_excess + 1)
+                           for col_offset in range(col_excess + 1)]
+        for major_diag_indices in major_diagonals:
+            major_diag_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[(row, column)]
+                               for row, column in major_diag_indices])
+            diagonal_wins.append(major_diag_win)
+
+        # construct bitmasks for win corresponding to a full minor diagonal
+        minor_diagonals = [[(min_dim - 1 - i + row_offset, i + col_offset)
+                            for i in range(min_dim)]
+                           for row_offset in range(row_excess + 1)
+                           for col_offset in range(col_excess + 1)]
+        for minor_diag_indices in minor_diagonals:
+            minor_diag_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[(row, column)]
+                               for row, column in minor_diag_indices])
+            diagonal_wins.append(minor_diag_win)
+
+        return row_wins + column_wins + diagonal_wins
 
     def is_terminal(self, state: GameState) -> bool:
         """Given a state, returns whether it is terminal.
@@ -152,40 +193,39 @@ class NoughtsAndCrosses(Game):
         Returns
         -------
         bool:
-            Return ``True`` if the state is terminal or ``False`` if it is
-            not.
+            Return ``True`` if the state is terminal or ``False`` if it
+            is not.
         """
-        # check all squares have been played on
-        if np.all(state):
+        p1_state, p2_state, _ = state
+        # check all squares have been played on (i.e. the binary
+        # representation is all 1s)
+        if (p1_state | p2_state) == 2 ** (self.rows * self.columns) - 1:
             return True
-        # check there is a winner
-        horizontals, verticals, diagonals = self._calculate_line_sums(state)
-        diagonal_length = min([self.rows, self.columns])
-        win_condition = np.concatenate([
-            np.abs(horizontals) == self.columns,
-            np.abs(verticals) == self.rows,
-            np.abs(diagonals) == diagonal_length
-        ])
-        if np.any(win_condition):
+        # check if player 1 has won
+        if any(p1_state & win == win for win in self._win_bitmasks):
+            return True
+        # check if player 2 has won
+        if any(p2_state & win == win for win in self._win_bitmasks):
             return True
         # otherwise it is non-terminal
         return False
 
-    def which_player(self, state: GameState) -> int:
-        """Given a state, return an int indicating the player whose turn it is.
+    def current_player(self, state: GameState) -> int:
+        """Given a state, return an int indicating the player whose
+        turn it is.
 
         Parameters
         ----------
-        state: array_like
+        state:
             A 1-D array representing a noughts and crosses game state.
 
         Returns
         -------
-        player: int
+        player:
             An int indicating the player whose turn it is, where 1 and 2
             correspond to player 1 and player 2, respectively.
         """
-        return int(np.sum(np.abs(state)) % 2) + 1
+        return state[2]
 
     def utility(self, state: GameState) -> Dict[int, int]:
         """Given a terminal noughts and crosses state, calculates the
@@ -194,43 +234,40 @@ class NoughtsAndCrosses(Game):
 
           Parameters
           ---------
-          state: tuple
-              A 1-D array representing a terminal noughts and crosses game
-              state, corresponding to either a win or a draw.
+          state:
+              A 1-D array representing a terminal noughts and crosses
+              game state, corresponding to either a win or a draw.
 
           Returns
           -------
-          outcome: dict
-              The outcome of the terminal state for both players, represented
-              as a dictionary with keys ints indicating the players and
-              values each players respective utility.
+          outcome:
+              The outcome of the terminal state for both players,
+              represented as a dictionary with keys ints indicating the
+              players and values each players respective utility.
 
           Raises
           ------
           ValueError:
               If the input state is a non-terminal state.
           """
-        horizontals, verticals, diagonals = self._calculate_line_sums(state)
-        diagonal_length = min([self.rows, self.columns])
-        # player1 wins
-        if (np.any(horizontals == self.columns) or np.any(verticals == self.rows)
-                or np.any(diagonals == diagonal_length)):
+
+        if not self.is_terminal(state):
+            raise ValueError("Utility can not be calculated for a "
+                             "non-terminal state.")
+
+        p1_state, p2_state, _ = state
+        # check if player 1 has won
+        if any(p1_state & win == win for win in self._win_bitmasks):
             return {1: 1, 2: -1}
-        # player2 wins
-        if (np.any(horizontals == -self.columns) or np.any(verticals == -self.rows)
-                or np.any(diagonals == -diagonal_length)):
+        # check if player 2 has won
+        if any(p2_state & win == win for win in self._win_bitmasks):
             return {1: -1, 2: 1}
-        # draw
-        if np.all(state):
-            return {1: 0, 2: 0}
+        # otherwise it is a draw
+        return {1: 0, 2: 0}
 
-        # otherwise it is non-terminal and the utility cannot be calculated
-        raise ValueError("Utility can not be calculated for a "
-                         "non-terminal state.")
-
-    def compute_next_states(self, state: GameState) -> Dict[Action, GameState]:
-        """Given a non-terminal state, generate a dictionary mapping legal
-         actions onto their resulting game states.
+    def legal_actions(self, state: GameState) -> Dict[Action, GameState]:
+        """Given a non-terminal state, generate a dictionary mapping
+        legal actions onto their resulting game states.
 
          Actions are indicated by the coordinate of the square where the
          player could place a 'x' or 'o', e.g. (0, 2) for the square in
@@ -238,61 +275,78 @@ class NoughtsAndCrosses(Game):
 
          Parameters
          ----------
-         state: tuple
+         state
              A 1-D array representing a non-terminal noughts and crosses
              game state.
 
          Returns
          -------
-         next_states: dict
-             A dictionary mapping all possible legal actions from the input
-             game state to the corresponding game states resulting from
-             taking each action.
-         """
+         dict
+             A dictionary mapping all possible legal actions from the
+             input game state to the corresponding game states resulting
+             from taking each action.
+         """  # TODO: could split this up so it just returned actions?
         if self.is_terminal(state):
-
-            raise ValueError("Next states can not be generated for a "
+            raise ValueError("Legal actions can not be computed for a "
                              "terminal state.")
 
-        player_symbol = 1 if self.which_player(state) == 1 else -1
-        grid = np.array(state).reshape(self.rows, self.columns)
+        p1_state, p2_state, current_player = state
+        occupied_squares = p1_state | p2_state
 
-        # get a sequence of tuples (row_i, col_i) of available squares
-        available_actions = tuple(zip(*np.where(grid == 0)))
+        actions = [action
+                   for action, action_binary in self._actions_to_binary.items()
+                   if not occupied_squares & action_binary]
 
-        # generate all possible next_states by placing the appropriate symbol
-        # in each available square
-        next_states = []
-        for (row, col) in available_actions:
-            # convert the action into a flattened index
-            flattened_index = self.columns * row + col
-            # create copy of next state with a new 'o' or 'x in the
-            # corresponding square # and add it to list of next states
-            next_state = list(state)
-            next_state[flattened_index] = player_symbol
-            next_states.append(tuple(next_state))
+        return {action: self._next_state(state, action) for action in actions}
 
-        return {action: next_state for action, next_state
-                in zip(available_actions, next_states)}
+    def _next_state(self, state: GameState, action: Action) -> GameState:
+        """Given a state and a legal action, return the state resulting
+        from taking the action.
+
+        Parameters
+        ----------
+        state
+
+
+        """
+        *player_states, current_player = state
+        current_player_idx = current_player - 1
+        player_states[current_player_idx] |= self._actions_to_binary[action]
+        next_player = (current_player % 2) + 1
+        return tuple(player_states) + (next_player,)
 
     def display(self, state: GameState) -> None:
         """Display the noughts and crosses state in a 2-D ASCII grid.
 
         Parameters
         ---------
-        state: tuple
-            A tuple representing a noughts and crosses grid to be printed to
-            stdout.
+        state:
+            A tuple representing a noughts and crosses grid to be
+            printed to stdout.
         """
+
+        p1_state, p2_state, _ = state
+        # construct a dictionary mapping board positions to symbols
+        board_dict = {}
+        for row in range(self.rows):
+            for col in range(self.columns):
+                if p1_state & self._actions_to_binary[(row, col)]:
+                    board_dict[(row, col)] = "x"
+                elif p2_state & self._actions_to_binary[(row, col)]:
+                    board_dict[(row, col)] = "o"
+                else:
+                    board_dict[(row, col)] = " "
+
         divider = "\n" + "+".join(["---"] * self.columns) + "\n"
-        symbol_dict = {1: "x", -1: "o", 0: " "}
 
-        output_rows = []
-        for state_row in np.array_split(state, indices_or_sections=self.rows):
-            y = "|". join([" {} ".format(symbol_dict[x]) for x in state_row])
-            output_rows.append(y)
+        # construct the string for each row
+        row_strings = []
+        for row in range(self.rows):
+            row_string = "|".join([" {} ".format(board_dict[(row, col)])
+                                   for col in range(self.columns)])
+            row_strings.append(row_string)
 
-        ascii_grid = divider.join(output_rows)
+        ascii_grid = divider.join(row_strings)
         print(ascii_grid)
 
     def __repr__(self):
@@ -358,8 +412,8 @@ class UltimateNoughtsAndCrosses:
         meta_board = self._compute_meta_board(state)
         return self.sub_game.utility(meta_board)
 
-    def which_player(self, state: UltimateGameState) -> int:
-        return self.sub_game.which_player(state.board)
+    def current_player(self, state: UltimateGameState) -> int:
+        return self.sub_game.current_player(state.board)
 
     def compute_next_states(self, state: UltimateGameState
                             ) -> Dict[UltimateAction, UltimateGameState]:
@@ -369,7 +423,7 @@ class UltimateNoughtsAndCrosses:
         board = np.array(state.board).reshape(9, 9)
         sub_board_row, sub_board_col = state.last_sub_action
         sub_board = board[sub_board_row * 3:(sub_board_row + 1) * 3,
-                          sub_board_col * 3:(sub_board_col + 1) * 3]
+                    sub_board_col * 3:(sub_board_col + 1) * 3]
         sub_board_state = tuple(sub_board.ravel())
 
         player_symbol = 1 if self.which_player(state) == 1 else -1
@@ -398,5 +452,5 @@ class UltimateNoughtsAndCrosses:
             return next_states
 
     def display(self, state: UltimateGameState) -> None:
-        game = NoughtsAndCrosses(rows=9, columns = 9)
+        game = NoughtsAndCrosses(rows=9, columns=9)
         game.display(state.board)

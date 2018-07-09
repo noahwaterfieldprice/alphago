@@ -5,9 +5,8 @@ import pytest
 
 from alphago.games.noughts_and_crosses import (NoughtsAndCrosses, UltimateNoughtsAndCrosses,
                                                UltimateGameState, UltimateAction)
-from .constants import (terminal_states, terminal_line_sums_arrays, outcomes,
-                        non_terminal_states, non_terminal_line_sums_arrays,
-                        expected_next_states_list)
+from .constants import (expected_next_states_list, non_terminal_states, actions_to_binary_list,
+                        terminal_states, outcomes, win_bitmasks_list)
 
 
 class TestMByNNoughtsAndCrosses:
@@ -26,92 +25,90 @@ class TestMByNNoughtsAndCrosses:
         rows, columns = size
         mock_game = mocker.MagicMock()
         NoughtsAndCrosses.__init__(mock_game, *size)
-        assert mock_game.initial_state == (0,) * rows * columns
+        assert mock_game.initial_state == (0, 0, 1)
 
-    @pytest.mark.parametrize("size, state, line_sums",
-                             zip(sizes, terminal_states, terminal_line_sums_arrays))
-    def test_line_sums_are_calculated_correctly(self, size, state, line_sums, mocker):
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks, state",
+                             zip(sizes, actions_to_binary_list,
+                                 win_bitmasks_list, terminal_states))
+    def test_is_terminal_returns_true_for_terminal_states(self, size, actions_to_binary,
+                                                          win_bitmasks, state, mocker):
         rows, columns = size
-        mock_game = mocker.MagicMock(rows=rows, columns=columns)
-        calculated_line_sums = NoughtsAndCrosses._calculate_line_sums(mock_game, state)
-
-        np.testing.assert_array_equal(np.concatenate(calculated_line_sums),
-                                      np.concatenate(line_sums))
-
-    @pytest.mark.parametrize("size, state, line_sums",
-                             zip(sizes, terminal_states, terminal_line_sums_arrays))
-    def test_is_terminal_returns_true_for_terminal_states(self, size, state,
-                                                          line_sums, mocker):
-        rows, columns = size
-        mock_game = mocker.MagicMock(rows=rows, columns=columns)
-        mock_calculate_line_sums = mocker.MagicMock(return_value=line_sums)
-        mock_game._calculate_line_sums = mock_calculate_line_sums
-
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary,
+                                     _win_bitmasks=win_bitmasks)
+        print(state)
         assert NoughtsAndCrosses.is_terminal(mock_game, state) is True
 
-    @pytest.mark.parametrize("size, state, line_sums",
-                             zip(sizes, non_terminal_states, non_terminal_line_sums_arrays))
-    def test_is_terminal_returns_false_for_non_terminal_states(self, size, state, line_sums,
-                                                               mocker):
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks, state",
+                             zip(sizes, actions_to_binary_list,
+                                 win_bitmasks_list, non_terminal_states))
+    def test_is_terminal_returns_false_for_non_terminal_states(self, size, actions_to_binary,
+                                                               win_bitmasks, state, mocker):
         rows, columns = size
-        mock_game = mocker.MagicMock(rows=rows, columns=columns)
-        mock_game._calculate_line_sums = mocker.MagicMock(return_value=line_sums)
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary,
+                                     _win_bitmasks=win_bitmasks)
         assert NoughtsAndCrosses.is_terminal(mock_game, state) is False
 
-    players = (2, 1, 1, 2, 2, 1)
+    players = (2, 1, 1, 1, 1)
 
     @pytest.mark.parametrize("player, state",
                              zip(players, non_terminal_states))
-    def test_which_player_returns_correct_player(self, player, state, mocker):
+    def test_current_player_returns_correct_player(self, player, state, mocker):
         mock_game = mocker.MagicMock()
-        assert NoughtsAndCrosses.which_player(mock_game, state) == player
+        assert NoughtsAndCrosses.current_player(mock_game, state) == player
 
-    @pytest.mark.parametrize("size, state, line_sums",
-                             zip(sizes, non_terminal_states, non_terminal_line_sums_arrays))
-    def test_utility_raises_exception_on_non_terminal_input_state(self, size, state, line_sums,
-                                                                  mocker):
+    @pytest.mark.parametrize("size, state", zip(sizes, non_terminal_states))
+    def test_utility_raises_exception_on_non_terminal_input_state(self, size, state, mocker):
         rows, columns = size
-        mock_game = mocker.MagicMock(rows=rows, columns=columns)
-        mock_game._calculate_line_sums = mocker.MagicMock(return_value=line_sums)
+        mock_is_terminal = mocker.MagicMock(return_value=False)
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     is_terminal=mock_is_terminal)
         with pytest.raises(ValueError) as exception_info:
             NoughtsAndCrosses.utility(mock_game, state)
         assert str(exception_info.value) == ("Utility can not be calculated "
                                              "for a non-terminal state.")
+        mock_is_terminal.assert_called_once_with(state)
 
-    @pytest.mark.parametrize("size, state, line_sums, outcome",
-                             zip(sizes, terminal_states, terminal_line_sums_arrays, outcomes))
-    def test_utility_function_returns_correct_outcomes(self, size, state, line_sums, outcome,
-                                                       mocker):
+    @pytest.mark.parametrize("size, win_bitmasks, state, outcome",
+                             zip(sizes, win_bitmasks_list, terminal_states, outcomes))
+    def test_utility_function_returns_correct_outcomes(self, size, win_bitmasks,
+                                                       state, outcome, mocker):
         rows, columns = size
-        mock_game = mocker.MagicMock(rows=rows, columns=columns)
-        mock_game._calculate_line_sums = mocker.MagicMock(return_value=line_sums)
+        mock_game = mocker.MagicMock(rows=rows, columns=columns, _win_bitmasks=win_bitmasks)
 
         assert NoughtsAndCrosses.utility(mock_game, state) == outcome
 
-    def test_next_state_raises_exception_on_terminal_input_state(self, mocker):
+    def test_legal_actions_raises_exception_on_terminal_input_state(self, mocker):
         mock_game = mocker.MagicMock()
         mock_game.is_terminal = mocker.MagicMock(return_value=True)
         mock_state = mocker.MagicMock()
         with pytest.raises(ValueError) as exception_info:
-            NoughtsAndCrosses.compute_next_states(mock_game, mock_state)
-        assert str(exception_info.value) == ("Next states can not be generated "
-                                             "for a terminal state.")
+            NoughtsAndCrosses.legal_actions(mock_game, mock_state)
+        assert str(exception_info.value) == ("Legal actions can not be computed"
+                                             " for a terminal state.")
 
-    @pytest.mark.parametrize("size, state, player, expected_states",
-                             zip(sizes, non_terminal_states, players, expected_next_states_list))
-    def test_generating_a_dict_of_all_possible_next_states(self, size, state, player,
-                                                           expected_states, mocker):
-        mock_game = mocker.MagicMock()
-        mock_game.rows, mock_game.columns = size
+    def test_generating_next_state_from_given_action_and_state(self, mocker):
+        pass
+
+    @pytest.mark.parametrize("size, actions_to_binary, state, player, expected_states",
+                             zip(sizes, actions_to_binary_list, non_terminal_states,
+                                 players, expected_next_states_list))
+    def test_generating_a_dict_of_all_possible_next_states(self, size, actions_to_binary, state,
+                                                           player, expected_states, mocker):
+
+        # TODO: need to split this into two tests: one testing the _next_state function and one testing legal actions
+        rows, columns = size
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary)
         mock_game.is_terminal = mocker.MagicMock(return_value=False)
-        mock_game.which_player = mocker.MagicMock(return_value=player)
-
-        assert NoughtsAndCrosses.compute_next_states(mock_game, state) == expected_states
+        mock_game.current_player = mocker.MagicMock(return_value=player)
+        assert NoughtsAndCrosses.legal_actions(mock_game, state) == expected_states
 
     states = [
-        (0,) * 9,
-        (1, -1, 0, 0, 1, 0, 1, 0, -1),
-        (1, 1, 1, 1, -1, -1, -1, -1, 1),
+        (0b000000000, 0b000000000, 1),
+        (0b001010001, 0b100000010, 2),
+        (0b100001111, 0b011110000, 2)
     ]
     div = "---+---+---"
     # additional newline character accounts for the one added to the output
@@ -125,7 +122,8 @@ class TestMByNNoughtsAndCrosses:
     @pytest.mark.parametrize("state, expected_output", zip(states, outputs))
     def test_display_function_outputs_correct_string_for_3x3(self, state, expected_output,
                                                              capsys, mocker):
-        mock_game = mocker.MagicMock(rows=3, columns=3)
+        mock_game = mocker.MagicMock(rows=3, columns=3,
+                                     _actions_to_binary=actions_to_binary_list[0])
         NoughtsAndCrosses.display(mock_game, state)
 
         output = capsys.readouterr().out
@@ -133,7 +131,6 @@ class TestMByNNoughtsAndCrosses:
 
 
 class TestUltimateNoughtsAndCrosses:
-
     initial_state = UltimateGameState(last_sub_action=(0, 0), board=(0,) * 81)
 
     action_space = tuple(UltimateAction(sub_board, sub_action)
@@ -263,12 +260,12 @@ class TestUltimateNoughtsAndCrosses:
         mock_game._compute_meta_board.assert_called_once_with(mock_state)
         mock_utility.assert_called_once_with("some_meta_board")
 
-    def test_which_player_delegates_to_sub_game_which_player(self, mocker):
-        mock_which_player = mocker.MagicMock()
-        mock_game = mocker.MagicMock(sub_game=mocker.MagicMock(which_player=mock_which_player))
+    def test_current_player_delegates_to_sub_game_current_player(self, mocker):
+        mock_current_player = mocker.MagicMock()
+        mock_game = mocker.MagicMock(sub_game=mocker.MagicMock(current_player=mock_current_player))
         mock_state = mocker.MagicMock()
-        UltimateNoughtsAndCrosses.which_player(mock_game, mock_state)
-        mock_which_player.assert_called_once_with(mock_state.board)
+        UltimateNoughtsAndCrosses.current_player(mock_game, mock_state)
+        mock_current_player.assert_called_once_with(mock_state.board)
 
     def test_compute_next_states_raises_exception_on_terminal_input_state(self, mocker):
         mock_game = mocker.MagicMock()
@@ -291,9 +288,9 @@ class TestUltimateNoughtsAndCrosses:
             next_states[action] = next_state
 
         mock_is_terminal = mocker.MagicMock(return_value=False)
-        mock_which_player = mocker.MagicMock(return_value=1)
+        mock_current_player = mocker.MagicMock(return_value=1)
         mock_game = mocker.MagicMock(is_terminal=mock_is_terminal,
-                                     which_player=mock_which_player,
+                                     current_player=mock_current_player,
                                      initial_state=self.initial_state,
                                      index_to_action=self.index_to_action)
         assert UltimateNoughtsAndCrosses.compute_next_states(
@@ -339,10 +336,10 @@ class TestUltimateNoughtsAndCrosses:
                 next_states[action] = next_state
 
         mock_is_terminal = mocker.MagicMock(return_value=False)
-        mock_which_player = mocker.MagicMock(return_value=1)
+        mock_current_player = mocker.MagicMock(return_value=1)
         mock_sub_game = mocker.MagicMock(is_terminal=mocker.MagicMock(return_value=True))
         mock_game = mocker.MagicMock(is_terminal=mock_is_terminal,
-                                     which_player=mock_which_player,
+                                     current_player=mock_current_player,
                                      index_to_action=self.index_to_action,
                                      sub_game=mock_sub_game)
         assert UltimateNoughtsAndCrosses.compute_next_states(

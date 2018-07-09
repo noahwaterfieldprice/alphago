@@ -11,7 +11,7 @@ from alphago.player import MCTSPlayer
 if __name__ == "__main__":
 
     nac = NoughtsAndCrosses()
-    evaluator = create_trivial_estimator(nac.compute_next_states)
+    evaluator = create_trivial_estimator(nac.legal_actions)
 
     state = nac.INITIAL_STATE
     computer_player_no = np.random.choice([1, 2])
@@ -20,8 +20,8 @@ if __name__ == "__main__":
     human_player_no = 1 if computer_player_no == 2 else 2
     print("You are player: {}".format(human_player_no))
     while not nac.is_terminal(state):
-        player_no = nac.which_player(state)
-        next_states = nac.compute_next_states(state)
+        player_no = nac.current_player(state)
+        next_states = nac.legal_actions(state)
         if player_no == computer_player_no:
             action = computer_player.choose_action(state)
             computer_player.update(action)
