@@ -18,7 +18,7 @@ def test_compute_next_states_on_full_column(mocker):
 
     expected_next_actions = list(range(1, 7))
     mock = mocker.MagicMock()
-    computed = ConnectFour.compute_next_states(mock, state)
+    computed = ConnectFour.legal_actions(mock, state)
     assert expected_next_actions == list(computed.keys())
 
 
@@ -82,7 +82,7 @@ NEXT_NEXT_STATES_STATES = [
                          zip(NEXT_STATES_STATES, NEXT_NEXT_STATES_STATES))
 def test_compute_next_states(state, expected_next_states, mocker):
     cf = ConnectFour()
-    next_states = cf.compute_next_states(state)
+    next_states = cf.legal_actions(state)
     assert next_states == expected_next_states
 
 

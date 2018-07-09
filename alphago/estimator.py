@@ -43,7 +43,7 @@ def create_trivial_estimator(game: Game):
         value: float
             The evaluator's estimate of the value of the state 'state'.
          """
-        next_states = game.compute_next_states(state)
+        next_states = game.legal_actions(state)
         uniform_prior_probs = {action: 1 / len(next_states)
                                for action in next_states}
         return uniform_prior_probs, 0
@@ -54,14 +54,14 @@ def create_trivial_estimator(game: Game):
 def create_rollout_estimator(game, num_rollouts):
     # TODO: test this and write docstring
     def rollout_estimator(state):
-        next_states = game.compute_next_states(state)
+        next_states = game.legal_actions(state)
         uniform_prior_probs = {action: 1 / len(next_states)
                                for action in next_states}
-        player_no = game.which_player(state)
+        player_no = game.current_player(state)
         total_value = 0
         for _ in range(num_rollouts):
             while not game.is_terminal(state):
-                next_states = game.compute_next_states(state)
+                next_states = game.legal_actions(state)
                 state = random.choice(list(next_states.values()))
 
             total_value += game.utility(state)[player_no]

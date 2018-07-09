@@ -78,7 +78,7 @@ def mcts(starting_node: "MCTSNode",
             prior_probs, value = estimator(leaf.game_state)
 
             # Store this as a value for player 1 and a value for player 2.
-            player = game.which_player(leaf.game_state)
+            player = game.current_player(leaf.game_state)
             other_player = 1 if player == 2 else 2
             values = {player: value,
                       other_player: -value}
@@ -87,7 +87,7 @@ def mcts(starting_node: "MCTSNode",
             # returns a dictionary with keys the legal actions and
             # values the game states. Note that if the leaf is terminal
             # there will be no next_states.
-            child_states = game.compute_next_states(leaf.game_state)
+            child_states = game.legal_actions(leaf.game_state)
 
             # TODO: This should be replaced by a function that links the
             # indices for the neural network output to the actions in the game.
@@ -97,7 +97,7 @@ def mcts(starting_node: "MCTSNode",
             prior_probs = normalise_distribution(prior_probs)
 
             # Compute the players for the children states.
-            child_players = {action: game.which_player(child_state)
+            child_players = {action: game.current_player(child_state)
                              for action, child_state in child_states.items()}
 
             child_terminals = {action: game.is_terminal(child_state)

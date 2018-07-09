@@ -20,15 +20,16 @@ class Game(abc.ABC):
         The space of all possible actions within the game.
     """
 
+    # TODO: does it make sense that these are defined as class attributes in ABC
     initial_state = NotImplemented  # type: GameState
     action_space = NotImplemented  # type: Sequence[Action]
 
     @abc.abstractmethod
-    def which_player(self, state: GameState) -> int:
+    def current_player(self, state: GameState) -> int:
         """Returns the player to play in the given state."""
 
     @abc.abstractmethod
-    def compute_next_states(self, state: GameState) -> Dict[Action, GameState]:
+    def legal_actions(self, state: GameState) -> Dict[Action, GameState]:
         """Computes the next states possible from the given state."""
 
     @abc.abstractmethod

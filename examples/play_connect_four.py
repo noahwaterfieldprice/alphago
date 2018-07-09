@@ -17,15 +17,15 @@ if __name__ == "__main__":
     c_puct = 0.5
 
     cf = ConnectFour()
-    evaluator = create_trivial_estimator(cf.compute_next_states)
+    evaluator = create_trivial_estimator(cf.legal_actions)
 
     state = cf.initial_state
     computer = np.random.choice([1, 2])
     human = 1 if computer == 2 else 2
     print("You are player: {}".format(human))
     while not cf.is_terminal(state):
-        player = cf.which_player(state)
-        next_states = cf.compute_next_states(state)
+        player = cf.current_player(state)
+        next_states = cf.legal_actions(state)
         if player == computer:
             root = mcts_tree.MCTSNode(state, player)
             action_probs = mcts_tree.mcts(

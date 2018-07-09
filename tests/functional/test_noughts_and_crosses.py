@@ -3,20 +3,24 @@ import itertools
 import pytest
 
 from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
-from alphago.games.noughts_and_crosses import UltimateAction, UltimateGameState
+from alphago.games.noughts_and_crosses import (GameState, Action, UltimateAction,
+                                               UltimateGameState)
 
 
 class TestBasic3x3NoughtsAndCrosses:
-    terminal_state = (1, 1, 1, -1, 1, -1, 1, -1, -1)
-    non_terminal_state = (1, -1, 0, 0, -1, 1, 0, 1, -1)
+    terminal_state = GameState(0b111010100, 0b000101011, 2)
+    non_terminal_state = GameState(0b100001010, 0b010010001, 1)
+    terminal_state_draw = GameState(0b110001101, 0b001110010, 2)
+    penultimate_state = GameState(0b110010100, 0b000101011, 1)
 
     def test_can_create_initial_state(self):
         nac = NoughtsAndCrosses()
-        assert nac.initial_state == (0,) * 9
+        assert nac.initial_state == GameState(0, 0, 1)
 
     def test_correctly_identifies_state_terminality(self):
         nac = NoughtsAndCrosses()
         assert nac.is_terminal(self.terminal_state) is True
+        assert nac.is_terminal(self.terminal_state_draw) is True
         assert nac.is_terminal(self.non_terminal_state) is False
 
     def test_exception_raised_when_utility_called_for_non_terminal_state(self):
@@ -32,29 +36,35 @@ class TestBasic3x3NoughtsAndCrosses:
         # player 1 wins
         assert nac.utility(self.terminal_state) == {1: 1, 2: -1}
         # draw
-        terminal_state_draw = (1, 1, -1, -1, -1, 1, 1, -1, 1)
-        assert nac.utility(terminal_state_draw) == {1: 0, 2: 0}
 
-    def test_which_player_returns_correct_player(self):
+        assert nac.utility(self.terminal_state_draw) == {1: 0, 2: 0}
+
+    def test_current_player_returns_correct_player(self):
         nac = NoughtsAndCrosses()
 
-        assert nac.which_player(self.non_terminal_state) == 1
+        assert nac.current_player(self.non_terminal_state) == 1
 
-    def test_generating_possible_next_states(self):
+    def test_exception_raised_when_computing_legal_actions_for_terminal_state(self):
         nac = NoughtsAndCrosses()
-        penultimate_state = (1, 1, 0, -1, 1, -1, 1, -1, -1)
+        with pytest.raises(ValueError) as exception_info:
+            nac.legal_actions(self.terminal_state)
 
-        expected_next_states = {(0, 2): self.terminal_state}
+        assert str(exception_info.value) == ("Legal actions can not be computed "
+                                             "for a terminal state.")
 
-        assert nac.compute_next_states(penultimate_state) == expected_next_states
+    def test_computing_possible_legal_actions(self):
+        nac = NoughtsAndCrosses()
+        expected_next_states = {Action(2, 0): self.terminal_state}
+
+        assert nac.legal_actions(self.penultimate_state) == expected_next_states
 
     def test_displaying_a_game_in_ascii_format(self, capsys):
         nac = NoughtsAndCrosses()
-        expected_output = (" x | o |   \n"
+        expected_output = (" o | x |   \n"
                            "---+---+---\n"
-                           "   | o | x \n"
+                           " x | o |   \n"
                            "---+---+---\n"
-                           "   | x | o \n")
+                           "   | o | x \n")
 
         nac.display(self.non_terminal_state)
         output = capsys.readouterr().out
@@ -63,15 +73,24 @@ class TestBasic3x3NoughtsAndCrosses:
 
 class TestMxNNoughtsAndCrosses:
 
-    # TODO: Add more tests here
+    # terminal state for 4x7 game - O's 2nd major diagonal
+    terminal_state = GameState(31457280, 33686018, 1)
+    # non-terminal state for 4x7 game - X played top left
+    non_terminal_state = GameState(1, 0, 2)
 
     def test_can_create_instance_of_mxn_game(self):
         nac_4x7 = NoughtsAndCrosses(rows=4, columns=7)
         assert nac_4x7.rows == 4
         assert nac_4x7.columns == 7
-        assert nac_4x7.initial_state == (0,) * 4 * 7
+        assert nac_4x7.initial_state == GameState(0, 0, 1)
+
+    def test_correctly_identifies_state_terminality(self):
+        nac_4x7 = NoughtsAndCrosses(rows=4, columns=7)
+        assert nac_4x7.is_terminal(self.terminal_state) is True
+        assert nac_4x7.is_terminal(self.non_terminal_state) is False
 
 
+@pytest.mark.skip(reason="Mid migration to using a bit board.")
 class TestUltimateNoughtsAndCrosses:
 
     initial_state = UltimateGameState(last_sub_action=(0, 0),
