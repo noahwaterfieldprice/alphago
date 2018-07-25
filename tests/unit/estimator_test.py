@@ -1,8 +1,9 @@
 import numpy as np
 
 from alphago import mcts, MCTSNode
-from alphago.estimator import create_trivial_estimator, NACNetEstimator
-from alphago.games import NoughtsAndCrosses
+from alphago.estimator import (create_trivial_estimator, NACNetEstimator,
+                               ConnectFourNet)
+from alphago.games import NoughtsAndCrosses, ConnectFour
 
 from .games.mock_game import MockGame
 from .mock_estimator import MockNetEstimator
@@ -59,15 +60,15 @@ def test_can_use_two_neural_nets():
     nnet2 = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
                             action_indices=nac.action_indices)
 
-    test_game_state = np.random.randn(7, 9)
+    test_game_state = np.random.randn(1, 9)
 
-    computed1 = nnet1(test_game_state)
-    computed2 = nnet2(test_game_state)
+    probs_dict1, value1 = nnet1(test_game_state)
+    probs_dict2, value2 = nnet2(test_game_state)
 
     # Check that the outputs are different. Since the input to both nets is the
     # same, this tests whether the nets are different.
-    assert not (computed1[0] == computed2[0]).all()
-    assert not (computed1[1] == computed2[1]).all()
+    assert probs_dict1 != probs_dict2
+    assert value1 != value2
 
 
 def test_basic_nac_net_tensor_shapes():
@@ -109,3 +110,59 @@ def test_basic_nac_net_tensor_shapes():
     assert np.shape(loss) == ()
     assert np.shape(probs) == (batch_size, 9)
     assert np.shape(value) == (batch_size, 1)
+
+
+def test_nac_net_call():
+    np.random.seed(0)
+    nac = NoughtsAndCrosses()
+    net = NACNetEstimator(learning_rate=0.01, l2_weight=0.1,
+                          action_indices=nac.action_indices)
+
+    state = (0,) * 9
+
+    computed = net(state)
+
+    probs_dict, value = computed
+    assert isinstance(probs_dict, dict)
+    assert len(probs_dict) == 9
+
+
+def test_connect_four_net_runs_on_state():
+    game = ConnectFour()
+    net = ConnectFourNet(learning_rate=1e-4, l2_weight=1e-4,
+                         action_indices=game.action_indices)
+
+    batch_size = 10
+    states = np.random.randn(batch_size, 42)
+
+    assert np.shape(states) == (10, 42)
+
+    tensors = [
+        net.tensors['probs'],
+        net.tensors['value'],
+    ]
+
+    computed = net.sess.run(
+        tensors, feed_dict={
+            net.tensors['state_vector']: states
+        }
+    )
+
+    probs, value = computed
+    assert np.shape(probs) == (batch_size, 7)
+    assert np.shape(value) == (batch_size, 1)
+
+
+def test_connect_four_net_call():
+    game = ConnectFour()
+    net = ConnectFourNet(learning_rate=1e-4, l2_weight=1e-4,
+                         action_indices=game.action_indices)
+
+    state = (0,) * 42
+
+    computed = net(state)
+
+    probs, value = computed
+
+    assert isinstance(probs, dict)
+    assert len(probs) == 7

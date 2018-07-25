@@ -89,10 +89,10 @@ def mcts(starting_node: "MCTSNode",
             # there will be no next_states.
             child_states = game.legal_actions(leaf.game_state)
 
-            # TODO: This should be replaced by a function that links the
-            # indices for the neural network output to the actions in the game.
-            prior_probs = {action: prior_probs[action]
-                           for action in child_states.keys()}
+            # # TODO: This should be replaced by a function that links the
+            # # indices for the neural network output to the actions in the game.
+            # prior_probs = {action: prior_probs[action]
+            #                for action in child_states.keys()}
 
             prior_probs = normalise_distribution(prior_probs)
 
@@ -104,7 +104,8 @@ def mcts(starting_node: "MCTSNode",
                                for action, child_state in child_states.items()}
 
             # Expand the tree with the new leaf node
-            leaf.expand(prior_probs, child_states, child_players, child_terminals)
+            leaf.expand(prior_probs, child_states, child_players,
+                        child_terminals)
         else:
             # We don't need prior probs if the node is terminal, but we
             # do still need the value of the node. The utility function
