@@ -421,7 +421,7 @@ def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
         corresponding (normalised) probabilities.
     """
     total = sum(distribution.values())
-    assert total > 0
+    # assert total > 0
     normalised_distribution = {k: v / total for k, v in distribution.items()}
     return normalised_distribution
 
