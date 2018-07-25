@@ -249,6 +249,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
         verbose: bool
             Print out progress if True, else don't print anything.
         """
+        # TODO: This concrete implementation of two cases probably shouldn't be in ABC
 
         if mode not in ['reinforcement', 'supervised']:
             raise ValueError("`mode` must be 'reinforcement', 'supervised'.")
@@ -381,7 +382,7 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             conv2 = tf.nn.relu(conv2)
 
             conv3 = tf.contrib.layers.conv3d(
-                inputs=conv1, num_outputs=16, kernel_size=[2, 2],
+                inputs=conv2, num_outputs=16, kernel_size=[2, 2],
                 stride=1, padding='SAME', weights_regularizer=regularizer)
             if use_batch_norm:
                 conv3 = tf.contrib.layers.batch_norm(
@@ -445,6 +446,297 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
     def _state_to_vector(self, state):
         state = np.array(state).reshape((-1, 9))
         return np.nan_to_num(state)
+
+
+class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
+    game_state_shape = (1, 36)
+
+    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+        super().__init__(learning_rate, l2_weight, value_weight)
+        self.action_indices = action_indices
+
+    @staticmethod
+    def _binary_state_to_array(state):
+        player1_board = [int(i) for i in '{0:018b}'.format(state[0])]
+        player2_board = [int(i) for i in '{0:018b}'.format(state[1])]
+        return player1_board + player2_board
+
+    def train_step(self, batch, return_summary=False):
+        """Trains the network on the batch.
+
+        Parameters
+        ----------
+        batch: list
+            A list consisting of (state, probs, z) tuples, where player
+            is the player in the state and z is the utility to player in
+            the last state from the corresponding self-play game.
+        return_summary: bool
+            Whether to return the TensforFlow summary tensor for use in
+            Tensorboard.
+        Returns
+        -------
+        summary:
+            The summary tensor, run on the batch.
+        """
+        # Set up the states, probs, zs arrays.
+        states = np.array([self._binary_state_to_array(x[0])
+                           for x in batch])
+        pis = np.array([x[1] for x in batch])
+
+        zs = np.array([x[2] for x in batch])
+        zs = zs[:, np.newaxis]
+
+        summary, value, probs, loss, _ = self.sess.run(
+            [self.tensors['summary'], self.tensors['value'],
+             self.tensors['probs'], self.tensors['loss'],
+             self.train_op],
+            feed_dict={self.tensors['state_vector']: states,
+                       self.tensors['pi']: pis,
+                       self.tensors['outcomes']: zs,
+                       self.tensors['is_training']: True})
+
+        # Update the global step
+        self.global_step += 1
+        if return_summary:
+            return summary
+
+    def loss(self, data, batch_size):
+        """Computes the loss of the network on the data.
+
+        Parameters
+        ----------
+        data: list
+            A list consisting of (state, probs, z) tuples, where player is the
+            player in the state and z is the utility to player in the last state
+            from the corresponding self-play game.
+        batch_size: int
+
+        Returns
+        -------
+        loss: float
+            The loss of the network on the given data.
+        loss_value: float
+            The loss of the value part of the network.
+        loss_probs: float
+            The loss of the probability part of the network.
+        """
+        iters = int(len(data) / batch_size)
+        losses = []
+        loss_value_list = []
+        loss_probs_list = []
+        for i in range(iters):
+            batch_indices = range(i, i + batch_size)
+            batch_data = [data[i] for i in batch_indices]
+
+            # Set up the states, probs, zs arrays.
+            states = np.array([self._binary_state_to_array(x[0])
+                               for x in batch_data])
+            pis = np.array([x[1] for x in batch_data])
+            zs = np.array([x[2] for x in batch_data])
+            zs = zs[:, np.newaxis]
+
+            loss, loss_value, loss_probs = self.sess.run(
+                [self.tensors['loss'], self.tensors['loss_value'],
+                 self.tensors['loss_probs']], feed_dict={
+                    self.tensors['state_vector']: states,
+                    self.tensors['pi']: pis,
+                    self.tensors['outcomes']: zs,
+                    self.tensors['is_training']: False
+                })
+            losses.append(loss)
+            loss_value_list.append(loss_value)
+            loss_probs_list.append(loss_probs)
+
+        return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
+
+    def create_estimate_fn(self):
+        """Returns an evaluator function corresponding to the neural network.
+
+        Note that we expect self.action_indices to be a dictionary with keys
+        the available actions and values the index of that action. Indices
+        must be unique in 0, 1, .., #actions-1.
+
+        Returns
+        -------
+        estimate: func
+            A function that evaluates states.
+        """
+
+        def estimate_fn(state):
+            # Reshape the state if necessary so that it's 1 x 9. We should
+            # only be evaluating one state at a time in this function.
+            state = np.reshape(self._binary_state_to_array(state), (1, 36))
+            state = np.nan_to_num(state)
+
+            # Evaluate the network at the state
+            probs, [value] = self(state)
+
+            # probs is currently an np array. Put the value into a
+            # dictionary with keys the actions and values the probs.
+            probs_dict = {action: probs[self.action_indices[action]] for
+                          action in self.action_indices}
+
+            return probs_dict, value
+
+        return estimate_fn
+
+    def _initialise_net(self):
+        # TODO: test reshape recreates game properly
+
+        # Initialise a graph, session and saver for the net. This is so we can
+        # use separate functions to run functions on the tensorflow graph.
+        # Using 'with sess:' means you start with a new net each time.
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
+
+        # Use the graph to create the tensors
+        with self.graph.as_default():
+            state_vector = tf.placeholder(tf.float32, shape=(None, 36,))
+            pi = tf.placeholder(tf.float32, shape=(None, 18))
+            outcomes = tf.placeholder(tf.float32, shape=(None, 1))
+
+            input_layer = tf.reshape(state_vector, [-1, 3, 6, 2])
+
+            regularizer = tf.contrib.layers.l2_regularizer(
+                scale=self.l2_weight)
+            is_training = tf.placeholder(tf.bool)
+            use_batch_norm = True
+
+            conv1 = tf.contrib.layers.conv2d(
+                inputs=input_layer, num_outputs=32, kernel_size=[2, 2],
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            if use_batch_norm:
+                conv1 = tf.contrib.layers.batch_norm(
+                    conv1, is_training=is_training)
+            conv1 = tf.nn.relu(conv1)
+
+            conv2 = tf.contrib.layers.conv2d(
+                inputs=conv1, num_outputs=64, kernel_size=[2, 2],
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            if use_batch_norm:
+                conv2 = tf.contrib.layers.batch_norm(
+                    conv2, is_training=is_training)
+            conv2 = tf.nn.relu(conv2)
+
+            conv3 = tf.contrib.layers.conv3d(
+                inputs=conv2, num_outputs=128, kernel_size=[2, 2],
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            if use_batch_norm:
+                conv3 = tf.contrib.layers.batch_norm(
+                    conv3, is_training=is_training)
+            conv3 = tf.nn.relu(conv3)
+
+            conv4 = tf.contrib.layers.conv3d(
+                inputs=conv3, num_outputs=128, kernel_size=[2, 2],
+                stride=1, padding='SAME', weights_regularizer=regularizer)
+            if use_batch_norm:
+                conv4 = tf.contrib.layers.batch_norm(
+                    conv4, is_training=is_training)
+            conv4 = tf.nn.relu(conv4)
+
+            conv4_flat = tf.contrib.layers.flatten(conv4)
+
+            dense1 = tf.contrib.layers.fully_connected(
+                inputs=conv4_flat, num_outputs=128,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                dense1 = tf.contrib.layers.batch_norm(
+                    dense1, is_training=is_training)
+            dense1 = tf.nn.relu(dense1)
+
+            dense2 = tf.contrib.layers.fully_connected(
+                inputs=dense1, num_outputs=128,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                dense2 = tf.contrib.layers.batch_norm(
+                    dense2, is_training=is_training)
+            dense2 = tf.nn.relu(dense2)
+
+            dense3 = tf.contrib.layers.fully_connected(
+                inputs=dense2, num_outputs=256,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                dense3 = tf.contrib.layers.batch_norm(
+                    dense3, is_training=is_training)
+            dense3 = tf.nn.relu(dense3)
+
+            value_head1 = tf.contrib.layers.fully_connected(
+                inputs=dense3, num_outputs=128,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                value_head1 = tf.contrib.layers.batch_norm(
+                    value_head1, is_training=is_training)
+            value_head1 = tf.nn.relu(value_head1)
+
+            value_head2 = tf.contrib.layers.fully_connected(
+                inputs=value_head1, num_outputs=64,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                value_head2 = tf.contrib.layers.batch_norm(
+                    value_head2, is_training=is_training)
+            value_head2 = tf.nn.relu(value_head2)
+
+            value = tf.contrib.layers.fully_connected(
+                inputs=value_head2, num_outputs=1,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.tanh)
+
+            policy_head1 = tf.contrib.layers.fully_connected(
+                inputs=dense3, num_outputs=256,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                policy_head1 = tf.contrib.layers.batch_norm(
+                    policy_head1, is_training=is_training)
+            policy_head1 = tf.nn.relu(policy_head1)
+
+            policy_head2 = tf.contrib.layers.fully_connected(
+                inputs=policy_head1, num_outputs=128,
+                weights_regularizer=regularizer)
+            if use_batch_norm:
+                policy_head2 = tf.contrib.layers.batch_norm(
+                    policy_head2, is_training=is_training)
+            policy_head2 = tf.nn.relu(policy_head2)
+
+            prob_logits = tf.contrib.layers.fully_connected(
+                inputs=policy_head2, num_outputs=18,
+                weights_regularizer=regularizer,
+                activation_fn=None)
+            probs = tf.nn.softmax(logits=prob_logits)
+
+            # We want to compute log_probs = log(softmax(prob_logits)). This
+            # simplifies to log_probs = prob_logits -
+            # log(sum(exp(prob_logits))).
+            log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
+            log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
+
+            loss_value = tf.losses.mean_squared_error(outcomes, value)
+            loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
+
+            loss = self.value_weight * loss_value + loss_probs
+
+            # Set up the training op
+            self.train_op = \
+                tf.train.MomentumOptimizer(self.learning_rate,
+                                           momentum=0.9).minimize(loss)
+
+            # Create summary variables for tensorboard
+            loss_summary = tf.summary.scalar('loss', loss)
+
+            summary = tf.summary.merge([loss_summary])
+
+            self.sess.run(tf.global_variables_initializer())
+
+            # Create a saver.
+            self.saver = tf.train.Saver(max_to_keep=20)
+
+        # Initialise global step (the number of training steps taken).
+        self.global_step = 0
+
+        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
+                   loss, loss_value, loss_probs, is_training, summary]
+        names = ("state_vector outcomes pi value prob_logits probs loss "
+                 "loss_value loss_probs is_training summary").split()
+        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
 
 class ConnectFourNet(AbstractNeuralNetEstimator):

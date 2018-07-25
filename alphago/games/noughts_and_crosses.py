@@ -16,7 +16,7 @@ UltimateNoughtsAndCrosses
 import functools
 import itertools
 import operator
-from typing import Dict, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Tuple
 
 import numpy as np
 
@@ -131,21 +131,43 @@ class NoughtsAndCrosses(Game):
 
         self._win_bitmasks = self._calculate_win_bitmasks()
 
-    def _calculate_win_bitmasks(self):  # TODO: split into smaller functions
-        row_wins, column_wins, diagonal_wins = [], [], []
-        # construct bitmasks for wins corresponding to a full row
+    def _calculate_win_bitmasks(self) -> List[int]:
+        """Construct bitmasks corresponding to each way to win noughts
+        and crosses including wins by a full row, column or diagonal."""
+        row_win_bitmasks = self._calculate_row_bitmasks()
+        column_win_bitmasks = self._calculate_column_bitmasks()
+        major_diagonal_win_bitmasks = self._calculate_major_diagonal_bitmasks()
+        minor_diagonal_win_bitmasks = self._calculate_minor_diagonal_bitmasks()
+
+        return (row_win_bitmasks + column_win_bitmasks +
+                major_diagonal_win_bitmasks + minor_diagonal_win_bitmasks)
+
+    def _calculate_row_bitmasks(self) -> List[int]:
+        """Returns bitmasks for wins corresponding to a full row."""
+        row_win_bitmasks = []
         for row in range(self.rows):
             row_win = functools.reduce(
                 operator.or_, [self._actions_to_binary[Action(row, column)]
                                for column in range(self.columns)])
-            row_wins.append(row_win)
+            row_win_bitmasks.append(row_win)
 
-        # construct bitmasks for wins corresponding to a full column
+        return row_win_bitmasks
+
+    def _calculate_column_bitmasks(self) -> List[int]:
+        """Returns bitmasks for wins corresponding to a full column."""
+        column_win_bitmasks = []
         for column in range(self.columns):
             column_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[(row, column)]
+                operator.or_, [self._actions_to_binary[Action(row, column)]
                                for row in range(self.rows)])
-            column_wins.append(column_win)
+            column_win_bitmasks.append(column_win)
+
+        return column_win_bitmasks
+
+    def _calculate_major_diagonal_bitmasks(self) -> List[int]:
+        """Returns bitmasks for wins corresponding to a full major
+        diagonal."""
+        major_diagonal_win_bitmasks = []
 
         # determine if board is non-square and in which direction
         row_excess = max(0, self.rows - self.columns)
@@ -157,24 +179,34 @@ class NoughtsAndCrosses(Game):
                             for i in range(min_dim)]
                            for row_offset in range(row_excess + 1)
                            for col_offset in range(col_excess + 1)]
-        for major_diag_indices in major_diagonals:
-            major_diag_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[(row, column)]
-                               for row, column in major_diag_indices])
-            diagonal_wins.append(major_diag_win)
+        for major_diagonal_indices in major_diagonals:
+            major_diagonal_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[Action(row, column)]
+                               for row, column in major_diagonal_indices])
+            major_diagonal_win_bitmasks.append(major_diagonal_win)
+        return major_diagonal_win_bitmasks
 
-        # construct bitmasks for win corresponding to a full minor diagonal
+    def _calculate_minor_diagonal_bitmasks(self) -> List[int]:
+        """Returns bitmasks for wins corresponding to a full minor
+        diagonal."""
+        minor_diagonal_win_bitmasks = []
+
+        # determine if board is non-square and in which direction
+        row_excess = max(0, self.rows - self.columns)
+        col_excess = max(0, self.columns - self.rows)
+        min_dim, max_dim = sorted([self.rows, self.columns])
+
         minor_diagonals = [[(min_dim - 1 - i + row_offset, i + col_offset)
                             for i in range(min_dim)]
                            for row_offset in range(row_excess + 1)
                            for col_offset in range(col_excess + 1)]
-        for minor_diag_indices in minor_diagonals:
-            minor_diag_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[(row, column)]
-                               for row, column in minor_diag_indices])
-            diagonal_wins.append(minor_diag_win)
+        for minor_diagonal_indices in minor_diagonals:
+            minor_diagonal_win = functools.reduce(
+                operator.or_, [self._actions_to_binary[Action(row, column)]
+                               for row, column in minor_diagonal_indices])
+            minor_diagonal_win_bitmasks.append(minor_diagonal_win)
 
-        return row_wins + column_wins + diagonal_wins
+        return minor_diagonal_win_bitmasks
 
     def is_terminal(self, state: GameState) -> bool:
         """Given a state, returns whether it is terminal.
@@ -225,7 +257,7 @@ class NoughtsAndCrosses(Game):
             An int indicating the player whose turn it is, where 1 and 2
             correspond to player 1 and player 2, respectively.
         """
-        return state[2]
+        return state.current_player
 
     def utility(self, state: GameState) -> Dict[int, int]:
         """Given a terminal noughts and crosses state, calculates the
@@ -255,12 +287,13 @@ class NoughtsAndCrosses(Game):
             raise ValueError("Utility can not be calculated for a "
                              "non-terminal state.")
 
-        p1_state, p2_state, _ = state
         # check if player 1 has won
-        if any(p1_state & win == win for win in self._win_bitmasks):
+        if any(state.player1_board & win == win
+               for win in self._win_bitmasks):
             return {1: 1, 2: -1}
         # check if player 2 has won
-        if any(p2_state & win == win for win in self._win_bitmasks):
+        if any(state.player2_board & win == win
+               for win in self._win_bitmasks):
             return {1: -1, 2: 1}
         # otherwise it is a draw
         return {1: 0, 2: 0}
@@ -290,8 +323,7 @@ class NoughtsAndCrosses(Game):
             raise ValueError("Legal actions can not be computed for a "
                              "terminal state.")
 
-        p1_state, p2_state, current_player = state
-        occupied_squares = p1_state | p2_state
+        occupied_squares = state.player1_board | state.player2_board
 
         actions = [action
                    for action, action_binary in self._actions_to_binary.items()
@@ -313,7 +345,7 @@ class NoughtsAndCrosses(Game):
         current_player_idx = current_player - 1
         player_states[current_player_idx] |= self._actions_to_binary[action]
         next_player = (current_player % 2) + 1
-        return tuple(player_states) + (next_player,)
+        return GameState(*player_states, next_player)
 
     def display(self, state: GameState) -> None:
         """Display the noughts and crosses state in a 2-D ASCII grid.
@@ -325,14 +357,13 @@ class NoughtsAndCrosses(Game):
             printed to stdout.
         """
 
-        p1_state, p2_state, _ = state
         # construct a dictionary mapping board positions to symbols
         board_dict = {}
         for row in range(self.rows):
             for col in range(self.columns):
-                if p1_state & self._actions_to_binary[(row, col)]:
+                if state.player1_board & self._actions_to_binary[(row, col)]:
                     board_dict[(row, col)] = "x"
-                elif p2_state & self._actions_to_binary[(row, col)]:
+                elif state.player2_board & self._actions_to_binary[(row, col)]:
                     board_dict[(row, col)] = "o"
                 else:
                     board_dict[(row, col)] = " "

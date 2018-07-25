@@ -22,10 +22,60 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize("size", sizes)
     def test_initial_state_is_correct(self, size, mocker):
-        rows, columns = size
         mock_game = mocker.MagicMock()
         NoughtsAndCrosses.__init__(mock_game, *size)
         assert mock_game.initial_state == (0, 0, 1)
+
+    @pytest.mark.parametrize("size, actions_to_binary",
+                             zip(sizes, actions_to_binary_list))
+    def test_action_to_binary_is_correct(self, size, actions_to_binary, mocker):
+        mock_game = mocker.MagicMock()
+        NoughtsAndCrosses.__init__(mock_game, *size)
+        assert mock_game._actions_to_binary == actions_to_binary
+
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks",
+                             zip(sizes, actions_to_binary_list, win_bitmasks_list))
+    def test_calculating_row_win_bitmasks(self, size, actions_to_binary,
+                                          win_bitmasks, mocker):
+        rows, columns = size
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary)
+        row_win_bitmasks = NoughtsAndCrosses._calculate_row_bitmasks(mock_game)
+        print([(bin(x), bin(y)) for x, y in zip(row_win_bitmasks, win_bitmasks["row"])])
+        assert row_win_bitmasks == win_bitmasks["row"]
+
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks",
+                             zip(sizes, actions_to_binary_list, win_bitmasks_list))
+    def test_calculating_minor_diagonal_win_bitmasks(self, size, actions_to_binary,
+                                                     win_bitmasks, mocker):
+        rows, columns = size
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary)
+        column_win_bitmasks = NoughtsAndCrosses._calculate_column_bitmasks(mock_game)
+        print([(bin(x), bin(y)) for x, y in zip(column_win_bitmasks, win_bitmasks["column"])])
+        assert column_win_bitmasks == win_bitmasks["column"]
+
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks",
+                             zip(sizes, actions_to_binary_list, win_bitmasks_list))
+    def test_calculating_major_diagonal_win_bitmasks(self, size, actions_to_binary,
+                                                     win_bitmasks, mocker):
+        rows, columns = size
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary)
+        major_diagonal_win_bitmasks = NoughtsAndCrosses._calculate_major_diagonal_bitmasks(mock_game)
+        print([(bin(x), bin(y)) for x, y in zip(major_diagonal_win_bitmasks, win_bitmasks["major_diagonal"])])
+        assert major_diagonal_win_bitmasks == win_bitmasks["major_diagonal"]
+
+    @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks",
+                             zip(sizes, actions_to_binary_list, win_bitmasks_list))
+    def test_calculating_minor_diagonal_win_bitmasks(self, size, actions_to_binary,
+                                                     win_bitmasks, mocker):
+        rows, columns = size
+        mock_game = mocker.MagicMock(rows=rows, columns=columns,
+                                     _actions_to_binary=actions_to_binary)
+        minor_diagonal_win_bitmasks = NoughtsAndCrosses._calculate_minor_diagonal_bitmasks(mock_game)
+        print([(bin(x), bin(y)) for x, y in zip(minor_diagonal_win_bitmasks, win_bitmasks["minor_diagonal"])])
+        assert minor_diagonal_win_bitmasks == win_bitmasks["minor_diagonal"]
 
     @pytest.mark.parametrize("size, actions_to_binary, win_bitmasks, state",
                              zip(sizes, actions_to_binary_list,
@@ -96,7 +146,6 @@ class TestMByNNoughtsAndCrosses:
                                  players, expected_next_states_list))
     def test_generating_a_dict_of_all_possible_next_states(self, size, actions_to_binary, state,
                                                            player, expected_states, mocker):
-
         # TODO: need to split this into two tests: one testing the _next_state function and one testing legal actions
         rows, columns = size
         mock_game = mocker.MagicMock(rows=rows, columns=columns,

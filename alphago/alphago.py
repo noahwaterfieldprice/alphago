@@ -414,7 +414,7 @@ def process_self_play_data(states_, actions_, action_probs_, game,
 
     We omit the terminal state from the list as there are no probabilities to
     train. TODO: Potentially include the terminal state in order to train the
-    value.
+    value. # TODO: why the underscores in the parameter names?
 
     Parameters
     ----------
