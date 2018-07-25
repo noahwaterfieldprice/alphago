@@ -1,23 +1,57 @@
 import itertools
 
-import numpy as np
+sizes = ((3, 3), (3, 5), (4, 7), (5, 6), (8, 8))
 
-sizes = [(3, 3), (3, 5), (4, 7), (5, 6), (8, 8)]
-
-# position map from row, col tuple to binary constants
+# generate position map from row, col tuple to binary constants
 actions_to_binary_list = []
 for (rows, columns) in sizes:
-    actions_to_binary = {(row, col): 1 << 3 * row + col
+    actions_to_binary = {(row, col): 1 << columns * row + col
                          for row in range(rows)
                          for col in range(columns)}
     actions_to_binary_list.append(actions_to_binary)
 
-# win bitmask constants for M by N noughts and crosses
-wins_bitmasks_3x3 = [0b000000111, 0b000111000, 0b111000000,
-                     0b001001001, 0b010010010, 0b100100100,
-                     0b100010001, 0b001010100]
+# generate win bitmasks for each shape
+win_bitmasks_list = []
+for (rows, columns) in sizes:
+    win_bitmasks = {}
+    # calculate binary row masks
+    base_row_mask = 2 ** columns - 1
+    row_bit_masks = [base_row_mask << (i * columns) for i in range(rows)]
+    win_bitmasks["row"] = row_bit_masks
 
-win_bitmasks_list = (wins_bitmasks_3x3,)
+    # calculate binary column masks
+    base_column_mask = sum(2 ** (i * columns) for i in range(rows))
+    column_bit_masks = [base_column_mask << i for i in range(columns)]
+    win_bitmasks["column"] = column_bit_masks
+
+    # calculate binary major diagonal masks
+    major_diagonal_base_mask = sum(2 ** (i * columns) << i
+                                   for i in range(rows))
+    if rows == columns:
+        major_diagonal_masks = [major_diagonal_base_mask]
+    elif columns > rows:
+        major_diagonal_masks = [major_diagonal_base_mask << i
+                                for i in range(columns - rows + 1)]
+    else:
+        major_diagonal_masks = [major_diagonal_base_mask << (i * rows)
+                                for i in range(rows - columns + 1)]
+    win_bitmasks["major_diagonal"] = major_diagonal_masks
+
+    # calculate binary minor diagonal masks
+    minor_diagonal_base_mask = sum(2 ** (i * columns) << (rows - i - 1)
+                                   for i in range(rows))
+    if rows == columns:
+        minor_diagonal_masks = [minor_diagonal_base_mask]
+    elif columns > rows:
+        minor_diagonal_masks = [minor_diagonal_base_mask << i
+                                for i in range(columns - rows + 1)]
+    else:
+        minor_diagonal_masks = [minor_diagonal_base_mask << (i * rows)
+                                for i in range(rows - columns + 1)]
+    win_bitmasks["minor_diagonal"] = minor_diagonal_masks
+
+    win_bitmasks_list.append(win_bitmasks)
+
 
 # terminal state constants for M by N noughts and Crosses
 # ----
