@@ -74,6 +74,7 @@ def create_rollout_estimator(game, num_rollouts):
 
 class AbstractNeuralNetEstimator(abc.ABC):
     game_state_shape = NotImplemented
+    action_indices = NotImplemented
 
     def __init__(self, learning_rate=1e-2, l2_weight=1e-4, value_weight=1):
         self.learning_rate = learning_rate
@@ -85,18 +86,33 @@ class AbstractNeuralNetEstimator(abc.ABC):
     def _initialise_net(self):
         """Initialise the neural network and all associated tensors."""
 
+    @abc.abstractmethod
+    def _state_to_vector(self, state):
+        """Map the state to a vector suitable for input to the
+        neural network estimator."""
+
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
         'probs' and 'value'
 
+        Parameters
+        ----------
+        state: ndarray
+            The input state to the network. Should be a numpy array.
+
         Returns
         -------
-        probs: ndarray
-            The probabilities returned by the net.
+        probs: dict
+            The probabilities returned by the net as a dictionary. The keys
+            are the actions and the .
         value: ndarray
             The value returned by the net.
         """
+        # Reshape the state if necessary so that it's 1 x game_state_shape. We
+        # should only be evaluating one state at a time in this function.
+        state = self._state_to_vector(state)
 
+        # Evaluate the network at the state
         probs = self.sess.run(
             self.tensors['probs'],
             feed_dict={
@@ -108,7 +124,17 @@ class AbstractNeuralNetEstimator(abc.ABC):
                 self.tensors['state_vector']: state,
                 self.tensors['is_training']: False})
 
-        return np.ravel(probs), value
+        # value is currently an np array, so extract the float.
+        probs = probs.ravel()
+        [value] = value.ravel()
+
+        # probs is currently an np array. Put the value into a
+        # dictionary with keys the actions and values the probs.
+        probs_dict = {action: probs[index] for
+                      action, index in self.action_indices.items()}
+
+        return probs_dict, value
+
 
     def loss(self, data, batch_size):
         """Computes the loss of the network on the data.
@@ -296,23 +322,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
             A function that evaluates states.
         """
 
-        def estimate_fn(state):
-            # Reshape the state if necessary so that it's 1 x 9. We should
-            # only be evaluating one state at a time in this function.
-            state = np.reshape(state, self.game_state_shape)
-            state = np.nan_to_num(state)
-
-            # Evaluate the network at the state
-            probs, [value] = self(state)
-
-            # probs is currently an np array. Put the value into a
-            # dictionary with keys the actions and values the probs.
-            probs_dict = {action: probs[self.action_indices[action]] for
-                          action in self.action_indices}
-
-            return probs_dict, value
-
-        return estimate_fn
+        return self.__call__
 
     def save(self, save_file):
         """Saves the net to save_file.
@@ -432,6 +442,10 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
                  "loss_value loss_probs is_training summary").split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
+    def _state_to_vector(self, state):
+        state = np.array(state).reshape((-1, 9))
+        return np.nan_to_num(state)
+
 
 class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
@@ -539,3 +553,6 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         names = "state_vector outcomes pi value prob_logits probs loss " \
                 "loss_value loss_probs is_training summary".split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
+
+    def _state_to_vector(self, state):
+        return np.array(state).reshape((-1, 42))

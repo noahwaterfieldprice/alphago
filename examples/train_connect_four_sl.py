@@ -11,7 +11,7 @@ import tensorflow as tf
 from alphago.games.connect_four import action_list_to_state, ConnectFour
 from alphago.estimator import (ConnectFourNet, create_trivial_estimator,
                                create_rollout_estimator)
-from alphago.evaluator import compare_against_players
+from alphago.evaluator import run_gauntlet
 from alphago.alphago import optimise_estimator
 from tools.summary_scalars import SummaryScalars
 from alphago.player import RandomPlayer, MCTSPlayer
@@ -52,16 +52,19 @@ def solved_states_to_training_data(solved_states):
 
     return training_data
 
+# Training data should be a file with lines of the form:
+# action_list action outcome
+# This is as output by c4solver.
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_file', help='Input file name')
+    parser.add_argument('training_data', help='Input file with training data.')
 
     args = parser.parse_args()
-    input_file = args.input_file
+    training_data = args.training_data
 
     solved_states = []
-    with open(input_file, 'r') as f:
+    with open(training_data, 'r') as f:
         for line in f:
             data = line.split()
             action_list = [int(c) for c in data[0]]
@@ -158,8 +161,8 @@ if __name__ == "__main__":
             comparison_players = {**fixed_comparison_players,
                                   **supervised_players}
 
-            game_results = compare_against_players(game, (6, new_player),
-                                                   comparison_players)
+            game_results = run_gauntlet(game, (6, new_player),
+                                        comparison_players, 5)
 
             # load results from file
             results = json.load(game_results_path)
