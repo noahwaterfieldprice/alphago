@@ -100,9 +100,14 @@ def update_results(game_results, game_results_file_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('training_data', help='Input file with training data.')
+    parser.add_argument('--max_lines', help='The maximum number of lines to '
+                                            'read in from the training data.')
 
     args = parser.parse_args()
     training_data = args.training_data
+    max_lines = args.max_lines
+    if max_lines is not None:
+        max_lines = int(max_lines)
 
     solved_states = []
     with open(training_data, 'r') as f:
@@ -112,7 +117,12 @@ if __name__ == "__main__":
             action = int(data[1])
             outcome = int(data[2])
             solved_states.append((action_list, action, outcome))
+            
+            # Break if we have reached max lines.
+            if max_lines is not None and len(solved_states) >= max_lines:
+                break
 
+    print("Converting solved states to training data.")
     training_data = solved_states_to_training_data(solved_states)
     np.random.shuffle(training_data)
     dev_fraction = 0.2
