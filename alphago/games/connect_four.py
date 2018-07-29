@@ -169,8 +169,8 @@ class ConnectFour(Game):
             if next_state[0][col]:
                 continue
 
-            # Find the lowest open element in the column. Search from the bottom
-            # until we find a zero.
+            # Find the lowest open element in the column. Search from the
+            # bottom until we find a zero.
             for row in reversed(range(6)):
                 if not next_state[row][col]:
                     next_state[row][col] = marker
