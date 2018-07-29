@@ -192,7 +192,6 @@ def run_gauntlet(game: Game, challenger: Tuple[PlayerNo, Player],
         The results of the gauntlet given in the form of a list of
         (i, j, n) tuples, meaning player i got a score of n against
         player j.
-
     """
     results = defaultdict(int)
     i, player = challenger
