@@ -2,7 +2,8 @@
 """
 import argparse
 import collections
-import json
+import pickle
+import os
 import time
 
 import numpy as np
@@ -52,6 +53,46 @@ def solved_states_to_training_data(solved_states):
 
     return training_data
 
+
+def update_results(game_results, game_results_file_name):
+    """Update the results stored in the pickle file game_results_file_name.
+    Loads the game results from the file (if it exists), then adds
+    game_results to the results, and saves to game_results_file_name.
+
+    The file game_results_file_name stores a pickle encoding of a dictionary
+    with keys (i, j) pairs and values n, denoting that i beat j n times.
+
+    Parameters
+    ----------
+    game_results: list
+        A list of (i, j, n) tuples, meaning player i scored n against player j.
+    game_results_file_name: str
+        The path to save the updated results to. Creates this path if it
+        doesn't exist.
+    """
+    print("Game results", game_results)
+    # Load results from file
+    if os.path.exists(game_results_file_name):
+        with open(game_results_file_name, 'rb') as f:
+            results = pickle.load(f)
+    else:
+        results = {}
+
+    # Update the results dictionary with the game results.
+    for result in game_results:
+        ij = result[:2]
+        score = result[2]
+        if ij not in results:
+            results[ij] = score
+        else:
+            results[ij] += score
+
+    print("Results", results)
+
+    with open(game_results_file_name, 'wb') as f:
+        pickle.dump(results, f)
+
+
 # Training data should be a file with lines of the form:
 # action_list action outcome
 # This is as output by c4solver.
@@ -80,19 +121,20 @@ if __name__ == "__main__":
     training_data = training_data[num_dev:]
 
     # Comparison players for evaluation
-    mcts_iters = 100
+    mcts_iters = 10
     game = ConnectFour()
     trivial_estimator = create_trivial_estimator(game)
     rollout_estimator = create_rollout_estimator(game, 50)
     random_player = RandomPlayer(game)
     trivial_mcts_player = MCTSPlayer(game, trivial_estimator, mcts_iters, 0.5, 0.01)
     rollout_mcts_player = MCTSPlayer(game, rollout_estimator, mcts_iters, 0.5, 0.01)
-    fixed_comparison_players = {1: random_player,
-                                2: trivial_mcts_player,
-                                3: rollout_mcts_player}
+    # fixed_comparison_players = {1: random_player,
+    #                             2: trivial_mcts_player,
+    #                             3: rollout_mcts_player}
 
-    #results_list = json.loads("results")
-    supervised_player_no = 4
+    fixed_comparison_players = {1: random_player}
+
+    supervised_player_no = len(fixed_comparison_players) + 1
     supervised_players_queue = collections.deque(maxlen=2)
 
     # Hyperparameters
@@ -108,15 +150,17 @@ if __name__ == "__main__":
 
     # Build the hyperparameter string
     hyp_string = (
-        "lr={},batch_size={},value_weight={},l2_weight={},num_train={}").format(
-        learning_rate, batch_size, value_weight, l2_weight, num_train)
+        "lr={},batch_size={},value_weight={},l2_weight={},"
+        "num_train={}").format(learning_rate, batch_size, value_weight,
+                               l2_weight, num_train)
 
     game_name = 'connect_four-sl'
 
     current_time_format = time.strftime('%Y-%m-%d_%H:%M:%S')
-    path = "experiments/{}-{}-{}/".format(game_name, hyp_string, current_time_format)
+    path = "experiments/{}-{}-{}/".format(game_name, hyp_string,
+                                          current_time_format)
     checkpoint_path = path + 'checkpoints/'
-    game_results_path = path + "game_results.json"
+    game_results_file_name = path + "game_results.pickle"
 
     estimator = ConnectFourNet(learning_rate=learning_rate,
                                l2_weight=l2_weight, value_weight=value_weight,
@@ -151,7 +195,8 @@ if __name__ == "__main__":
             estimator.save(checkpoint_name)
 
             new_estimator = ConnectFourNet(learning_rate=learning_rate,
-                                           l2_weight=l2_weight, value_weight=value_weight,
+                                           l2_weight=l2_weight,
+                                           value_weight=value_weight,
                                            action_indices=game.action_indices)
             new_estimator.restore(checkpoint_name)
 
@@ -162,17 +207,14 @@ if __name__ == "__main__":
             comparison_players = {**fixed_comparison_players,
                                   **supervised_players}
 
-            game_results = run_gauntlet(game, (6, new_player),
+            game_results = run_gauntlet(game,
+                                        (supervised_player_no, new_player),
                                         comparison_players, 1)
 
-            # load results from file
-            results = json.load(game_results_path)
-            results.update(game_results)
-            with open(game_results_path, 'w') as f:
-                json.dump(results, game_results_path)
-
+            update_results(game_results, game_results_file_name)
 
             # elo to writer
 
-            supervised_players_queue.appendleft((supervised_player_no, new_player))
+            supervised_players_queue.appendleft(
+                (supervised_player_no, new_player))
             supervised_player_no += 1
