@@ -80,12 +80,13 @@ if __name__ == "__main__":
     training_data = training_data[num_dev:]
 
     # Comparison players for evaluation
+    mcts_iters = 100
     game = ConnectFour()
     trivial_estimator = create_trivial_estimator(game)
     rollout_estimator = create_rollout_estimator(game, 50)
     random_player = RandomPlayer(game)
-    trivial_mcts_player = MCTSPlayer(game, trivial_estimator, 500, 0.5, 0.01)
-    rollout_mcts_player = MCTSPlayer(game, rollout_estimator, 500, 0.5, 0.01)
+    trivial_mcts_player = MCTSPlayer(game, trivial_estimator, mcts_iters, 0.5, 0.01)
+    rollout_mcts_player = MCTSPlayer(game, rollout_estimator, mcts_iters, 0.5, 0.01)
     fixed_comparison_players = {1: random_player,
                                 2: trivial_mcts_player,
                                 3: rollout_mcts_player}
@@ -162,7 +163,7 @@ if __name__ == "__main__":
                                   **supervised_players}
 
             game_results = run_gauntlet(game, (6, new_player),
-                                        comparison_players, 5)
+                                        comparison_players, 1)
 
             # load results from file
             results = json.load(game_results_path)
