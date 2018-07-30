@@ -8,6 +8,7 @@ import time
 
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm
 
 from alphago.games.connect_four import action_list_to_state, ConnectFour
 from alphago.estimator import (ConnectFourNet, create_trivial_estimator,
@@ -93,46 +94,46 @@ def update_results(game_results, game_results_file_name):
         pickle.dump(results, f)
 
 
+def compute_accuracy(estimator, solved_states):
+    """Computes the accuracy of the estimator predicting moves according to
+    the maximum probability.
+    """
+    actions = []
+    predicted_actions = []
+    print("Computing accuracy")
+    for action_list, action, _ in tqdm(solved_states):
+        state = action_list_to_state([a - 1 for a in action_list])
+        probs, val = estimator(state)
+        predicted_action = np.argmax(probs) + 1
+
+        predicted_actions.append(predicted_action)
+        actions.append(action)
+
+    return np.mean([1 if actions[i] == predicted_actions[i] else 0 for i in
+                    range(len(actions))])
+
+
 # Training data should be a file with lines of the form:
 # action_list action outcome
 # This is as output by c4solver.
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('training_data', help='Input file with training data.')
-    parser.add_argument('--max_lines', help='The maximum number of lines to '
-                                            'read in from the training data.')
-    parser.add_argument('--evaluate_every', help='The number of epochs '
-                                                 'between evaluating '
-                                                 'iterations.')
+def load_net(step, checkpoint_path):
+    """Evaluates the network saved in the checkpoint path for the given step.
+    """
+    game = ConnectFour()
+    estimator = ConnectFourNet(learning_rate=1e-4,
+                               l2_weight=1e-4, value_weight=0.01,
+                               action_indices=game.action_indices)
+    checkpoint_name = compute_checkpoint_name(step, checkpoint_path)
+    estimator.restore(checkpoint_name)
+    return estimator
 
-    args = parser.parse_args()
-    training_data = args.training_data
-    max_lines = args.max_lines
-    if max_lines is not None:
-        max_lines = int(max_lines)
 
-    evaluate_every = 5
-    if args.evaluate_every is not None:
-        evaluate_every = int(args.evaluate_every)
-
-    solved_states = []
-    with open(training_data, 'r') as f:
-        for line in f:
-            data = line.split()
-            action_list = [int(c) for c in data[0]]
-            action = int(data[1])
-            outcome = int(data[2])
-            solved_states.append((action_list, action, outcome))
-
-            # Break if we have reached max lines.
-            if max_lines is not None and len(solved_states) >= max_lines:
-                break
-
+def train_network(solved_states, evaluate_every):
     print("Converting solved states to training data.")
     training_data = solved_states_to_training_data(solved_states)
     np.random.shuffle(training_data)
-    dev_fraction = 0.2
+    dev_fraction = 0.02
     num_dev = int(dev_fraction * len(training_data))
     dev_data = training_data[:num_dev]
     training_data = training_data[num_dev:]
@@ -236,3 +237,56 @@ if __name__ == "__main__":
             supervised_players_queue.appendleft(
                 (supervised_player_no, new_player))
             supervised_player_no += 1
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('training_data', help='Input file with training data.')
+    parser.add_argument('--max_lines', help='The maximum number of lines to '
+                                            'read in from the training data.')
+    parser.add_argument('--evaluate_every',
+                        help='The number of epochs between evaluating'
+                             'iterations.')
+    parser.add_argument('--evaluate_checkpoint_path',
+                        help='The checkpoint path to evaluate. If given, '
+                             'then evaluate_step must also be provided.')
+    parser.add_argument('--evaluate_step',
+                        help='The step of the checkpoint to evaluate.')
+
+    args = parser.parse_args()
+    training_data = args.training_data
+
+    # Load the training data.
+    max_lines = args.max_lines
+    if max_lines is not None:
+        max_lines = int(max_lines)
+
+    solved_states = []
+    with open(training_data, 'r') as f:
+        for line in f:
+            data = line.split()
+            action_list = [int(c) for c in data[0]]
+            action = int(data[1])
+            outcome = int(data[2])
+            solved_states.append((action_list, action, outcome))
+
+            # Break if we have reached max lines.
+            if max_lines is not None and len(solved_states) >= max_lines:
+                break
+
+    # If evaluate checkpoint path is given, then just evaluate that network.
+    if args.evaluate_checkpoint_path is not None:
+        checkpoint_path = args.evaluate_checkpoint_path
+        checkpoint_step = args.evaluate_step
+
+        estimator = load_net(checkpoint_step, checkpoint_path)
+
+        accuracy = compute_accuracy(estimator, solved_states)
+        print("Accuracy: {}".format(accuracy))
+    else:
+        # Otherwise, train the network.
+        evaluate_every = 5
+        if args.evaluate_every is not None:
+            evaluate_every = int(args.evaluate_every)
+
+        train_network(solved_states, evaluate_every)
