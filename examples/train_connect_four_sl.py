@@ -102,12 +102,19 @@ if __name__ == "__main__":
     parser.add_argument('training_data', help='Input file with training data.')
     parser.add_argument('--max_lines', help='The maximum number of lines to '
                                             'read in from the training data.')
+    parser.add_argument('--evaluate_every', help='The number of epochs '
+                                                 'between evaluating '
+                                                 'iterations.')
 
     args = parser.parse_args()
     training_data = args.training_data
     max_lines = args.max_lines
     if max_lines is not None:
         max_lines = int(max_lines)
+
+    evaluate_every = 5
+    if args.evaluate_every is not None:
+        evaluate_every = int(args.evaluate_every)
 
     solved_states = []
     with open(training_data, 'r') as f:
@@ -117,7 +124,7 @@ if __name__ == "__main__":
             action = int(data[1])
             outcome = int(data[2])
             solved_states.append((action_list, action, outcome))
-            
+
             # Break if we have reached max lines.
             if max_lines is not None and len(solved_states) >= max_lines:
                 break
@@ -153,9 +160,8 @@ if __name__ == "__main__":
     l2_weight = 1e-1
     value_weight = 1e-2
     num_train = len(training_data)
-    evaluate_every = 5
 
-    checkpoint_every = 5
+    checkpoint_every = evaluate_every
     num_steps = 1000
 
     # Build the hyperparameter string
@@ -194,13 +200,15 @@ if __name__ == "__main__":
         # Now compute dev loss
         dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(
             dev_data, batch_size)
+        print("Dev loss: {}, dev loss value: {}, dev loss probs: {}".format(
+            dev_loss, dev_loss_value, dev_loss_probs))
 
         summary_scalars.run({'dev_loss': dev_loss,
                              'dev_loss_value': dev_loss_value,
                              'dev_loss_probs': dev_loss_probs},
                             estimator.global_step, writer)
 
-        if step % checkpoint_every == 0:
+        if step % checkpoint_every == 0 and step > 0:
             checkpoint_name = compute_checkpoint_name(step, checkpoint_path)
             estimator.save(checkpoint_name)
 
