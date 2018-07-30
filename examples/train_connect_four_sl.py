@@ -104,7 +104,7 @@ def compute_accuracy(estimator, solved_states):
     for action_list, action, _ in tqdm(solved_states):
         state = action_list_to_state([a - 1 for a in action_list])
         probs, val = estimator(state)
-        predicted_action = np.argmax(probs) + 1
+        predicted_action = max(probs, key=probs.get) + 1
 
         predicted_actions.append(predicted_action)
         actions.append(action)
