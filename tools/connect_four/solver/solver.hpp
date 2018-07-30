@@ -21,6 +21,7 @@
 
 #include "position.hpp"
 #include "TranspositionTable.hpp"
+#include <vector>
 
 namespace GameSolver { namespace Connect4 {
 
@@ -52,6 +53,10 @@ namespace GameSolver { namespace Connect4 {
     int solve(const Position &P, bool weak = false);
 
     std::pair<int, int> optimal_move(std::string state);
+
+    int sign(int x);
+
+    std::vector<int> optimal_moves(std::string state);
 
     unsigned long long getNodeCount() 
     {

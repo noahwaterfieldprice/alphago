@@ -106,7 +106,7 @@ namespace GameSolver { namespace Connect4 {
 
 
 
-    int Solver::solve(const Position &P, bool weak) 
+    int Solver::solve(const Position &P, bool weak)
     {
       if(P.canWinNext()) // check if win in one move as the Negamax function does not support this case.
         return (Position::WIDTH*Position::HEIGHT+1 - P.nbMoves())/2;
@@ -164,6 +164,55 @@ namespace GameSolver { namespace Connect4 {
         }
       }
       return std::make_pair(best_move, max_score);
+    }
+
+    int Solver::sign(int x) {
+      if (x > 0) return 1;
+      if (x < 0) return -1;
+      return 0;
+    }
+
+    std::vector<int> Solver::optimal_moves(std::string state)
+    {
+      // Returns the optimal moves in the position. Uses the weak solver. The
+      // resulting array contains the moves in the range 1 up to 7 (i.e.
+      // starting from 1 rather than 0. This returns the moves whose signs
+      // equal the sign of the max score.
+      // Note that if the max score is negative (all moves are losing), then we
+      // return all moves.
+      std::vector<int> scores;
+      int max_score = -10000;
+      for (int move = 1; move <= 7; move++) {
+        Position P;
+        P.play(state);
+        int score;
+        if (P.public_isWinningMove(move - 1)) {
+          score = 100000;
+        } else {
+          Position P;
+          reset();
+          std::string next_state = state + std::to_string(move);
+          unsigned long next_state_length = P.play(next_state);
+          if (next_state_length != next_state.size()) {
+            // illegal move
+            continue;
+          }
+          score = -solve(P, false);
+          scores.push_back(score);
+          if (score > max_score) {
+            max_score = score;
+          }
+        }
+      }
+
+      // Now get the moves whose scores have the same sign as the max score.
+      std::vector<int> best_moves;
+      for (int i = 0; i < 7; i++) {
+        if (Solver::sign(scores[i]) == Solver::sign(max_score)) {
+          best_moves.push_back(i + 1);
+        }
+      }
+      return best_moves;
     }
 
 }} // namespace GameSolver::Connect4
