@@ -278,6 +278,9 @@ def optimal_moves(action_list):
 
     Returns
     -------
+    int
+        The value to the current player. Equals 1 if player can force a win,
+        0 if player can force a draw and -1 if player can only lose.
     list
         A list of the optimal moves in the position, indexed 1 up to 7.
     """
@@ -291,6 +294,10 @@ def optimal_moves(action_list):
     # then the optimal moves for that position.
     result = completed.stdout.decode()
     result = result.strip()
-    result = result.split(' ')[1:]
+    result = result.split(' ')
 
-    return list(map(int, result))
+    action_list_str = result[0]
+    value = int(result[1])
+    moves = list(map(int, result[2:]))
+
+    return value, moves
