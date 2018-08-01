@@ -59,7 +59,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('output_file', help='File name to output result to')
     parser.add_argument('num_states', help='Number of states to generate')
-    parser.add_argument('min_moves', help='The minimum number of moves for each sequence')
+    parser.add_argument('min_moves', help='The minimum number of moves for '
+                                          'each sequence')
 
     args = parser.parse_args()
 

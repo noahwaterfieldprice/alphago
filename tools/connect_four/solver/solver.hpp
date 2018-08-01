@@ -54,9 +54,15 @@ namespace GameSolver { namespace Connect4 {
 
     std::pair<int, int> optimal_move(std::string state);
 
+    std::string vector_to_string(std::vector<int> v);
+
     int sign(int x);
 
     std::vector<int> optimal_moves(std::string state);
+
+    bool is_legal_move(std::string state, int move);
+
+    std::vector<int> move_scores(std::string state);
 
     unsigned long long getNodeCount() 
     {
