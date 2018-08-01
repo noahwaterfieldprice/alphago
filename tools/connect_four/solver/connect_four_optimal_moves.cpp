@@ -26,10 +26,7 @@ int main(int argc, char** argv) {
   std::string state = argv[1];
 
   std::vector<int> optimal_moves = solver.optimal_moves(state);
+  std::string optimal_moves_str = solver.vector_to_string(optimal_moves);
 
-  std::stringstream optimal_moves_str;
-  std::copy(optimal_moves.begin(), optimal_moves.end(),
-            std::ostream_iterator<int>(optimal_moves_str, " "));
-
-  std::cout << state << " " << optimal_moves_str.str() << std::endl;
+  std::cout << state << " " << optimal_moves_str << std::endl;
 }

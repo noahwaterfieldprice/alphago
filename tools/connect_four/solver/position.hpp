@@ -199,6 +199,16 @@ namespace GameSolver { namespace Connect4 {
        */
       Position() : current_position{0}, mask{0}, moves{0} {}
 
+      /**
+      * Indicates whether a column is playable.
+      * @param col: 0-based index of column to play
+      * @return true if the column is playable, false if the column is already full.
+      */
+      bool public_canPlay(int col) const
+      {
+        return (mask & top_mask_col(col)) == 0;
+      }
+
 
     private:
       uint64_t current_position; // bitmap of the current_player stones

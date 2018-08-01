@@ -3,7 +3,9 @@
 Seven columns, six rows. On your turn you can play any of the columns (if it is
 not full).
 """
+import os
 from typing import Tuple
+import subprocess
 
 import numpy as np
 
@@ -265,3 +267,30 @@ def heuristic(state):
     num_wins_2 = np.sum(line_sums == -4)
 
     return num_wins_1 - num_wins_2
+
+
+def optimal_moves(action_list):
+    """
+
+    Parameters
+    ----------
+    action_list: list
+
+    Returns
+    -------
+    list
+        A list of the optimal moves in the position, indexed 1 up to 7.
+    """
+    solver = 'tools/connect_four/solver/connect_four_optimal_moves'
+    assert os.path.exists(solver)
+    action_list_str = "".join(map(str, action_list))
+    completed = subprocess.run([solver, action_list_str],
+                               stdout=subprocess.PIPE)
+
+    # The result is a space-separated string consisting of the action list,
+    # then the optimal moves for that position.
+    result = completed.stdout.decode()
+    result = result.strip()
+    result = result.split(' ')[1:]
+
+    return list(map(int, result))

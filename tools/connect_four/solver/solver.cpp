@@ -19,6 +19,10 @@
 #include <cassert>
 #include "solver.hpp"
 #include "MoveSorter.hpp"
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <fstream>
 
 using namespace GameSolver::Connect4;
 
@@ -172,16 +176,20 @@ namespace GameSolver { namespace Connect4 {
       return 0;
     }
 
-    std::vector<int> Solver::optimal_moves(std::string state)
+
+    std::string Solver::vector_to_string(std::vector<int> v) {
+      std::stringstream v_str;
+      std::copy(v.begin(), v.end(),
+                std::ostream_iterator<int>(v_str, " "));
+      return v_str.str();
+    }
+
+
+    std::vector<int> Solver::move_scores(std::string state)
     {
-      // Returns the optimal moves in the position. Uses the weak solver. The
-      // resulting array contains the moves in the range 1 up to 7 (i.e.
-      // starting from 1 rather than 0. This returns the moves whose signs
-      // equal the sign of the max score.
-      // Note that if the max score is negative (all moves are losing), then we
-      // return all moves.
+      // Computes the scores for each move in the position.
       std::vector<int> scores;
-      int max_score = -10000;
+      int illegal_move_score = -10000;
       for (int move = 1; move <= 7; move++) {
         Position P;
         P.play(state);
@@ -195,20 +203,53 @@ namespace GameSolver { namespace Connect4 {
           unsigned long next_state_length = P.play(next_state);
           if (next_state_length != next_state.size()) {
             // illegal move
-            continue;
+            score = illegal_move_score;
+          } else {
+            // The move is legal, so solve the position.
+            score = -solve(P, true);
           }
-          score = -solve(P, false);
-          scores.push_back(score);
-          if (score > max_score) {
-            max_score = score;
-          }
+        }
+        scores.push_back(score);
+      }
+      return scores;
+    }
+
+
+    bool Solver::is_legal_move(std::string state, int move)
+    {
+      // Returns whether the move is legal in the state. The moves are indexed
+      // 1 to 7.
+      Position P;
+      P.play(state);
+      return P.public_canPlay(move - 1);
+    }
+
+
+    std::vector<int> Solver::optimal_moves(std::string state)
+    {
+      // Returns the optimal moves in the position. Uses the weak solver. The
+      // resulting array contains the moves in the range 1 up to 7 (i.e.
+      // starting from 1 rather than 0. This returns the moves whose signs
+      // equal the sign of the max score.
+      // Note that if the max score is negative (all moves are losing), then we
+      // return all moves.
+
+      // Compute the scores for each move.
+      std::vector<int> scores = Solver::move_scores(state);
+
+      // Compute the max score.
+      int max_score = -10000;
+      for (int i = 0; i < 7; i++) {
+        if (scores[i] > max_score) {
+          max_score = scores[i];
         }
       }
 
-      // Now get the moves whose scores have the same sign as the max score.
+      // Compute the moves whose scores have the same sign as the max score.
       std::vector<int> best_moves;
       for (int i = 0; i < 7; i++) {
-        if (Solver::sign(scores[i]) == Solver::sign(max_score)) {
+        if ((Solver::sign(scores[i]) == Solver::sign(max_score)) &&
+            Solver::is_legal_move(state, i + 1)) {
           best_moves.push_back(i + 1);
         }
       }
