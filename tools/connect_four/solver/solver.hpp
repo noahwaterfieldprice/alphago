@@ -58,7 +58,7 @@ namespace GameSolver { namespace Connect4 {
 
     int sign(int x);
 
-    std::vector<int> optimal_moves(std::string state);
+    std::pair<std::vector<int>, int> optimal_moves(std::string state);
 
     bool is_legal_move(std::string state, int move);
 

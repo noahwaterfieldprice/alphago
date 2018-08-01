@@ -25,8 +25,12 @@ int main(int argc, char** argv) {
   }
   std::string state = argv[1];
 
-  std::vector<int> optimal_moves = solver.optimal_moves(state);
-  std::string optimal_moves_str = solver.vector_to_string(optimal_moves);
+  std::pair<std::vector<int>, int> optimal_moves = solver.optimal_moves(state);
+  std::vector<int> moves = optimal_moves.first;
+  int value = optimal_moves.second;
+  std::string moves_str = solver.vector_to_string(moves);
 
-  std::cout << state << " " << optimal_moves_str << std::endl;
+  std::string value_str = std::to_string(solver.sign(value));
+
+  std::cout << state << " " << value_str << " " << moves_str << std::endl;
 }

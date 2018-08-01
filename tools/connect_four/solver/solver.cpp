@@ -23,6 +23,7 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <iterator>
 
 using namespace GameSolver::Connect4;
 
@@ -225,7 +226,7 @@ namespace GameSolver { namespace Connect4 {
     }
 
 
-    std::vector<int> Solver::optimal_moves(std::string state)
+    std::pair<std::vector<int>, int> Solver::optimal_moves(std::string state)
     {
       // Returns the optimal moves in the position. Uses the weak solver. The
       // resulting array contains the moves in the range 1 up to 7 (i.e.
@@ -233,6 +234,8 @@ namespace GameSolver { namespace Connect4 {
       // equal the sign of the max score.
       // Note that if the max score is negative (all moves are losing), then we
       // return all moves.
+      // Returns a pair: a vector of the optimal moves, and the value to the
+      // current player.
 
       // Compute the scores for each move.
       std::vector<int> scores = Solver::move_scores(state);
@@ -253,7 +256,7 @@ namespace GameSolver { namespace Connect4 {
           best_moves.push_back(i + 1);
         }
       }
-      return best_moves;
+      return std::pair<std::vector<int>, int>(best_moves, max_score);
     }
 
 }} // namespace GameSolver::Connect4

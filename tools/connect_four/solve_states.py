@@ -23,7 +23,8 @@ if __name__ == "__main__":
     with open(args.output_file, 'w') as f:
         for state in tqdm(states):
             state_str = ''.join(map(str, state))
-            moves = optimal_moves(state)
+            value, moves = optimal_moves(state)
+            value_str = str(value)
             moves_str = ' '.join(map(str, moves))
-            line = state_str + ' ' + moves_str + '\n'
+            line = ' '.join([state_str, value_str, moves_str]) + '\n'
             f.write(line)
