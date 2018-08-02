@@ -58,12 +58,17 @@ def play_game(human, estimator, mcts_iters, c_puct):
         next_states = cf.legal_actions(state)
         if player == computer:
             root = mcts_tree.MCTSNode(state, player)
-            action_probs = mcts_tree.mcts(
-                root, cf, estimator, mcts_iters, c_puct)
-            actions, probs = zip(*action_probs.items())
-            print("Action probabilities: {}".format(action_probs))
-            action_ix = np.random.choice(range(len(actions)), p=probs)
-            action = actions[action_ix]
+            if mcts_iters == 0:
+                # Choose the maximum probability action of the net.
+                action_probs, _ = estimator(state)
+                action = max(action_probs, key=action_probs.get)
+            else:
+                action_probs = mcts_tree.mcts(
+                    root, cf, estimator, mcts_iters, c_puct)
+                actions, probs = zip(*action_probs.items())
+                print("Action probabilities: {}".format(action_probs))
+                action_ix = np.random.choice(range(len(actions)), p=probs)
+                action = actions[action_ix]
             print("Taking action: {}".format(action))
         else:
             action = None
@@ -96,10 +101,12 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',
                         help='The checkpoint path to use for the estimator. '
                              'If not given, then use a trivial estimator.')
+    parser.add_argument('--mcts_iters', help='If 0, then just use the raw '
+                                             'network.')
 
     args = parser.parse_args()
 
-    mcts_iters = 1000
+    mcts_iters = int(args.mcts_iters) if args.mcts_iters is not None else 1000
     c_puct = 0.5
 
     if args.player:
