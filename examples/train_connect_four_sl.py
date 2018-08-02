@@ -30,10 +30,9 @@ def solved_states_to_training_data(solved_states):
     ----------
     solved_states: list
         A list, with each element being a tuple. The tuples are of the form
-        (action_list, actions, outcome), where action_list is the list of
-        played columns, indexed from 1 to 7; actions are the optimal
-        actions to play in the state, and outcome is the eventual outcome to
-        the current player.
+        (state, actions, outcome), where state is a connect four state;
+        actions are the optimal actions to play in the state, and outcome is
+        the eventual outcome to the current player.
 
     Returns
     -------
@@ -41,10 +40,7 @@ def solved_states_to_training_data(solved_states):
         A list of training data suitable for AlphaGo.
     """
     training_data = []
-    for action_list, actions, outcome in solved_states:
-        # Convert the action list to a state for connect four.
-        state = action_list_to_state([a - 1 for a in action_list])
-
+    for state, actions, outcome in solved_states:
         # Set the probs vector to be 1 for the optimal actions, and 0 for all
         # other actions, but normalise so it sums to 1.
         probs_vector = np.array([1 / len(actions) if a + 1 in actions else 0
@@ -120,8 +116,6 @@ def compute_accuracy(estimator, optimal_actions):
     predicted_actions = []
     actions_list = []
     for state, actions in optimal_actions:
-        # Convert the state to 0 to 6 indices.
-        # state = action_list_to_state([a - 1 for a in action_list])
         probs, _ = estimator(state)
 
         # Get the estimator's predicted action in the range 1 up to 7.
@@ -219,8 +213,8 @@ def train_network(solved_states, evaluate_every):
 
     writer = tf.summary.FileWriter(summary_path)
 
-    dev_optimal_actions = [(action_list, optimal_actions) for
-                           action_list, optimal_actions, value in dev_data]
+    dev_optimal_actions = [(state, optimal_actions) for
+                           state, optimal_actions, value in dev_data]
 
     for step in range(num_steps):
         print("Step: {}".format(step))
@@ -283,28 +277,28 @@ def split_solved_state(line):
 
     Returns
     -------
-    action_list: list
-        List of actions taken to get to this state. The list is of integers
-        indexed from 1 to 7.
+    state: ndarray
+        Numpy array representing the state.
     optimal_actions: list
         List of the optimal actions.
     value: int
         The value of the state. Equals 1 if player can force a win,
         0 if player can force a draw and -1 if opponent can force a win.
     """
-    data = line.split()
+    data = line.strip().split(',')
     action_list = list(map(int, data[0]))
+    state = action_list_to_state([a - 1 for a in action_list])
     value = int(data[1])
-    optimal_actions = list(map(int, data[2:]))
-    return action_list, optimal_actions, value
+    optimal_actions = list(map(int, data[2].split(' ')))
+    return state, optimal_actions, value
 
 
 def load_solved_states(training_data_file, max_lines=None):
     solved_states = []
     with open(training_data_file, 'r') as f:
         for line in f:
-            action_list, optimal_actions, value = split_solved_state(line)
-            solved_states.append((action_list, optimal_actions, value))
+            state, optimal_actions, value = split_solved_state(line)
+            solved_states.append((state, optimal_actions, value))
 
             # Break if we have reached max lines.
             if max_lines is not None and len(solved_states) >= max_lines:
@@ -341,10 +335,8 @@ if __name__ == "__main__":
 
         estimator = load_net(checkpoint_step, checkpoint_path)
 
-        optimal_actions_list = [
-            (action_list_to_state([a - 1 for a in action_list]),
-             optimal_actions) for action_list, optimal_actions, _ in
-            solved_states]
+        optimal_actions_list = [(state, optimal_actions)
+                                for state, optimal_actions, _ in solved_states]
 
         accuracy = compute_accuracy(estimator, optimal_actions_list)
         print("Accuracy: {}".format(accuracy))

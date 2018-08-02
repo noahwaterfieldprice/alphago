@@ -29,7 +29,7 @@ std::string solve_single_state(std::string state) {
   std::string value_str = std::to_string(solver.sign(value));
 
   std::stringstream ss;
-  ss << state << " " << value_str << " " << moves_str;
+  ss << state << "," << value_str << "," << moves_str;
   return ss.str();
 }
 
