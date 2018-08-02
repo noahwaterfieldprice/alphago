@@ -1,9 +1,9 @@
 """This file trains a connect four net with supervised learning.
 """
 import argparse
-import collections
-import pickle
+from collections import deque
 import os
+import pickle
 import time
 
 import numpy as np
@@ -30,9 +30,10 @@ def solved_states_to_training_data(solved_states):
     ----------
     solved_states: list
         A list, with each element being a tuple. The tuples are of the form
-        (action_list, action, outcome), where action_list is the list of played
-        columns, indexed from 1 to 7; action is the optimal action to play in
-        the state, and outcome is the eventual outcome to the current player.
+        (action_list, actions, outcome), where action_list is the list of
+        played columns, indexed from 1 to 7; actions are the optimal
+        actions to play in the state, and outcome is the eventual outcome to
+        the current player.
 
     Returns
     -------
@@ -40,14 +41,14 @@ def solved_states_to_training_data(solved_states):
         A list of training data suitable for AlphaGo.
     """
     training_data = []
-    for action_list, action, outcome in solved_states:
+    for action_list, actions, outcome in solved_states:
         # Convert the action list to a state for connect four.
         state = action_list_to_state([a - 1 for a in action_list])
 
-        # Set the probs vector to be 1 for the optimal action, and 0 for all
-        # other actions.
-        probs_vector = np.zeros(7, float)
-        probs_vector[action - 1] = 1
+        # Set the probs vector to be 1 for the optimal actions, and 0 for all
+        # other actions, but normalise so it sums to 1.
+        probs_vector = np.array([1 / len(actions) if a + 1 in actions else 0
+                                 for a in range(7)])
 
         # Store in training_data.
         training_data.append((state, probs_vector, outcome))
@@ -94,27 +95,49 @@ def update_results(game_results, game_results_file_name):
         pickle.dump(results, f)
 
 
-def compute_accuracy(estimator, solved_states):
-    """Computes the accuracy of the estimator predicting moves according to
+def compute_accuracy(estimator, optimal_actions):
+    """Computes the accuracy of the estimator predicting actions according to
     the maximum probability.
+
+    Parameters
+    ----------
+    estimator: func or AbstractNeuralNetEstimator
+        Can be evaluated on a state to get a value and probabilities over
+        actions.
+    optimal_actions: list
+        A list of tuples. Each tuple is of the form (state,
+        optimal_actions). Here state is a connect four state, and
+        optimal_actions is a list of optimal actions in that state. The
+        actions are all indexed 1 to 7.
+
+    Returns
+    -------
+    float
+        The accuracy of the network at predicting optimal actions. This is the
+        fraction of solved_states for which the network's maximal
+        probability action is in the optimal actions.
     """
-    actions = []
     predicted_actions = []
-    print("Computing accuracy")
-    for action_list, action, _ in tqdm(solved_states):
-        state = action_list_to_state([a - 1 for a in action_list])
-        probs, val = estimator(state)
+    actions_list = []
+    for state, actions in optimal_actions:
+        # Convert the state to 0 to 6 indices.
+        # state = action_list_to_state([a - 1 for a in action_list])
+        probs, _ = estimator(state)
+
+        # Get the estimator's predicted action in the range 1 up to 7.
         predicted_action = max(probs, key=probs.get) + 1
 
         predicted_actions.append(predicted_action)
-        actions.append(action)
+        actions_list.append(actions)
 
-    return np.mean([1 if actions[i] == predicted_actions[i] else 0 for i in
-                    range(len(actions))])
+    return np.mean([1 if predicted_actions[i] in actions_list[i]
+                    else 0 for i in range(len(predicted_actions))])
 
 
 # Training data should be a file with lines of the form:
-# action_list action outcome
+# action_list value optimal_actions
+# where optimal actions is a space separated sequence of the optimal actions
+# in that position. All actions should be indexed 1 to 7.
 # This is as output by c4solver.
 
 def load_net(step, checkpoint_path):
@@ -144,8 +167,11 @@ def train_network(solved_states, evaluate_every):
     trivial_estimator = create_trivial_estimator(game)
     rollout_estimator = create_rollout_estimator(game, 50)
     random_player = RandomPlayer(game)
-    trivial_mcts_player = MCTSPlayer(game, trivial_estimator, mcts_iters, 0.5, 0.01)
-    rollout_mcts_player = MCTSPlayer(game, rollout_estimator, mcts_iters, 0.5, 0.01)
+    c_puct = 0.5
+    trivial_mcts_player = MCTSPlayer(game, trivial_estimator, mcts_iters,
+                                     c_puct, 0.01)
+    rollout_mcts_player = MCTSPlayer(game, rollout_estimator, mcts_iters,
+                                     c_puct, 0.01)
     # fixed_comparison_players = {1: random_player,
     #                             2: trivial_mcts_player,
     #                             3: rollout_mcts_player}
@@ -153,7 +179,7 @@ def train_network(solved_states, evaluate_every):
     fixed_comparison_players = {1: random_player}
 
     supervised_player_no = len(fixed_comparison_players) + 1
-    supervised_players_queue = collections.deque(maxlen=2)
+    supervised_players_queue = deque(maxlen=2)
 
     # Hyperparameters
     learning_rate = 1e-4
@@ -184,13 +210,17 @@ def train_network(solved_states, evaluate_every):
                                action_indices=game.action_indices)
 
     summary_path = path + 'logs/'
-    scalar_names = ['dev_loss', 'dev_loss_value', 'dev_loss_probs']
+    scalar_names = ['dev_loss', 'dev_loss_value', 'dev_loss_probs',
+                    'dev_accuracy']
     summary_scalars = SummaryScalars(scalar_names)
 
     verbose = True
     training_iters = -1
 
     writer = tf.summary.FileWriter(summary_path)
+
+    dev_optimal_actions = [(action_list, optimal_actions) for
+                           action_list, optimal_actions, value in dev_data]
 
     for step in range(num_steps):
         print("Step: {}".format(step))
@@ -201,12 +231,15 @@ def train_network(solved_states, evaluate_every):
         # Now compute dev loss
         dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(
             dev_data, batch_size)
-        print("Dev loss: {}, dev loss value: {}, dev loss probs: {}".format(
-            dev_loss, dev_loss_value, dev_loss_probs))
+        dev_accuracy = compute_accuracy(estimator, dev_optimal_actions)
+        print("Dev loss: {}, dev loss value: {}, dev loss probs: {}, "
+              "dev accuracy: {}".format(dev_loss, dev_loss_value,
+                                        dev_loss_probs, dev_accuracy))
 
         summary_scalars.run({'dev_loss': dev_loss,
                              'dev_loss_value': dev_loss_value,
-                             'dev_loss_probs': dev_loss_probs},
+                             'dev_loss_probs': dev_loss_probs,
+                             'dev_accuracy': dev_accuracy},
                             estimator.global_step, writer)
 
         if step % checkpoint_every == 0 and step > 0:
@@ -219,7 +252,7 @@ def train_network(solved_states, evaluate_every):
                                            action_indices=game.action_indices)
             new_estimator.restore(checkpoint_name)
 
-            new_player = MCTSPlayer(game, new_estimator, 500, 0.5)
+            new_player = MCTSPlayer(game, new_estimator, mcts_iters, c_puct)
 
             supervised_players = {j: player for j, player
                                   in supervised_players_queue}
@@ -239,6 +272,47 @@ def train_network(solved_states, evaluate_every):
             supervised_player_no += 1
 
 
+def split_solved_state(line):
+    """Splits a line from a solved states file into the action list,
+    value and optimal actions.
+
+    Parameters
+    ----------
+    s: str
+        A line from a solved states file.
+
+    Returns
+    -------
+    action_list: list
+        List of actions taken to get to this state. The list is of integers
+        indexed from 1 to 7.
+    optimal_actions: list
+        List of the optimal actions.
+    value: int
+        The value of the state. Equals 1 if player can force a win,
+        0 if player can force a draw and -1 if opponent can force a win.
+    """
+    data = line.split()
+    action_list = list(map(int, data[0]))
+    value = int(data[1])
+    optimal_actions = list(map(int, data[2:]))
+    return action_list, optimal_actions, value
+
+
+def load_solved_states(training_data_file, max_lines=None):
+    solved_states = []
+    with open(training_data_file, 'r') as f:
+        for line in f:
+            action_list, optimal_actions, value = split_solved_state(line)
+            solved_states.append((action_list, optimal_actions, value))
+
+            # Break if we have reached max lines.
+            if max_lines is not None and len(solved_states) >= max_lines:
+                break
+
+    return solved_states
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('training_data', help='Input file with training data.')
@@ -254,25 +328,11 @@ if __name__ == "__main__":
                         help='The step of the checkpoint to evaluate.')
 
     args = parser.parse_args()
-    training_data = args.training_data
 
     # Load the training data.
-    max_lines = args.max_lines
-    if max_lines is not None:
-        max_lines = int(max_lines)
+    max_lines = int(args.max_lines) if args.max_lines is not None else None
 
-    solved_states = []
-    with open(training_data, 'r') as f:
-        for line in f:
-            data = line.split()
-            action_list = [int(c) for c in data[0]]
-            action = int(data[1])
-            outcome = int(data[2])
-            solved_states.append((action_list, action, outcome))
-
-            # Break if we have reached max lines.
-            if max_lines is not None and len(solved_states) >= max_lines:
-                break
+    solved_states = load_solved_states(args.training_data, max_lines=max_lines)
 
     # If evaluate checkpoint path is given, then just evaluate that network.
     if args.evaluate_checkpoint_path is not None:
@@ -281,7 +341,12 @@ if __name__ == "__main__":
 
         estimator = load_net(checkpoint_step, checkpoint_path)
 
-        accuracy = compute_accuracy(estimator, solved_states)
+        optimal_actions_list = [
+            (action_list_to_state([a - 1 for a in action_list]),
+             optimal_actions) for action_list, optimal_actions, _ in
+            solved_states]
+
+        accuracy = compute_accuracy(estimator, optimal_actions_list)
         print("Accuracy: {}".format(accuracy))
     else:
         # Otherwise, train the network.
