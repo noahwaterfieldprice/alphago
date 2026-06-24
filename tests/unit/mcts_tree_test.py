@@ -2,8 +2,13 @@ import numpy as np
 import pytest
 
 from alphago import mcts, MCTSNode
-from alphago.mcts_tree import (backup, compute_ucb,  extremise_distribution,
-                               normalise_distribution, select)
+from alphago.mcts_tree import (
+    backup,
+    compute_ucb,
+    extremise_distribution,
+    normalise_distribution,
+    select,
+)
 from .games.mock_game import MockGame
 
 
@@ -44,16 +49,16 @@ class TestMCTSNode:
         # Check we can expand the root of the tree.
         root = MCTSNode(1, player=1)
 
-        children_states = {'a': 2, 'b': 3}
-        prior_probs = {'a': 0.4, 'b': 0.6}
-        child_players = {'a': 2, 'b': 2}
-        child_terminals = {'a': False, 'b': False}
+        children_states = {"a": 2, "b": 3}
+        prior_probs = {"a": 0.4, "b": 0.6}
+        child_players = {"a": 2, "b": 2}
+        child_terminals = {"a": False, "b": False}
 
         leaf = root
         leaf.expand(prior_probs, children_states, child_players, child_terminals)
 
-        assert leaf.children['a'].game_state == 2
-        assert leaf.children['b'].game_state == 3
+        assert leaf.children["a"].game_state == 2
+        assert leaf.children["b"].game_state == 3
         assert leaf.prior_probs == prior_probs
 
 
@@ -84,9 +89,9 @@ class TestSelectAndBackupFunctions:
         {1: 3.0, 2: -3.0},
     ]
 
-    @pytest.mark.parametrize("nodes, expected_Q, values",
-                             zip(backup_nodes, backup_expected_Q,
-                                 backup_values))
+    @pytest.mark.parametrize(
+        "nodes, expected_Q, values", zip(backup_nodes, backup_expected_Q, backup_values)
+    )
     def test_mcts_backup(self, nodes, expected_Q, values):
         backup(nodes, values)
         for i, node in enumerate(nodes):
@@ -102,9 +107,10 @@ class TestSelectAndBackupFunctions:
 
     backup_n = [1, 2, 3]
 
-    @pytest.mark.parametrize("nodes, expected_Q, values, n",
-                             zip(backup_nodes_n_times, backup_expected_Q,
-                                 backup_values, backup_n))
+    @pytest.mark.parametrize(
+        "nodes, expected_Q, values, n",
+        zip(backup_nodes_n_times, backup_expected_Q, backup_values, backup_n),
+    )
     def test_mcts_backup_n_times(self, nodes, expected_Q, values, n):
         for i in range(n):
             backup(nodes, values)
@@ -118,30 +124,27 @@ class TestSelectAndBackupFunctions:
         root = MCTSNode(1, player=1)
 
         # Manually create a small tree below root.
-        root.children = {'a': MCTSNode(2, player=2),
-                         'b': MCTSNode(3, player=2)}
-        root.prior_probs = {'a': 0.2, 'b': 0.8}
+        root.children = {"a": MCTSNode(2, player=2), "b": MCTSNode(3, player=2)}
+        root.prior_probs = {"a": 0.2, "b": 0.8}
         root.N = 4
-        childa = root.children['a']
-        childa.children = {'c': MCTSNode(4, player=1),
-                           'd': MCTSNode(5, player=1)}
-        childa.prior_probs = {'c': 0.7, 'd': 0.3}
+        childa = root.children["a"]
+        childa.children = {"c": MCTSNode(4, player=1), "d": MCTSNode(5, player=1)}
+        childa.prior_probs = {"c": 0.7, "d": 0.3}
         childa.N = 2
 
-        nodec = childa.children['c']
+        nodec = childa.children["c"]
         nodec.N = 1
-        noded = childa.children['d']
+        noded = childa.children["d"]
         noded.N = 1
 
-        childb = root.children['b']
-        childb.children = {'e': MCTSNode(6, player=1),
-                           'f': MCTSNode(7, player=1)}
-        childb.prior_probs = {'e': 0.9, 'f': 0.1}
+        childb = root.children["b"]
+        childb.children = {"e": MCTSNode(6, player=1), "f": MCTSNode(7, player=1)}
+        childb.prior_probs = {"e": 0.9, "f": 0.1}
         childb.N = 1
 
-        nodee = childb.children['e']
+        nodee = childb.children["e"]
         nodee.N = 1
-        nodef = childb.children['f']
+        nodef = childb.children["f"]
         nodef.N = 1
 
         nodes, actions = select(root, 1.0)
@@ -152,19 +155,15 @@ class TestSelectAndBackupFunctions:
 
 def test_compute_ucb():
     c_puct = 1.0
-    action_values = {'a': 1.0, 'b': 2.0, 'c': 3.0}
-    prior_probs = {'a': 0.2, 'b': 0.5, 'c': 0.3}
-    action_counts = {'a': 10, 'b': 20, 'c': 30}
+    action_values = {"a": 1.0, "b": 2.0, "c": 3.0}
+    prior_probs = {"a": 0.2, "b": 0.5, "c": 0.3}
+    action_counts = {"a": 10, "b": 20, "c": 30}
     num = np.sqrt(sum(action_counts.values()))
     expected = {
-        a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) *
-        c_puct * num for a in action_values
+        a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) * c_puct * num
+        for a in action_values
     }
-    computed = compute_ucb(
-        action_values,
-        prior_probs,
-        action_counts,
-        c_puct)
+    computed = compute_ucb(action_values, prior_probs, action_counts, c_puct)
     assert expected == computed
 
 
@@ -180,15 +179,18 @@ def test_extremise_distribution_function():
     action_counts = {1: 3, 5: 7}
     tau = 0.1
     extremised = extremise_distribution(action_counts, tau=tau)
-    expected_not_normalised = {1: (3.0 / 10.0) ** (1 / tau),
-                               5: (7.0 / 10.0) ** (1 / tau)}
+    expected_not_normalised = {
+        1: (3.0 / 10.0) ** (1 / tau),
+        5: (7.0 / 10.0) ** (1 / tau),
+    }
     total = sum(expected_not_normalised.values())
     expected = {k: v / total for k, v in expected_not_normalised.items()}
 
     assert sum(extremised.values()) == pytest.approx(1)
     keys = expected.keys()
-    np.testing.assert_almost_equal([extremised[k] for k in keys],
-                                   [expected[k] for k in keys])
+    np.testing.assert_almost_equal(
+        [extremised[k] for k in keys], [expected[k] for k in keys]
+    )
 
 
 def test_mcts_action_count_at_root():
@@ -206,8 +208,7 @@ def test_mcts_action_count_at_root_children():
     mock_game = MockGame()
     root = MCTSNode(0, player=1)
 
-    action_probs = mcts(
-        root, mock_game, mock_game.mock_estimator,  100, 1.0)
+    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert sum(child.N for child in root.children.values()) == 99
@@ -226,6 +227,7 @@ def test_mcts_value_at_children_of_root():
     # Each iteration of MCTS we should add 1 to W of one of the
     # children of the root.
     assert sum(child.W for child in root.children.values()) == N_terminal_nodes
+
 
 # TODO: work out how to do this now mcts takes game object
 # def test_mcts_does_not_expand_terminal_nodes():

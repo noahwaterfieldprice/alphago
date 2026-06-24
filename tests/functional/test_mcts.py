@@ -18,7 +18,7 @@ def test_can_create_mcts_tree():
 
 
 def test_can_run_mcts_on_fake_game():
-    """ This test shows that we can run MCTS using a 'next_states'
+    """This test shows that we can run MCTS using a 'next_states'
     function and 'evaluator' function.
     """
     mock_game = MockGame()
@@ -29,23 +29,24 @@ def test_can_run_mcts_on_fake_game():
 
 
 def mock_evaluator_action0(state):
-    prior_probs = {action: prob for action, prob
-                   in zip(range(3), [1, 0, 0])}
+    prior_probs = {action: prob for action, prob in zip(range(3), [1, 0, 0])}
     value = 0
     return prior_probs, value
 
 
 def mock_evaluator_action1(state):
-    prior_probs = {action: prob for action, prob
-                   in zip(range(3), [0, 1, 0])}
+    prior_probs = {action: prob for action, prob in zip(range(3), [0, 1, 0])}
     value = 0
     return prior_probs, value
 
 
-@pytest.mark.parametrize("evaluator, expected", [
-    (mock_evaluator_action0, [0, 1, 3, 7]),
-    (mock_evaluator_action1, [0, 2, 6, 17]),
-])
+@pytest.mark.parametrize(
+    "evaluator, expected",
+    [
+        (mock_evaluator_action0, [0, 1, 3, 7]),
+        (mock_evaluator_action1, [0, 2, 6, 17]),
+    ],
+)
 def test_mcts_can_play_fake_game(evaluator, expected):
     mock_game = MockGame()
 
@@ -54,7 +55,7 @@ def test_mcts_can_play_fake_game(evaluator, expected):
     nodes = [node]
 
     while not node.is_terminal:
-        action_probs = mcts(root, mock_game, evaluator,  100, 1)
+        action_probs = mcts(root, mock_game, evaluator, 100, 1)
 
         action = max(action_probs, key=action_probs.get)
         node = node.children[action]

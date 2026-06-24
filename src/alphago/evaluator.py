@@ -12,9 +12,9 @@ Position, PlayerNo = int, int
 PlayerResults = Dict[int, int]
 
 
-def evaluate(game: Game, players: Dict[Position, Player],
-             num_games: int, verbose: bool = True
-             ) -> Tuple[PlayerResults, List[GameLog]]:
+def evaluate(
+    game: Game, players: Dict[Position, Player], num_games: int, verbose: bool = True
+) -> Tuple[PlayerResults, List[GameLog]]:
     """Compare two players. Returns the number of player1 wins,
     losses and draws and the game logs.
 
@@ -61,9 +61,11 @@ def evaluate(game: Game, players: Dict[Position, Player],
             player1_results[player1_result] += 1
 
             pbar.update(1)
-            pbar.set_description("Win1/Win2/Draw: {}/{}/{}".format(
-                player1_results[win], player1_results[loss],
-                player1_results[draw]))
+            pbar.set_description(
+                "Win1/Win2/Draw: {}/{}/{}".format(
+                    player1_results[win], player1_results[loss], player1_results[draw]
+                )
+            )
 
             game_logs.append(GameLog(player1_result, actions, game_states))
 
@@ -113,8 +115,9 @@ def play(game: Game, players: Dict[Position, Player]):
     return actions, game_states, utility
 
 
-def run_tournament(game: Game, players: Dict[PlayerNo, Player],
-                   num_rounds: int) -> List[Tuple[int, int, float]]:
+def run_tournament(
+    game: Game, players: Dict[PlayerNo, Player], num_rounds: int
+) -> List[Tuple[int, int, float]]:
     """Run a tournament of a the given game between the players and
     return the results.
 
@@ -147,7 +150,7 @@ def run_tournament(game: Game, players: Dict[PlayerNo, Player],
     with tqdm(total=num_games) as pbar:
         for round_number in range(num_rounds):
             pbar.set_description(f"Round {round_number + 1}")
-            for (i, j) in pairings:
+            for i, j in pairings:
                 # play i vs j
                 pair = {1: players[i], 2: players[j]}
                 *_, utility = play(game, pair)
@@ -163,9 +166,12 @@ def run_tournament(game: Game, players: Dict[PlayerNo, Player],
     return results_list
 
 
-def run_gauntlet(game: Game, challenger: Tuple[PlayerNo, Player],
-                 gauntlet_players: Dict[PlayerNo, Player],
-                 num_rounds: int) -> List[Tuple[int, int, float]]:
+def run_gauntlet(
+    game: Game,
+    challenger: Tuple[PlayerNo, Player],
+    gauntlet_players: Dict[PlayerNo, Player],
+    num_rounds: int,
+) -> List[Tuple[int, int, float]]:
     """Play a single player against a number of other players, i.e. a
     one vs all tournament, and return the results.
 
@@ -215,9 +221,12 @@ def run_gauntlet(game: Game, challenger: Tuple[PlayerNo, Player],
     return results_list
 
 
-def update_results(player1_no: int, player2_no: int,
-                   utility: Dict[int, float],
-                   results: Dict[Tuple[int, int], float]) -> None:
+def update_results(
+    player1_no: int,
+    player2_no: int,
+    utility: Dict[int, float],
+    results: Dict[Tuple[int, int], float],
+) -> None:
     """Update the results given the outcome of a game.
 
     Parameters

@@ -29,9 +29,12 @@ def load_net(checkpoint):
         The network loaded.
     """
     game = ConnectFour()
-    estimator = ConnectFourNet(learning_rate=1e-4,
-                               l2_weight=1e-4, value_weight=0.01,
-                               action_indices=game.action_indices)
+    estimator = ConnectFourNet(
+        learning_rate=1e-4,
+        l2_weight=1e-4,
+        value_weight=0.01,
+        action_indices=game.action_indices,
+    )
     estimator.restore(checkpoint)
     return estimator
 
@@ -65,8 +68,8 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
                 action = max(action_probs, key=action_probs.get)
             else:
                 action_probs = mcts_tree.mcts(
-                    root, cf, estimator, mcts_iters=mcts_iters, c_puct=c_puct,
-                    tau=tau)
+                    root, cf, estimator, mcts_iters=mcts_iters, c_puct=c_puct, tau=tau
+                )
                 actions, probs = zip(*action_probs.items())
                 print("Action probabilities: {}".format(action_probs))
                 action_ix = np.random.choice(range(len(actions)), p=probs)
@@ -75,11 +78,9 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
         else:
             action = None
             while action not in next_states:
-                user_input = input("Your move (1-7 reading across the "
-                                   "board): ")
-                if user_input == 'cheat':
-                    print("Optimal moves: {}".format(optimal_moves(
-                          action_list)))
+                user_input = input("Your move (1-7 reading across the board): ")
+                if user_input == "cheat":
+                    print("Optimal moves: {}".format(optimal_moves(action_list)))
                     continue
                 action_ix = int(user_input)
                 action_ix -= 1
@@ -103,18 +104,18 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('--player', help='1 if you play first, 2 if you play '
-                                         'second.')
-    parser.add_argument('--checkpoint',
-                        help='The checkpoint path to use for the estimator. '
-                             'If not given, then use a trivial estimator.')
-    parser.add_argument('--mcts_iters', help='If 0, then just use the raw '
-                                             'network.')
-    parser.add_argument('--tau', help='Defaults to 1. Set closer to 0 for '
-                                      'more exploitation.')
-    parser.add_argument('--c_puct', help='Defaults to 0.5')
+    parser.add_argument("--player", help="1 if you play first, 2 if you play second.")
+    parser.add_argument(
+        "--checkpoint",
+        help="The checkpoint path to use for the estimator. "
+        "If not given, then use a trivial estimator.",
+    )
+    parser.add_argument("--mcts_iters", help="If 0, then just use the raw network.")
+    parser.add_argument(
+        "--tau", help="Defaults to 1. Set closer to 0 for more exploitation."
+    )
+    parser.add_argument("--c_puct", help="Defaults to 0.5")
 
     args = parser.parse_args()
 

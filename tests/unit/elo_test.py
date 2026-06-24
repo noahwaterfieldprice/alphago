@@ -5,12 +5,15 @@ from alphago.elo import compute_log_likelihood, run_mm, update_gamma
 
 def test_compute_log_likelihood():
     gamma = np.array([1, 2, 3])
-    wins = np.array([[0, 3, 4],
-                     [1, 0, 2],
-                     [2, 0, 0]])
+    wins = np.array([[0, 3, 4], [1, 0, 2], [2, 0, 0]])
 
-    expected = 3 * np.log(1/(1+2)) + 4 * np.log(1/(1+3)) + \
-        1 * np.log(2/(2+1)) + 2 * np.log(2/(2+3)) + 2 * np.log(3/(3+1))
+    expected = (
+        3 * np.log(1 / (1 + 2))
+        + 4 * np.log(1 / (1 + 3))
+        + 1 * np.log(2 / (2 + 1))
+        + 2 * np.log(2 / (2 + 3))
+        + 2 * np.log(3 / (3 + 1))
+    )
 
     computed = compute_log_likelihood(wins, gamma)
     assert expected == computed
@@ -18,9 +21,7 @@ def test_compute_log_likelihood():
 
 def test_run_mm():
     initial_gamma = np.array([1, 1, 1])
-    wins = np.array([[0, 30, 40],
-                     [1, 0, 20],
-                     [2, 0, 0]])
+    wins = np.array([[0, 30, 40], [1, 0, 20], [2, 0, 0]])
 
     initial_ll = compute_log_likelihood(wins, initial_gamma)
     gamma = run_mm(initial_gamma, wins)
@@ -38,8 +39,9 @@ def test_run_mm_large():
         for j in range(10):
             if i == j:
                 continue
-            wins[i, j] = int(num_games * hidden_gamma[i] / (hidden_gamma[i] +
-                                                            hidden_gamma[j]))
+            wins[i, j] = int(
+                num_games * hidden_gamma[i] / (hidden_gamma[i] + hidden_gamma[j])
+            )
 
     hidden_ll = compute_log_likelihood(wins, hidden_gamma)
 
@@ -48,9 +50,11 @@ def test_run_mm_large():
     initial_ll = compute_log_likelihood(wins, initial_gamma)
     gamma = run_mm(initial_gamma, wins)
     final_ll = compute_log_likelihood(wins, gamma)
-    print("Hidden ll: {}, initial ll: {}, final ll: {}".format(hidden_ll,
-                                                               initial_ll,
-                                                               final_ll))
+    print(
+        "Hidden ll: {}, initial ll: {}, final ll: {}".format(
+            hidden_ll, initial_ll, final_ll
+        )
+    )
     print(hidden_gamma * 100)
     print(gamma * 100)
     assert initial_ll < final_ll
@@ -58,9 +62,7 @@ def test_run_mm_large():
 
 def test_update_gamma():
     initial_gamma = np.array([1, 2, 3])
-    wins = np.array([[0, 3, 4],
-                     [1, 0, 2],
-                     [2, 0, 0]])
+    wins = np.array([[0, 3, 4], [1, 0, 2], [2, 0, 0]])
 
     expected0 = 7 / (4 / 3 + 6 / 4)
     expected1 = 3 / (4 / 3 + 2 / 5)
@@ -73,9 +75,7 @@ def test_update_gamma():
 
 def test_reference_gammas():
     initial_gamma = np.array([1, 1, 1])
-    wins = np.array([[0, 30, 40],
-                     [1, 0, 20],
-                     [2, 0, 0]])
+    wins = np.array([[0, 30, 40], [1, 0, 20], [2, 0, 0]])
 
     initial_ll = compute_log_likelihood(wins, initial_gamma)
 

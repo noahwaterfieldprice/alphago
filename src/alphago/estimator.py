@@ -42,10 +42,9 @@ def create_trivial_estimator(game: Game):
             choosing each one.
         value: float
             The evaluator's estimate of the value of the state 'state'.
-         """
+        """
         next_states = game.legal_actions(state)
-        uniform_prior_probs = {action: 1 / len(next_states)
-                               for action in next_states}
+        uniform_prior_probs = {action: 1 / len(next_states) for action in next_states}
         return uniform_prior_probs, 0
 
     return trivial_estimator
@@ -55,8 +54,7 @@ def create_rollout_estimator(game, num_rollouts):
     # TODO: test this and write docstring
     def rollout_estimator(state):
         next_states = game.legal_actions(state)
-        uniform_prior_probs = {action: 1 / len(next_states)
-                               for action in next_states}
+        uniform_prior_probs = {action: 1 / len(next_states) for action in next_states}
         player_no = game.current_player(state)
         total_value = 0
         for _ in range(num_rollouts):
@@ -114,15 +112,19 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
         # Evaluate the network at the state
         probs = self.sess.run(
-            self.tensors['probs'],
+            self.tensors["probs"],
             feed_dict={
-                self.tensors['state_vector']: state,
-                self.tensors['is_training']: False})
+                self.tensors["state_vector"]: state,
+                self.tensors["is_training"]: False,
+            },
+        )
         value = self.sess.run(
-            self.tensors['value'],
+            self.tensors["value"],
             feed_dict={
-                self.tensors['state_vector']: state,
-                self.tensors['is_training']: False})
+                self.tensors["state_vector"]: state,
+                self.tensors["is_training"]: False,
+            },
+        )
 
         # value is currently an np array, so extract the float.
         probs = probs.ravel()
@@ -130,11 +132,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
 
         # probs is currently an np array. Put the value into a
         # dictionary with keys the actions and values the probs.
-        probs_dict = {action: probs[index] for
-                      action, index in self.action_indices.items()}
+        probs_dict = {
+            action: probs[index] for action, index in self.action_indices.items()
+        }
 
         return probs_dict, value
-
 
     def loss(self, data, batch_size):
         """Computes the loss of the network on the data.
@@ -171,13 +173,18 @@ class AbstractNeuralNetEstimator(abc.ABC):
             zs = zs[:, np.newaxis]
 
             loss, loss_value, loss_probs = self.sess.run(
-                [self.tensors['loss'], self.tensors['loss_value'],
-                 self.tensors['loss_probs']], feed_dict={
-                    self.tensors['state_vector']: states,
-                    self.tensors['pi']: pis,
-                    self.tensors['outcomes']: zs,
-                    self.tensors['is_training']: False
-                })
+                [
+                    self.tensors["loss"],
+                    self.tensors["loss_value"],
+                    self.tensors["loss_probs"],
+                ],
+                feed_dict={
+                    self.tensors["state_vector"]: states,
+                    self.tensors["pi"]: pis,
+                    self.tensors["outcomes"]: zs,
+                    self.tensors["is_training"]: False,
+                },
+            )
             losses.append(loss)
             loss_value_list.append(loss_value)
             loss_probs_list.append(loss_probs)
@@ -208,21 +215,35 @@ class AbstractNeuralNetEstimator(abc.ABC):
         zs = zs[:, np.newaxis]
 
         summary, value, probs, loss, _ = self.sess.run(
-            [self.tensors['summary'], self.tensors['value'],
-             self.tensors['probs'], self.tensors['loss'],
-             self.train_op],
-            feed_dict={self.tensors['state_vector']: states,
-                       self.tensors['pi']: pis,
-                       self.tensors['outcomes']: zs,
-                       self.tensors['is_training']: True})
+            [
+                self.tensors["summary"],
+                self.tensors["value"],
+                self.tensors["probs"],
+                self.tensors["loss"],
+                self.train_op,
+            ],
+            feed_dict={
+                self.tensors["state_vector"]: states,
+                self.tensors["pi"]: pis,
+                self.tensors["outcomes"]: zs,
+                self.tensors["is_training"]: True,
+            },
+        )
 
         # Update the global step
         self.global_step += 1
         if return_summary:
             return summary
 
-    def train(self, training_data, batch_size, training_iters,
-              mode='reinforcement', writer=None, verbose=True):
+    def train(
+        self,
+        training_data,
+        batch_size,
+        training_iters,
+        mode="reinforcement",
+        writer=None,
+        verbose=True,
+    ):
         """Trains the net on the training data.
 
         Parameters
@@ -251,21 +272,23 @@ class AbstractNeuralNetEstimator(abc.ABC):
         """
         # TODO: This concrete implementation of two cases probably shouldn't be in ABC
 
-        if mode not in ['reinforcement', 'supervised']:
+        if mode not in ["reinforcement", "supervised"]:
             raise ValueError("`mode` must be 'reinforcement', 'supervised'.")
 
-        if mode == 'reinforcement':
+        if mode == "reinforcement":
             if training_iters == -1:
-                raise ValueError("`training_iters` must be > 1 for "
-                                 "reinforcement mode.")
-            self._train_reinforcement(training_data, batch_size, training_iters,
-                                      writer, verbose)
-        elif mode == 'supervised':
-            self._train_supervised(training_data, batch_size, training_iters,
-                                   writer, verbose)
+                raise ValueError("`training_iters` must be > 1 for reinforcement mode.")
+            self._train_reinforcement(
+                training_data, batch_size, training_iters, writer, verbose
+            )
+        elif mode == "supervised":
+            self._train_supervised(
+                training_data, batch_size, training_iters, writer, verbose
+            )
 
-    def _train_reinforcement(self, training_data, batch_size, training_iters,
-                             writer, verbose):
+    def _train_reinforcement(
+        self, training_data, batch_size, training_iters, writer, verbose
+    ):
         """Train the net in reinforcement learning mode.
 
         In this case, a random batch is sampled for the data every
@@ -281,8 +304,9 @@ class AbstractNeuralNetEstimator(abc.ABC):
             if writer is not None:
                 writer.add_summary(summary, self.global_step)
 
-    def _train_supervised(self, training_data, batch_size, training_iters,
-                          writer, verbose):
+    def _train_supervised(
+        self, training_data, batch_size, training_iters, writer, verbose
+    ):
         """Train the net in supervised learning mode.
 
         In this case, the training data are randomly shuffled and then
@@ -300,8 +324,9 @@ class AbstractNeuralNetEstimator(abc.ABC):
         # generate batch indices, the final batch may be smaller if
         # `batch_size` doesn't evenly divide into size of training data
         batch_indices_list = [
-            training_indices[i * batch_size:min(size, (i + 1) * batch_size)]
-            for i in range(training_iters)]
+            training_indices[i * batch_size : min(size, (i + 1) * batch_size)]
+            for i in range(training_iters)
+        ]
 
         disable_tqdm = False if verbose else True
         for batch_indices in tqdm(batch_indices_list, disable=disable_tqdm):
@@ -326,13 +351,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
         return self.__call__
 
     def save(self, save_file):
-        """Saves the net to save_file.
-        """
+        """Saves the net to save_file."""
         self.saver.save(self.sess, save_file)
 
     def restore(self, save_file):
-        """Restore the net from save_file.
-        """
+        """Restore the net from save_file."""
         self.saver.restore(self.sess, save_file)
 
 
@@ -354,58 +377,80 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 9,))
+            state_vector = tf.placeholder(
+                tf.float32,
+                shape=(
+                    None,
+                    9,
+                ),
+            )
             pi = tf.placeholder(tf.float32, shape=(None, 9))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
             input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
 
-            regularizer = tf.contrib.layers.l2_regularizer(
-                scale=self.l2_weight)
+            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
             is_training = tf.placeholder(tf.bool)
             use_batch_norm = False
 
             conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer, num_outputs=8, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=input_layer,
+                num_outputs=8,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv1 = tf.contrib.layers.batch_norm(
-                    conv1, is_training=is_training)
+                conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training)
             conv1 = tf.nn.relu(conv1)
 
             conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1, num_outputs=16, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=conv1,
+                num_outputs=16,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv2 = tf.contrib.layers.batch_norm(
-                    conv2, is_training=is_training)
+                conv2 = tf.contrib.layers.batch_norm(conv2, is_training=is_training)
             conv2 = tf.nn.relu(conv2)
 
             conv3 = tf.contrib.layers.conv3d(
-                inputs=conv2, num_outputs=16, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=conv2,
+                num_outputs=16,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv3 = tf.contrib.layers.batch_norm(
-                    conv3, is_training=is_training)
+                conv3 = tf.contrib.layers.batch_norm(conv3, is_training=is_training)
             conv3 = tf.nn.relu(conv3)
 
             conv3_flat = tf.contrib.layers.flatten(conv3)
 
             dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv3_flat, num_outputs=32,
-                weights_regularizer=regularizer)
+                inputs=conv3_flat, num_outputs=32, weights_regularizer=regularizer
+            )
             if use_batch_norm:
-                dense1 = tf.contrib.layers.batch_norm(
-                    dense1, is_training=is_training)
+                dense1 = tf.contrib.layers.batch_norm(dense1, is_training=is_training)
             dense1 = tf.nn.relu(dense1)
 
             value = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=1, weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh)
+                inputs=dense1,
+                num_outputs=1,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.tanh,
+            )
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=9, weights_regularizer=regularizer,
-                activation_fn=None)
+                inputs=dense1,
+                num_outputs=9,
+                weights_regularizer=regularizer,
+                activation_fn=None,
+            )
             probs = tf.nn.softmax(logits=prob_logits)
 
             # We want to compute log_probs = log(softmax(prob_logits)). This
@@ -420,12 +465,12 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             loss = self.value_weight * loss_value + loss_probs
 
             # Set up the training op
-            self.train_op = \
-                tf.train.MomentumOptimizer(self.learning_rate,
-                                           momentum=0.9).minimize(loss)
+            self.train_op = tf.train.MomentumOptimizer(
+                self.learning_rate, momentum=0.9
+            ).minimize(loss)
 
             # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar('loss', loss)
+            loss_summary = tf.summary.scalar("loss", loss)
 
             summary = tf.summary.merge([loss_summary])
 
@@ -437,10 +482,23 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training, summary]
-        names = ("state_vector outcomes pi value prob_logits probs loss "
-                 "loss_value loss_probs is_training summary").split()
+        tensors = [
+            state_vector,
+            outcomes,
+            pi,
+            value,
+            prob_logits,
+            probs,
+            loss,
+            loss_value,
+            loss_probs,
+            is_training,
+            summary,
+        ]
+        names = (
+            "state_vector outcomes pi value prob_logits probs loss "
+            "loss_value loss_probs is_training summary"
+        ).split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
     def _state_to_vector(self, state):
@@ -457,8 +515,8 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
 
     @staticmethod
     def _binary_state_to_array(state):
-        player1_board = [int(i) for i in '{0:018b}'.format(state[0])]
-        player2_board = [int(i) for i in '{0:018b}'.format(state[1])]
+        player1_board = [int(i) for i in "{0:018b}".format(state[0])]
+        player2_board = [int(i) for i in "{0:018b}".format(state[1])]
         return player1_board + player2_board
 
     def train_step(self, batch, return_summary=False):
@@ -479,21 +537,27 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
             The summary tensor, run on the batch.
         """
         # Set up the states, probs, zs arrays.
-        states = np.array([self._binary_state_to_array(x[0])
-                           for x in batch])
+        states = np.array([self._binary_state_to_array(x[0]) for x in batch])
         pis = np.array([x[1] for x in batch])
 
         zs = np.array([x[2] for x in batch])
         zs = zs[:, np.newaxis]
 
         summary, value, probs, loss, _ = self.sess.run(
-            [self.tensors['summary'], self.tensors['value'],
-             self.tensors['probs'], self.tensors['loss'],
-             self.train_op],
-            feed_dict={self.tensors['state_vector']: states,
-                       self.tensors['pi']: pis,
-                       self.tensors['outcomes']: zs,
-                       self.tensors['is_training']: True})
+            [
+                self.tensors["summary"],
+                self.tensors["value"],
+                self.tensors["probs"],
+                self.tensors["loss"],
+                self.train_op,
+            ],
+            feed_dict={
+                self.tensors["state_vector"]: states,
+                self.tensors["pi"]: pis,
+                self.tensors["outcomes"]: zs,
+                self.tensors["is_training"]: True,
+            },
+        )
 
         # Update the global step
         self.global_step += 1
@@ -529,20 +593,24 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
             batch_data = [data[i] for i in batch_indices]
 
             # Set up the states, probs, zs arrays.
-            states = np.array([self._binary_state_to_array(x[0])
-                               for x in batch_data])
+            states = np.array([self._binary_state_to_array(x[0]) for x in batch_data])
             pis = np.array([x[1] for x in batch_data])
             zs = np.array([x[2] for x in batch_data])
             zs = zs[:, np.newaxis]
 
             loss, loss_value, loss_probs = self.sess.run(
-                [self.tensors['loss'], self.tensors['loss_value'],
-                 self.tensors['loss_probs']], feed_dict={
-                    self.tensors['state_vector']: states,
-                    self.tensors['pi']: pis,
-                    self.tensors['outcomes']: zs,
-                    self.tensors['is_training']: False
-                })
+                [
+                    self.tensors["loss"],
+                    self.tensors["loss_value"],
+                    self.tensors["loss_probs"],
+                ],
+                feed_dict={
+                    self.tensors["state_vector"]: states,
+                    self.tensors["pi"]: pis,
+                    self.tensors["outcomes"]: zs,
+                    self.tensors["is_training"]: False,
+                },
+            )
             losses.append(loss)
             loss_value_list.append(loss_value)
             loss_probs_list.append(loss_probs)
@@ -573,8 +641,10 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
 
             # probs is currently an np array. Put the value into a
             # dictionary with keys the actions and values the probs.
-            probs_dict = {action: probs[self.action_indices[action]] for
-                          action in self.action_indices}
+            probs_dict = {
+                action: probs[self.action_indices[action]]
+                for action in self.action_indices
+            }
 
             return probs_dict, value
 
@@ -591,116 +661,142 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 36,))
+            state_vector = tf.placeholder(
+                tf.float32,
+                shape=(
+                    None,
+                    36,
+                ),
+            )
             pi = tf.placeholder(tf.float32, shape=(None, 18))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
             input_layer = tf.reshape(state_vector, [-1, 3, 6, 2])
 
-            regularizer = tf.contrib.layers.l2_regularizer(
-                scale=self.l2_weight)
+            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
             is_training = tf.placeholder(tf.bool)
             use_batch_norm = True
 
             conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer, num_outputs=32, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=input_layer,
+                num_outputs=32,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv1 = tf.contrib.layers.batch_norm(
-                    conv1, is_training=is_training)
+                conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training)
             conv1 = tf.nn.relu(conv1)
 
             conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1, num_outputs=64, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=conv1,
+                num_outputs=64,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv2 = tf.contrib.layers.batch_norm(
-                    conv2, is_training=is_training)
+                conv2 = tf.contrib.layers.batch_norm(conv2, is_training=is_training)
             conv2 = tf.nn.relu(conv2)
 
             conv3 = tf.contrib.layers.conv3d(
-                inputs=conv2, num_outputs=128, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=conv2,
+                num_outputs=128,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv3 = tf.contrib.layers.batch_norm(
-                    conv3, is_training=is_training)
+                conv3 = tf.contrib.layers.batch_norm(conv3, is_training=is_training)
             conv3 = tf.nn.relu(conv3)
 
             conv4 = tf.contrib.layers.conv3d(
-                inputs=conv3, num_outputs=128, kernel_size=[2, 2],
-                stride=1, padding='SAME', weights_regularizer=regularizer)
+                inputs=conv3,
+                num_outputs=128,
+                kernel_size=[2, 2],
+                stride=1,
+                padding="SAME",
+                weights_regularizer=regularizer,
+            )
             if use_batch_norm:
-                conv4 = tf.contrib.layers.batch_norm(
-                    conv4, is_training=is_training)
+                conv4 = tf.contrib.layers.batch_norm(conv4, is_training=is_training)
             conv4 = tf.nn.relu(conv4)
 
             conv4_flat = tf.contrib.layers.flatten(conv4)
 
             dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv4_flat, num_outputs=128,
-                weights_regularizer=regularizer)
+                inputs=conv4_flat, num_outputs=128, weights_regularizer=regularizer
+            )
             if use_batch_norm:
-                dense1 = tf.contrib.layers.batch_norm(
-                    dense1, is_training=is_training)
+                dense1 = tf.contrib.layers.batch_norm(dense1, is_training=is_training)
             dense1 = tf.nn.relu(dense1)
 
             dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=128,
-                weights_regularizer=regularizer)
+                inputs=dense1, num_outputs=128, weights_regularizer=regularizer
+            )
             if use_batch_norm:
-                dense2 = tf.contrib.layers.batch_norm(
-                    dense2, is_training=is_training)
+                dense2 = tf.contrib.layers.batch_norm(dense2, is_training=is_training)
             dense2 = tf.nn.relu(dense2)
 
             dense3 = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=256,
-                weights_regularizer=regularizer)
+                inputs=dense2, num_outputs=256, weights_regularizer=regularizer
+            )
             if use_batch_norm:
-                dense3 = tf.contrib.layers.batch_norm(
-                    dense3, is_training=is_training)
+                dense3 = tf.contrib.layers.batch_norm(dense3, is_training=is_training)
             dense3 = tf.nn.relu(dense3)
 
             value_head1 = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=128,
-                weights_regularizer=regularizer)
+                inputs=dense3, num_outputs=128, weights_regularizer=regularizer
+            )
             if use_batch_norm:
                 value_head1 = tf.contrib.layers.batch_norm(
-                    value_head1, is_training=is_training)
+                    value_head1, is_training=is_training
+                )
             value_head1 = tf.nn.relu(value_head1)
 
             value_head2 = tf.contrib.layers.fully_connected(
-                inputs=value_head1, num_outputs=64,
-                weights_regularizer=regularizer)
+                inputs=value_head1, num_outputs=64, weights_regularizer=regularizer
+            )
             if use_batch_norm:
                 value_head2 = tf.contrib.layers.batch_norm(
-                    value_head2, is_training=is_training)
+                    value_head2, is_training=is_training
+                )
             value_head2 = tf.nn.relu(value_head2)
 
             value = tf.contrib.layers.fully_connected(
-                inputs=value_head2, num_outputs=1,
+                inputs=value_head2,
+                num_outputs=1,
                 weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh)
+                activation_fn=tf.nn.tanh,
+            )
 
             policy_head1 = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=256,
-                weights_regularizer=regularizer)
+                inputs=dense3, num_outputs=256, weights_regularizer=regularizer
+            )
             if use_batch_norm:
                 policy_head1 = tf.contrib.layers.batch_norm(
-                    policy_head1, is_training=is_training)
+                    policy_head1, is_training=is_training
+                )
             policy_head1 = tf.nn.relu(policy_head1)
 
             policy_head2 = tf.contrib.layers.fully_connected(
-                inputs=policy_head1, num_outputs=128,
-                weights_regularizer=regularizer)
+                inputs=policy_head1, num_outputs=128, weights_regularizer=regularizer
+            )
             if use_batch_norm:
                 policy_head2 = tf.contrib.layers.batch_norm(
-                    policy_head2, is_training=is_training)
+                    policy_head2, is_training=is_training
+                )
             policy_head2 = tf.nn.relu(policy_head2)
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=policy_head2, num_outputs=18,
+                inputs=policy_head2,
+                num_outputs=18,
                 weights_regularizer=regularizer,
-                activation_fn=None)
+                activation_fn=None,
+            )
             probs = tf.nn.softmax(logits=prob_logits)
 
             # We want to compute log_probs = log(softmax(prob_logits)). This
@@ -715,12 +811,12 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
             loss = self.value_weight * loss_value + loss_probs
 
             # Set up the training op
-            self.train_op = \
-                tf.train.MomentumOptimizer(self.learning_rate,
-                                           momentum=0.9).minimize(loss)
+            self.train_op = tf.train.MomentumOptimizer(
+                self.learning_rate, momentum=0.9
+            ).minimize(loss)
 
             # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar('loss', loss)
+            loss_summary = tf.summary.scalar("loss", loss)
 
             summary = tf.summary.merge([loss_summary])
 
@@ -732,10 +828,23 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training, summary]
-        names = ("state_vector outcomes pi value prob_logits probs loss "
-                 "loss_value loss_probs is_training summary").split()
+        tensors = [
+            state_vector,
+            outcomes,
+            pi,
+            value,
+            prob_logits,
+            probs,
+            loss,
+            loss_value,
+            loss_probs,
+            is_training,
+            summary,
+        ]
+        names = (
+            "state_vector outcomes pi value prob_logits probs loss "
+            "loss_value loss_probs is_training summary"
+        ).split()
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
 
@@ -757,57 +866,93 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
 
         # Use the graph to create the tensors
         with self.graph.as_default():
-            state_vector = tf.placeholder(tf.float32, shape=(None, 42,))
+            state_vector = tf.placeholder(
+                tf.float32,
+                shape=(
+                    None,
+                    42,
+                ),
+            )
             pi = tf.placeholder(tf.float32, shape=(None, 7))
             outcomes = tf.placeholder(tf.float32, shape=(None, 1))
 
             input_layer = tf.reshape(state_vector, [-1, 6, 7, 1])
 
-            regularizer = tf.contrib.layers.l2_regularizer(
-                scale=self.l2_weight)
+            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
             is_training = tf.placeholder(tf.bool)
 
             conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer, num_outputs=8, kernel_size=[3, 3],
-                padding='SAME', weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=input_layer,
+                num_outputs=8,
+                kernel_size=[3, 3],
+                padding="SAME",
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1, num_outputs=16, kernel_size=[3, 3],
-                padding='SAME', weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=conv1,
+                num_outputs=16,
+                kernel_size=[3, 3],
+                padding="SAME",
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             conv3 = tf.contrib.layers.conv2d(
-                inputs=conv2, num_outputs=32, kernel_size=[3, 3],
-                padding='SAME', weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=conv2,
+                num_outputs=32,
+                kernel_size=[3, 3],
+                padding="SAME",
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             conv4 = tf.contrib.layers.conv2d(
-                inputs=conv3, num_outputs=64, kernel_size=[3, 3],
-                padding='SAME', weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=conv3,
+                num_outputs=64,
+                kernel_size=[3, 3],
+                padding="SAME",
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             conv4_flat = tf.contrib.layers.flatten(conv4)
 
             dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv4_flat, num_outputs=64,
-                weights_regularizer=regularizer, activation_fn=tf.nn.relu)
+                inputs=conv4_flat,
+                num_outputs=64,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=128, weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=dense1,
+                num_outputs=128,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             dense3 = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=256, weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu)
+                inputs=dense2,
+                num_outputs=256,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.relu,
+            )
 
             value = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=1, weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh)
+                inputs=dense3,
+                num_outputs=1,
+                weights_regularizer=regularizer,
+                activation_fn=tf.nn.tanh,
+            )
 
             prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=7, weights_regularizer=regularizer,
-                activation_fn=None)
+                inputs=dense3,
+                num_outputs=7,
+                weights_regularizer=regularizer,
+                activation_fn=None,
+            )
             probs = tf.nn.softmax(logits=prob_logits)
 
             # We want to compute log_probs = log(softmax(prob_logits)). This
@@ -822,12 +967,12 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
             loss = self.value_weight * loss_value + loss_probs
 
             # Set up the training op
-            self.train_op = \
-                tf.train.MomentumOptimizer(self.learning_rate,
-                                           momentum=0.9).minimize(loss)
+            self.train_op = tf.train.MomentumOptimizer(
+                self.learning_rate, momentum=0.9
+            ).minimize(loss)
 
             # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar('loss', loss)
+            loss_summary = tf.summary.scalar("loss", loss)
 
             summary = tf.summary.merge([loss_summary])
 
@@ -840,10 +985,23 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
         # Initialise global step (the number of training steps taken).
         self.global_step = 0
 
-        tensors = [state_vector, outcomes, pi, value, prob_logits, probs,
-                   loss, loss_value, loss_probs, is_training, summary]
-        names = "state_vector outcomes pi value prob_logits probs loss " \
-                "loss_value loss_probs is_training summary".split()
+        tensors = [
+            state_vector,
+            outcomes,
+            pi,
+            value,
+            prob_logits,
+            probs,
+            loss,
+            loss_value,
+            loss_probs,
+            is_training,
+            summary,
+        ]
+        names = (
+            "state_vector outcomes pi value prob_logits probs loss "
+            "loss_value loss_probs is_training summary".split()
+        )
         self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
 
     def _state_to_vector(self, state):

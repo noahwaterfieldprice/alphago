@@ -3,7 +3,7 @@ from typing import Any, Callable, TypeVar, Dict
 
 import numpy as np
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def sample_distribution(distribution: Dict[T, float]) -> T:

@@ -3,6 +3,7 @@
 Seven columns, six rows. On your turn you can play any of the columns (if it is
 not full).
 """
+
 import os
 from typing import Tuple
 import subprocess
@@ -15,12 +16,10 @@ GameState, Action = Tuple[int, ...], int
 
 
 class ConnectFour(Game):
-
     def __init__(self) -> None:
         self.initial_state = (0,) * 42
         self.action_space = tuple(i for i in range(7))
-        self.action_indices = {a: self.action_space.index(a) for a in
-                               self.action_space}
+        self.action_indices = {a: self.action_space.index(a) for a in self.action_space}
 
     def current_player(self, state):
         """Returns the player to play in the current state.
@@ -56,11 +55,12 @@ class ConnectFour(Game):
         grid = np.array(state).reshape(4, 4)
         horizontals = np.sum(grid, axis=1)
         verticals = np.sum(grid, axis=0)
-        major_diagonal = np.sum(grid.diagonal()),
-        minor_diagonal = np.sum(np.fliplr(grid).diagonal()),
+        major_diagonal = (np.sum(grid.diagonal()),)
+        minor_diagonal = (np.sum(np.fliplr(grid).diagonal()),)
 
-        line_sums = np.concatenate([horizontals, verticals, major_diagonal,
-                                    minor_diagonal])
+        line_sums = np.concatenate(
+            [horizontals, verticals, major_diagonal, minor_diagonal]
+        )
 
         return line_sums
 
@@ -80,10 +80,12 @@ class ConnectFour(Game):
         """
         # Extract all 4x4 subarrays of the state, and compute their line sums.
         grid = np.array(state).reshape(6, 7)
-        subgrids = (grid[i:i+4, j:j+4] for i in range(3) for j in range(4))
+        subgrids = (grid[i : i + 4, j : j + 4] for i in range(3) for j in range(4))
         tuple_subgrids = (tuple(subgrid.flatten()) for subgrid in subgrids)
-        line_sums_list = [ConnectFour._calculate_line_sums_4_by_4(subgrid)
-                          for subgrid in tuple_subgrids]
+        line_sums_list = [
+            ConnectFour._calculate_line_sums_4_by_4(subgrid)
+            for subgrid in tuple_subgrids
+        ]
         return np.concatenate(line_sums_list)
 
     def is_terminal(self, state):
@@ -140,8 +142,7 @@ class ConnectFour(Game):
             return {1: 0, 2: 0}
 
         # Otherwise the state is non-terminal and the utility cannot be calculated
-        raise ValueError("Utility cannot be calculated for a "
-                         "non-terminal state.")
+        raise ValueError("Utility cannot be calculated for a non-terminal state.")
 
     def legal_actions(self, state):
         """Computes the next states possible from this state.
@@ -196,7 +197,7 @@ class ConnectFour(Game):
 
         output_rows = []
         for state_row in np.array_split(tuple(state), indices_or_sections=6):
-            y = "|". join([" {} ".format(symbol_dict[x]) for x in state_row])
+            y = "|".join([" {} ".format(symbol_dict[x]) for x in state_row])
             output_rows.append(y)
 
         ascii_grid = divider.join(output_rows)
@@ -222,15 +223,15 @@ def action_list_to_state(action_list):
         player = (i % 2) + 1
         player_symbol = 2 * (i % 2) - 1
         columns[action].append(player_symbol)
-    
+
     for action in range(7):
         n = len(columns[action])
-        columns[action].extend([0 for j in range(6-n)])
+        columns[action].extend([0 for j in range(6 - n)])
 
     state = np.zeros((6, 7), int)
     for action in range(7):
         for i in range(6):
-            state[i][action] = columns[action][5-i]
+            state[i][action] = columns[action][5 - i]
 
     return tuple(state.ravel())
 
@@ -246,7 +247,7 @@ def heuristic(state):
     ----------
     state: tuple
         The Connect Four state. Length 42 tuple reading across the rows.
-    
+
     Returns
     -------
     heuristic: int
@@ -284,17 +285,16 @@ def optimal_moves(action_list):
     list
         A list of the optimal moves in the position, indexed 1 up to 7.
     """
-    solver = 'tools/connect_four/solver/connect_four_optimal_moves'
+    solver = "tools/connect_four/solver/connect_four_optimal_moves"
     assert os.path.exists(solver)
     action_list_str = "".join(map(str, action_list))
-    completed = subprocess.run([solver, action_list_str],
-                               stdout=subprocess.PIPE)
+    completed = subprocess.run([solver, action_list_str], stdout=subprocess.PIPE)
 
     # The result is a space-separated string consisting of the action list,
     # then the optimal moves for that position.
     result = completed.stdout.decode()
     result = result.strip()
-    result = result.split(' ')
+    result = result.split(" ")
 
     action_list_str = result[0]
     value = int(result[1])

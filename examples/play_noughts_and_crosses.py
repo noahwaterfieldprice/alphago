@@ -3,20 +3,20 @@ trivial evaluator. For nonterminal states, the evaluator returns the uniform
 probability distribution over available actions and a value of 0. In a terminal
 state, we back up the utility returned by the game.
 """
+
 import numpy as np
 
 from alphago.games.noughts_and_crosses import NoughtsAndCrosses
 from alphago.estimator import create_trivial_estimator
 from alphago.player import MCTSPlayer
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     nac = NoughtsAndCrosses()
     evaluator = create_trivial_estimator(nac.legal_actions)
 
     state = nac.INITIAL_STATE
     computer_player_no = np.random.choice([1, 2])
-    computer_player = MCTSPlayer(nac, evaluator, mcts_iters=2000,
-                                 c_puct=0.5, tau=0.01)
+    computer_player = MCTSPlayer(nac, evaluator, mcts_iters=2000, c_puct=0.5, tau=0.01)
     human_player_no = 1 if computer_player_no == 2 else 2
     print("You are player: {}".format(human_player_no))
     while not nac.is_terminal(state):
@@ -29,8 +29,7 @@ if __name__ == "__main__":
         else:
             action = None
             while action not in next_states:
-                action_ix = int(input("Your move (0-8 reading "
-                                      "across the board): "))
+                action_ix = int(input("Your move (0-8 reading across the board): "))
                 if 0 <= action_ix <= 8:
                     action = nac.ACTION_SPACE[action_ix]
                     computer_player.update(action)

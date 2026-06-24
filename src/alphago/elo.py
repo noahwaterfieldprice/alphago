@@ -61,8 +61,9 @@ def compute_log_likelihood(wins: np.ndarray, gamma: np.ndarray) -> float:
     return float(np.sum(wins * (np.log(gamma_rows) - np.log(gamma_sum))))
 
 
-def compute_win_matrix(game_results: Sequence[Tuple],
-                       player_indices: Dict[int, int]) -> np.ndarray:
+def compute_win_matrix(
+    game_results: Sequence[Tuple], player_indices: Dict[int, int]
+) -> np.ndarray:
     """Computes the win matrix for the game results and player indices.
     The ij entry is the number of times i beat j.
 
@@ -93,8 +94,9 @@ def compute_win_matrix(game_results: Sequence[Tuple],
     return wins
 
 
-def elo(game_results: Sequence[Tuple],
-        reference_gammas: Dict[int, float] = None) -> Dict[int, float]:
+def elo(
+    game_results: Sequence[Tuple], reference_gammas: Dict[int, float] = None
+) -> Dict[int, float]:
     """Computes the elo ratings for players given some game results.
 
     Uses the model:
@@ -126,12 +128,10 @@ def elo(game_results: Sequence[Tuple],
     if reference_gammas:
         for i, g in reference_gammas:
             reference_gammas_v[player_indices[i]] = g
-    max_likelihood_gammas = np.where(reference_gammas_v > 0,
-                                     reference_gammas_v, gamma)
+    max_likelihood_gammas = np.where(reference_gammas_v > 0, reference_gammas_v, gamma)
 
     gammas = {}
-    for player_no, gamma in zip(player_indices.keys(),
-                                max_likelihood_gammas):
+    for player_no, gamma in zip(player_indices.keys(), max_likelihood_gammas):
         player_index = player_indices[player_no]
         gammas[player_no] = max_likelihood_gammas[player_index]
 
@@ -168,9 +168,12 @@ def update_gamma(gamma: np.ndarray, wins: np.ndarray) -> np.ndarray:
     return gamma
 
 
-def run_mm(initial_gamma: np.ndarray, wins: np.ndarray,
-           num_iters: int = 30, reference_gammas: np.ndarray = None
-           ) -> np.ndarray:
+def run_mm(
+    initial_gamma: np.ndarray,
+    wins: np.ndarray,
+    num_iters: int = 30,
+    reference_gammas: np.ndarray = None,
+) -> np.ndarray:
     """Runs minorisation maximisation (Hunter).
 
     Optionally use reference_gammas to fix some of the gamma values.

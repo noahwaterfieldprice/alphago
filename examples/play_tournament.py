@@ -5,10 +5,12 @@ from alphago.estimator import create_trivial_estimator, create_rollout_estimator
 from alphago.elo import elo
 
 import matplotlib
-matplotlib.use('agg')
+
+matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import tqdm
+
 tqdm.tqdm.monitor_interval = 0
 
 game = ConnectFour()
@@ -34,8 +36,7 @@ players = {
 }
 
 # results_list = run_tournament(game, players, 5)
-results_list = compare_against_players(game, (1, rollout_mcts_player_100),
-                                       players, 5)
+results_list = compare_against_players(game, (1, rollout_mcts_player_100), players, 5)
 print(results_list)
 
 results = np.zeros(shape=(len(players), len(players)))
@@ -45,9 +46,17 @@ for result in results_list:
 
 fig, ax = plt.subplots()
 gammas = elo(results_list)
-ax.text(0.4, -0.8, str(["{:d}: {:.2f}".format(player_no, gamma)
-                        for player_no, gamma in sorted(gammas.items())]))
+ax.text(
+    0.4,
+    -0.8,
+    str(
+        [
+            "{:d}: {:.2f}".format(player_no, gamma)
+            for player_no, gamma in sorted(gammas.items())
+        ]
+    ),
+)
 a = ax.matshow(results, cmap=plt.cm.coolwarm)
 plt.colorbar(a)
 plt.tight_layout()
-fig.savefig('results.png')
+fig.savefig("results.png")

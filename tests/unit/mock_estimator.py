@@ -17,14 +17,11 @@ class MockNetEstimator:
 
         input_layer = tf.reshape(state_vector, [-1, 1])
 
-        dense1 = tf.layers.dense(inputs=input_layer, units=20,
-                                 activation=tf.nn.relu)
+        dense1 = tf.layers.dense(inputs=input_layer, units=20, activation=tf.nn.relu)
 
-        dense2 = tf.layers.dense(inputs=dense1, units=20,
-                                 activation=tf.nn.relu)
+        dense2 = tf.layers.dense(inputs=dense1, units=20, activation=tf.nn.relu)
 
-        values = tf.layers.dense(inputs=dense2, units=1,
-                                 activation=tf.nn.tanh)
+        values = tf.layers.dense(inputs=dense2, units=1, activation=tf.nn.tanh)
 
         prob_logits = tf.layers.dense(inputs=dense2, units=18)
         probs = tf.nn.softmax(logits=prob_logits)
@@ -44,16 +41,16 @@ class MockNetEstimator:
         value: array_like
             The value returned by the net.
         """
-        if not hasattr(state, '__len__'):
-            state = state,
+        if not hasattr(state, "__len__"):
+            state = (state,)
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             probs = sess.run(
-                self.tensors['probs'],
-                feed_dict={self.tensors['state_vector']: state})
+                self.tensors["probs"], feed_dict={self.tensors["state_vector"]: state}
+            )
             [value] = sess.run(
-                self.tensors['values'],
-                feed_dict={self.tensors['state_vector']: state})
+                self.tensors["values"], feed_dict={self.tensors["state_vector"]: state}
+            )
 
         return np.ravel(probs), value

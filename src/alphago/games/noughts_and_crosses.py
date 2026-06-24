@@ -13,6 +13,7 @@ UltimateNoughtsAndCrosses
     A class for representing a game of ultimate noughts and crosses (or
     ultimate tic-tac-toe).
 """
+
 import functools
 import itertools
 import operator
@@ -117,17 +118,16 @@ class NoughtsAndCrosses(Game):
         self.rows = rows
         self.columns = columns
         self.initial_state = GameState(0, 0, 1)  # type: GameState
-        self.action_space = tuple(Action(row, col)
-                                  for row in range(self.rows)
-                                  for col in range(self.columns)
-                                  )  # type: Tuple[Action, ...]
-        self.action_indices = {
-            a: self.action_space.index(a)
-            for a in self.action_space}  # type: Dict[Action, int]
+        self.action_space = tuple(
+            Action(row, col) for row in range(self.rows) for col in range(self.columns)
+        )  # type: Tuple[Action, ...]
+        self.action_indices = {a: self.action_space.index(a) for a in self.action_space}  # type: Dict[Action, int]
 
-        self._actions_to_binary = {Action(row, col): 1 << self.columns * row + col
-                                   for row in range(self.rows)
-                                   for col in range(self.columns)}
+        self._actions_to_binary = {
+            Action(row, col): 1 << self.columns * row + col
+            for row in range(self.rows)
+            for col in range(self.columns)
+        }
 
         self._win_bitmasks = self._calculate_win_bitmasks()
 
@@ -139,16 +139,24 @@ class NoughtsAndCrosses(Game):
         major_diagonal_win_bitmasks = self._calculate_major_diagonal_bitmasks()
         minor_diagonal_win_bitmasks = self._calculate_minor_diagonal_bitmasks()
 
-        return (row_win_bitmasks + column_win_bitmasks +
-                major_diagonal_win_bitmasks + minor_diagonal_win_bitmasks)
+        return (
+            row_win_bitmasks
+            + column_win_bitmasks
+            + major_diagonal_win_bitmasks
+            + minor_diagonal_win_bitmasks
+        )
 
     def _calculate_row_bitmasks(self) -> List[int]:
         """Returns bitmasks for wins corresponding to a full row."""
         row_win_bitmasks = []
         for row in range(self.rows):
             row_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[Action(row, column)]
-                               for column in range(self.columns)])
+                operator.or_,
+                [
+                    self._actions_to_binary[Action(row, column)]
+                    for column in range(self.columns)
+                ],
+            )
             row_win_bitmasks.append(row_win)
 
         return row_win_bitmasks
@@ -158,8 +166,12 @@ class NoughtsAndCrosses(Game):
         column_win_bitmasks = []
         for column in range(self.columns):
             column_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[Action(row, column)]
-                               for row in range(self.rows)])
+                operator.or_,
+                [
+                    self._actions_to_binary[Action(row, column)]
+                    for row in range(self.rows)
+                ],
+            )
             column_win_bitmasks.append(column_win)
 
         return column_win_bitmasks
@@ -175,14 +187,19 @@ class NoughtsAndCrosses(Game):
 
         # construct bitmasks for win corresponding to a full major diagonal
         min_dim, max_dim = sorted([self.rows, self.columns])
-        major_diagonals = [[(i + row_offset, i + col_offset)
-                            for i in range(min_dim)]
-                           for row_offset in range(row_excess + 1)
-                           for col_offset in range(col_excess + 1)]
+        major_diagonals = [
+            [(i + row_offset, i + col_offset) for i in range(min_dim)]
+            for row_offset in range(row_excess + 1)
+            for col_offset in range(col_excess + 1)
+        ]
         for major_diagonal_indices in major_diagonals:
             major_diagonal_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[Action(row, column)]
-                               for row, column in major_diagonal_indices])
+                operator.or_,
+                [
+                    self._actions_to_binary[Action(row, column)]
+                    for row, column in major_diagonal_indices
+                ],
+            )
             major_diagonal_win_bitmasks.append(major_diagonal_win)
         return major_diagonal_win_bitmasks
 
@@ -196,14 +213,19 @@ class NoughtsAndCrosses(Game):
         col_excess = max(0, self.columns - self.rows)
         min_dim, max_dim = sorted([self.rows, self.columns])
 
-        minor_diagonals = [[(min_dim - 1 - i + row_offset, i + col_offset)
-                            for i in range(min_dim)]
-                           for row_offset in range(row_excess + 1)
-                           for col_offset in range(col_excess + 1)]
+        minor_diagonals = [
+            [(min_dim - 1 - i + row_offset, i + col_offset) for i in range(min_dim)]
+            for row_offset in range(row_excess + 1)
+            for col_offset in range(col_excess + 1)
+        ]
         for minor_diagonal_indices in minor_diagonals:
             minor_diagonal_win = functools.reduce(
-                operator.or_, [self._actions_to_binary[Action(row, column)]
-                               for row, column in minor_diagonal_indices])
+                operator.or_,
+                [
+                    self._actions_to_binary[Action(row, column)]
+                    for row, column in minor_diagonal_indices
+                ],
+            )
             minor_diagonal_win_bitmasks.append(minor_diagonal_win)
 
         return minor_diagonal_win_bitmasks
@@ -261,39 +283,36 @@ class NoughtsAndCrosses(Game):
 
     def utility(self, state: GameState) -> Dict[int, int]:
         """Given a terminal noughts and crosses state, calculates the
-          outcomes for both players. These outcomes are given by +1, -1
-          and 0 for a win, loss, or draw, respectively.
+        outcomes for both players. These outcomes are given by +1, -1
+        and 0 for a win, loss, or draw, respectively.
 
-          Parameters
-          ---------
-          state:
-              A 1-D array representing a terminal noughts and crosses
-              game state, corresponding to either a win or a draw.
+        Parameters
+        ---------
+        state:
+            A 1-D array representing a terminal noughts and crosses
+            game state, corresponding to either a win or a draw.
 
-          Returns
-          -------
-          outcome:
-              The outcome of the terminal state for both players,
-              represented as a dictionary with keys ints indicating the
-              players and values each players respective utility.
+        Returns
+        -------
+        outcome:
+            The outcome of the terminal state for both players,
+            represented as a dictionary with keys ints indicating the
+            players and values each players respective utility.
 
-          Raises
-          ------
-          ValueError:
-              If the input state is a non-terminal state.
-          """
+        Raises
+        ------
+        ValueError:
+            If the input state is a non-terminal state.
+        """
 
         if not self.is_terminal(state):
-            raise ValueError("Utility can not be calculated for a "
-                             "non-terminal state.")
+            raise ValueError("Utility can not be calculated for a non-terminal state.")
 
         # check if player 1 has won
-        if any(state.player1_board & win == win
-               for win in self._win_bitmasks):
+        if any(state.player1_board & win == win for win in self._win_bitmasks):
             return {1: 1, 2: -1}
         # check if player 2 has won
-        if any(state.player2_board & win == win
-               for win in self._win_bitmasks):
+        if any(state.player2_board & win == win for win in self._win_bitmasks):
             return {1: -1, 2: 1}
         # otherwise it is a draw
         return {1: 0, 2: 0}
@@ -318,16 +337,17 @@ class NoughtsAndCrosses(Game):
              A dictionary mapping all possible legal actions from the
              input game state to the corresponding game states resulting
              from taking each action.
-         """  # TODO: could split this up so it just returned actions?
+        """  # TODO: could split this up so it just returned actions?
         if self.is_terminal(state):
-            raise ValueError("Legal actions can not be computed for a "
-                             "terminal state.")
+            raise ValueError("Legal actions can not be computed for a terminal state.")
 
         occupied_squares = state.player1_board | state.player2_board
 
-        actions = [action
-                   for action, action_binary in self._actions_to_binary.items()
-                   if not occupied_squares & action_binary]
+        actions = [
+            action
+            for action, action_binary in self._actions_to_binary.items()
+            if not occupied_squares & action_binary
+        ]
 
         return {action: self._next_state(state, action) for action in actions}
 
@@ -373,16 +393,16 @@ class NoughtsAndCrosses(Game):
         # construct the string for each row
         row_strings = []
         for row in range(self.rows):
-            row_string = "|".join([" {} ".format(board_dict[(row, col)])
-                                   for col in range(self.columns)])
+            row_string = "|".join(
+                [" {} ".format(board_dict[(row, col)]) for col in range(self.columns)]
+            )
             row_strings.append(row_string)
 
         ascii_grid = divider.join(row_strings)
         print(ascii_grid)
 
     def __repr__(self):
-        return "{0}({1}, {2})".format(self.__class__.__name__,
-                                      self.rows, self.columns)
+        return "{0}({1}, {2})".format(self.__class__.__name__, self.rows, self.columns)
 
 
 class UltimateAction(NamedTuple):
@@ -405,11 +425,14 @@ class UltimateNoughtsAndCrosses:
         self.action_space = tuple(
             UltimateAction(sub_board, sub_action)
             for sub_board in itertools.product(range(3), range(3))
-            for sub_action in itertools.product(range(3), range(3)))
-        self.action_indices = {action: self._action_to_index(action)
-                               for action in self.action_space}
-        self.index_to_action = {index: action for action, index
-                                in self.action_indices.items()}
+            for sub_action in itertools.product(range(3), range(3))
+        )
+        self.action_indices = {
+            action: self._action_to_index(action) for action in self.action_space
+        }
+        self.index_to_action = {
+            index: action for action, index in self.action_indices.items()
+        }
 
     @staticmethod
     def _action_to_index(action: UltimateAction) -> int:
@@ -419,8 +442,11 @@ class UltimateNoughtsAndCrosses:
 
     def _compute_meta_board(self, state: UltimateGameState) -> Tuple[int, ...]:
         board = np.array(state.board).reshape(9, 9)
-        sub_boards = [board[i * 3:(i + 1) * 3, j * 3:(j + 1) * 3]
-                      for i in range(3) for j in range(3)]
+        sub_boards = [
+            board[i * 3 : (i + 1) * 3, j * 3 : (j + 1) * 3]
+            for i in range(3)
+            for j in range(3)
+        ]
         meta_board = []
         for sub_board in sub_boards:
             sub_board_state = tuple(sub_board.ravel())
@@ -446,15 +472,17 @@ class UltimateNoughtsAndCrosses:
     def current_player(self, state: UltimateGameState) -> int:
         return self.sub_game.current_player(state.board)
 
-    def compute_next_states(self, state: UltimateGameState
-                            ) -> Dict[UltimateAction, UltimateGameState]:
+    def compute_next_states(
+        self, state: UltimateGameState
+    ) -> Dict[UltimateAction, UltimateGameState]:
         if self.is_terminal(state):
-            raise ValueError("Next states can not be generated for a "
-                             "terminal state.")
+            raise ValueError("Next states can not be generated for a terminal state.")
         board = np.array(state.board).reshape(9, 9)
         sub_board_row, sub_board_col = state.last_sub_action
-        sub_board = board[sub_board_row * 3:(sub_board_row + 1) * 3,
-                    sub_board_col * 3:(sub_board_col + 1) * 3]
+        sub_board = board[
+            sub_board_row * 3 : (sub_board_row + 1) * 3,
+            sub_board_col * 3 : (sub_board_col + 1) * 3,
+        ]
         sub_board_state = tuple(sub_board.ravel())
 
         player_symbol = 1 if self.which_player(state) == 1 else -1
@@ -467,18 +495,21 @@ class UltimateNoughtsAndCrosses:
                 next_board = list(state.board)
                 next_board[action_index] = player_symbol
                 next_state = UltimateGameState(
-                    last_sub_action=action.sub_action, board=tuple(next_board))
+                    last_sub_action=action.sub_action, board=tuple(next_board)
+                )
                 next_states[action] = next_state
             return next_states
         else:
             available_sub_actions = tuple(zip(*np.where(sub_board == 0)))
             for sub_action in available_sub_actions:
-                action = UltimateAction(sub_board=(sub_board_row, sub_board_col),
-                                        sub_action=sub_action)
+                action = UltimateAction(
+                    sub_board=(sub_board_row, sub_board_col), sub_action=sub_action
+                )
                 next_board = list(state.board)
                 next_board[self.action_indices[action]] = player_symbol
                 next_state = UltimateGameState(
-                    last_sub_action=action.sub_action, board=tuple(next_board))
+                    last_sub_action=action.sub_action, board=tuple(next_board)
+                )
                 next_states[action] = next_state
             return next_states
 

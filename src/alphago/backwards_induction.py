@@ -22,7 +22,8 @@ def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
         best_action = None
         for action, child_state in next_states.items():
             child_utility, _ = solve_game_alpha_beta(
-                game, child_state, alpha, beta, depth-1, heuristic=heuristic)
+                game, child_state, alpha, beta, depth - 1, heuristic=heuristic
+            )
             if best_action is None or child_utility > v:
                 best_action = action
             v = max(v, child_utility)
@@ -37,7 +38,8 @@ def solve_game_alpha_beta(game, state, alpha, beta, depth, heuristic=None):
         best_action = None
         for action, child_state in next_states.items():
             child_utility, _ = solve_game_alpha_beta(
-                game, child_state, alpha, beta, depth-1, heuristic=heuristic)
+                game, child_state, alpha, beta, depth - 1, heuristic=heuristic
+            )
             if best_action is None or child_utility < v:
                 best_action = action
             v = min(v, child_utility)
@@ -63,11 +65,11 @@ def solve_game(best_actions, game, state):
 
         child_utilities = {}
         for action, child_state in actions.items():
-            child_utility, _ = solve_game(
-                best_actions, game, child_state)
+            child_utility, _ = solve_game(best_actions, game, child_state)
             child_utilities[action] = child_utility
-        best_action = max(child_utilities.keys(),
-                          key=lambda x: child_utilities[x][player])
+        best_action = max(
+            child_utilities.keys(), key=lambda x: child_utilities[x][player]
+        )
 
         best_actions[state] = best_action
         return child_utilities[best_action], best_action

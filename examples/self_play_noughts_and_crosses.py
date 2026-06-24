@@ -4,7 +4,6 @@ from alphago.estimator import create_trivial_estimator, NACNetEstimator
 from alphago.player import MCTSPlayer, RandomPlayer, OptimalPlayer
 
 if __name__ == "__main__":
-
     max_iters = 30
     c_puct = 1.0
 
@@ -17,11 +16,11 @@ if __name__ == "__main__":
     #                                action_indices=nac.action_indices)
 
     players = {
-       #1: RandomPlayer(nac),
-       #2: RandomPlayer(nac),
-       1: MCTSPlayer(nac, estimator, max_iters, c_puct),
-       2: MCTSPlayer(nac, estimator, max_iters, c_puct),
-               }
+        # 1: RandomPlayer(nac),
+        # 2: RandomPlayer(nac),
+        1: MCTSPlayer(nac, estimator, max_iters, c_puct),
+        2: MCTSPlayer(nac, estimator, max_iters, c_puct),
+    }
 
     players_switched = {1: players[2], 2: players[1]}
 
