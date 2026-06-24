@@ -1,5 +1,8 @@
-import numpy as np
 import pytest
+
+pytest.importorskip("tensorflow")
+
+import numpy as np
 
 from alphago.player import MCTSPlayer, RandomPlayer
 from alphago.games.noughts_and_crosses import NoughtsAndCrosses, GameState, Action

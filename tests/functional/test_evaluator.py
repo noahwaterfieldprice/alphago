@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("tensorflow")
+
 import numpy as np
 
 from alphago.games import NoughtsAndCrosses

@@ -5,6 +5,13 @@
 *.egg-info/
 Pipfile.lock
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# uv / virtualenv
+.venv/
+
 # py.test files
 .pytest_cache
 pytest_report.html
@@ -23,3 +30,8 @@ examples/experiments/
 # Compiled files
 *.o
 .depend
+
+# Prebuilt solver binaries (build with make in tools/connect_four/solver)
+tools/connect_four/solver/c4solver
+tools/connect_four/solver/connect_four_solver
+tools/connect_four/solver/connect_four_optimal_moves

@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "alphago"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy",
+    "tqdm",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alphago"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "pytest-cov",
+    "ruff",
+    "matplotlib",
+    "jupyter",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["alphago"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-vv"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.coverage.html]
+directory = "htmlcov"

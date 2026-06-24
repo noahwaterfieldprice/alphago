@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("tensorflow")
+
 import numpy as np
 
 from alphago.alphago import process_training_data, process_self_play_data

@@ -1,7 +1,0 @@
-[run]
-omit =
-    setup.py
-    tests/*
-
-[html]
-directory = htmlcov
