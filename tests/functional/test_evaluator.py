@@ -4,11 +4,12 @@ pytest.importorskip("tensorflow")
 
 import numpy as np
 
-from alphago.games import NoughtsAndCrosses
-from ..unit.games.mock_game import MockGame
 from alphago.estimator import create_trivial_estimator
-from alphago.player import RandomPlayer, MCTSPlayer
 from alphago.evaluator import evaluate, play
+from alphago.games import NoughtsAndCrosses
+from alphago.player import MCTSPlayer, RandomPlayer
+
+from ..unit.games.mock_game import MockGame
 
 
 def test_playing_two_random_players_against_each_other():
@@ -58,7 +59,7 @@ def test_evaluator_on_noughts_and_crosses():
     # Check the evaluators aren't equal.
     assert player1 is not player2
 
-    player1_results = evaluate(nac, players, 20)
+    evaluate(nac, players, 20)
 
     # TODO: Test something here!
 
@@ -86,4 +87,4 @@ def test_evaluator_on_noughts_and_crosses():
 
 def test_running_tournament_between_mcts_players():
     np.random.seed(0)
-    mock_game = MockGame()
+    MockGame()

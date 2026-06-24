@@ -1,9 +1,9 @@
-from typing import Dict, Sequence, Tuple
+from collections.abc import Sequence
 
 import numpy as np
 
 
-def compute_player_indices(game_results: Sequence[Tuple]) -> Dict[int, int]:
+def compute_player_indices(game_results: Sequence[tuple]) -> dict[int, int]:
     """Computes a dictionary for players with keys the player and values
     an index for the player. The index is in the range 0 up to the
     number of players minus 1.
@@ -20,15 +20,13 @@ def compute_player_indices(game_results: Sequence[Tuple]) -> Dict[int, int]:
         A dictionary mapping player numbers to player indices.
     """
     player_indices = {}
-    player_index = 0
     players = set()
     for i, j, _ in game_results:
         players.add(i)
         players.add(j)
 
-    for player in sorted(players):
+    for player_index, player in enumerate(sorted(players)):
         player_indices[player] = player_index
-        player_index += 1
 
     return player_indices
 
@@ -62,7 +60,7 @@ def compute_log_likelihood(wins: np.ndarray, gamma: np.ndarray) -> float:
 
 
 def compute_win_matrix(
-    game_results: Sequence[Tuple], player_indices: Dict[int, int]
+    game_results: Sequence[tuple], player_indices: dict[int, int]
 ) -> np.ndarray:
     """Computes the win matrix for the game results and player indices.
     The ij entry is the number of times i beat j.
@@ -95,8 +93,8 @@ def compute_win_matrix(
 
 
 def elo(
-    game_results: Sequence[Tuple], reference_gammas: Dict[int, float] = None
-) -> Dict[int, float]:
+    game_results: Sequence[tuple], reference_gammas: dict[int, float] = None
+) -> dict[int, float]:
     """Computes the elo ratings for players given some game results.
 
     Uses the model:
@@ -131,7 +129,7 @@ def elo(
     max_likelihood_gammas = np.where(reference_gammas_v > 0, reference_gammas_v, gamma)
 
     gammas = {}
-    for player_no, gamma in zip(player_indices.keys(), max_likelihood_gammas):
+    for player_no in player_indices:
         player_index = player_indices[player_no]
         gammas[player_no] = max_likelihood_gammas[player_index]
 
@@ -205,7 +203,7 @@ def run_mm(
     gamma = initial_gamma / np.sum(initial_gamma)
     assert np.all(gamma > 0)
 
-    for it in range(num_iters):
+    for _ in range(num_iters):
         # Update gamma
         gamma = update_gamma(gamma, wins)
 
@@ -214,6 +212,6 @@ def run_mm(
             gamma = np.where(reference_gammas > 0, reference_gammas, gamma)
 
         log_likelihood = compute_log_likelihood(wins, gamma)
-        print("Log likelihood: {}".format(log_likelihood))
+        print(f"Log likelihood: {log_likelihood}")
 
     return gamma

@@ -385,7 +385,8 @@ NEXT_NEXT_STATES_STATES = [
 
 
 @pytest.mark.parametrize(
-    "state, expected_next_states", zip(NEXT_STATES_STATES, NEXT_NEXT_STATES_STATES)
+    "state, expected_next_states",
+    zip(NEXT_STATES_STATES, NEXT_NEXT_STATES_STATES, strict=False),
 )
 def test_compute_next_states(state, expected_next_states, mocker):
     cf = ConnectFour()
@@ -398,9 +399,10 @@ SUB_GRIDS = [(1, 1, 0, 0, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0, 0, 1), (0,) * 16]
 EXPECTED_LINE_SUMS = [[2, 0, 2, 2, 2, 3, -1, 2, 3, 1], [0 for i in range(10)]]
 
 
-@pytest.mark.parametrize("grid, expected_line_sums", zip(SUB_GRIDS, EXPECTED_LINE_SUMS))
+@pytest.mark.parametrize(
+    "grid, expected_line_sums", zip(SUB_GRIDS, EXPECTED_LINE_SUMS, strict=False)
+)
 def test_connect_four_line_sums_4_by_4(grid, expected_line_sums, mocker):
-    mock = mocker.MagicMock()
     line_sums = ConnectFour._calculate_line_sums_4_by_4(grid)
     assert np.all(line_sums == expected_line_sums)
 
@@ -689,7 +691,7 @@ EXPECTED_UTILITIES = [{1: 1, 2: -1}, {1: -1, 2: 1}, {1: 1, 2: -1}]
 
 
 @pytest.mark.parametrize(
-    "state, expected_utility", zip(UTILITY_STATES, EXPECTED_UTILITIES)
+    "state, expected_utility", zip(UTILITY_STATES, EXPECTED_UTILITIES, strict=False)
 )
 def test_utility(state, expected_utility, mocker):
     cf = ConnectFour()
@@ -766,7 +768,7 @@ OUTPUTS = [
 ]
 
 
-@pytest.mark.parametrize("state, expected_output", zip(STATES, OUTPUTS))
+@pytest.mark.parametrize("state, expected_output", zip(STATES, OUTPUTS, strict=False))
 def test_display_function_outputs_correct_strings(state, expected_output, capsys):
     ConnectFour.display(state)
     output = capsys.readouterr().out

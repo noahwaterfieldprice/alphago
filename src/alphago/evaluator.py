@@ -1,20 +1,19 @@
-from collections import namedtuple, defaultdict
 import itertools
-from typing import Dict, List, Tuple
+from collections import defaultdict, namedtuple
 
 from tqdm import tqdm
 
 from .games import Game
 from .player import Player
 
-GameLog = namedtuple("GameLog", "result actions game_states".split())
+GameLog = namedtuple("GameLog", ["result", "actions", "game_states"])
 Position, PlayerNo = int, int
-PlayerResults = Dict[int, int]
+PlayerResults = dict[int, int]
 
 
 def evaluate(
-    game: Game, players: Dict[Position, Player], num_games: int, verbose: bool = True
-) -> Tuple[PlayerResults, List[GameLog]]:
+    game: Game, players: dict[Position, Player], num_games: int, verbose: bool = True
+) -> tuple[PlayerResults, list[GameLog]]:
     """Compare two players. Returns the number of player1 wins,
     losses and draws and the game logs.
 
@@ -45,13 +44,10 @@ def evaluate(
     player1_results = {win: 0, loss: 0, draw: 0}
     game_logs = []
 
-    if verbose:
-        disable_tqdm = False
-    else:
-        disable_tqdm = True
+    disable_tqdm = not verbose
 
     with tqdm(total=num_games, disable=disable_tqdm) as pbar:
-        for game_no in range(num_games):
+        for _game_no in range(num_games):
             for player in players.values():
                 player.reset()
 
@@ -62,9 +58,8 @@ def evaluate(
 
             pbar.update(1)
             pbar.set_description(
-                "Win1/Win2/Draw: {}/{}/{}".format(
-                    player1_results[win], player1_results[loss], player1_results[draw]
-                )
+                f"Win1/Win2/Draw: {player1_results[win]}/"
+                f"{player1_results[loss]}/{player1_results[draw]}"
             )
 
             game_logs.append(GameLog(player1_result, actions, game_states))
@@ -72,7 +67,7 @@ def evaluate(
     return player1_results, game_logs
 
 
-def play(game: Game, players: Dict[Position, Player]):
+def play(game: Game, players: dict[Position, Player]):
     """Plays a two player game.
 
     Parameters
@@ -116,8 +111,8 @@ def play(game: Game, players: Dict[Position, Player]):
 
 
 def run_tournament(
-    game: Game, players: Dict[PlayerNo, Player], num_rounds: int
-) -> List[Tuple[int, int, float]]:
+    game: Game, players: dict[PlayerNo, Player], num_rounds: int
+) -> list[tuple[int, int, float]]:
     """Run a tournament of a the given game between the players and
     return the results.
 
@@ -168,10 +163,10 @@ def run_tournament(
 
 def run_gauntlet(
     game: Game,
-    challenger: Tuple[PlayerNo, Player],
-    gauntlet_players: Dict[PlayerNo, Player],
+    challenger: tuple[PlayerNo, Player],
+    gauntlet_players: dict[PlayerNo, Player],
     num_rounds: int,
-) -> List[Tuple[int, int, float]]:
+) -> list[tuple[int, int, float]]:
     """Play a single player against a number of other players, i.e. a
     one vs all tournament, and return the results.
 
@@ -224,8 +219,8 @@ def run_gauntlet(
 def update_results(
     player1_no: int,
     player2_no: int,
-    utility: Dict[int, float],
-    results: Dict[Tuple[int, int], float],
+    utility: dict[int, float],
+    results: dict[tuple[int, int], float],
 ) -> None:
     """Update the results given the outcome of a game.
 

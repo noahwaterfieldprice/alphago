@@ -1,10 +1,10 @@
-from alphago.games import NoughtsAndCrosses, ConnectFour
-from alphago.evaluator import run_tournament, compare_against_players
-from alphago.player import RandomPlayer, MCTSPlayer
-from alphago.estimator import create_trivial_estimator, create_rollout_estimator
-from alphago.elo import elo
-
 import matplotlib
+
+from alphago.elo import elo
+from alphago.estimator import create_rollout_estimator, create_trivial_estimator
+from alphago.evaluator import compare_against_players
+from alphago.games import ConnectFour
+from alphago.player import MCTSPlayer, RandomPlayer
 
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
@@ -49,12 +49,7 @@ gammas = elo(results_list)
 ax.text(
     0.4,
     -0.8,
-    str(
-        [
-            "{:d}: {:.2f}".format(player_no, gamma)
-            for player_no, gamma in sorted(gammas.items())
-        ]
-    ),
+    str([f"{player_no:d}: {gamma:.2f}" for player_no, gamma in sorted(gammas.items())]),
 )
 a = ax.matshow(results, cmap=plt.cm.coolwarm)
 plt.colorbar(a)

@@ -4,9 +4,9 @@ pytest.importorskip("tensorflow")
 
 import numpy as np
 
-from alphago.player import MCTSPlayer, RandomPlayer
-from alphago.games.noughts_and_crosses import NoughtsAndCrosses, GameState, Action
 from alphago.estimator import create_trivial_estimator
+from alphago.games.noughts_and_crosses import Action, GameState, NoughtsAndCrosses
+from alphago.player import MCTSPlayer, RandomPlayer
 
 
 def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
@@ -17,11 +17,9 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
     )
 
     next_states = nac.legal_actions(nac.initial_state)
-    expected_action_probs = {
-        action: 1 / len(next_states) for action in next_states.keys()
-    }
+    expected_action_probs = {action: 1 / len(next_states) for action in next_states}
 
-    for action in expected_action_probs.keys():
+    for action in expected_action_probs:
         np.testing.assert_almost_equal(
             action_probs[action], expected_action_probs[action]
         )

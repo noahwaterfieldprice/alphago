@@ -8,10 +8,9 @@ import argparse
 
 import numpy as np
 
-from alphago.games.connect_four import ConnectFour, optimal_moves
-from alphago.estimator import ConnectFourNet
 from alphago import mcts_tree
-from alphago.estimator import create_trivial_estimator
+from alphago.estimator import ConnectFourNet, create_trivial_estimator
+from alphago.games.connect_four import ConnectFour, optimal_moves
 
 
 def load_net(checkpoint):
@@ -55,7 +54,7 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
     cf = ConnectFour()
     state = cf.initial_state
     computer = 1 if human == 2 else 2
-    print("You are player: {}".format(human))
+    print(f"You are player: {human}")
     action_list = []
     while not cf.is_terminal(state):
         player = cf.current_player(state)
@@ -70,17 +69,17 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
                 action_probs = mcts_tree.mcts(
                     root, cf, estimator, mcts_iters=mcts_iters, c_puct=c_puct, tau=tau
                 )
-                actions, probs = zip(*action_probs.items())
-                print("Action probabilities: {}".format(action_probs))
+                actions, probs = zip(*action_probs.items(), strict=False)
+                print(f"Action probabilities: {action_probs}")
                 action_ix = np.random.choice(range(len(actions)), p=probs)
                 action = actions[action_ix]
-            print("Taking action: {}".format(action + 1))
+            print(f"Taking action: {action + 1}")
         else:
             action = None
             while action not in next_states:
                 user_input = input("Your move (1-7 reading across the board): ")
                 if user_input == "cheat":
-                    print("Optimal moves: {}".format(optimal_moves(action_list)))
+                    print(f"Optimal moves: {optimal_moves(action_list)}")
                     continue
                 action_ix = int(user_input)
                 action_ix -= 1
@@ -123,10 +122,7 @@ if __name__ == "__main__":
     tau = float(args.tau) if args.tau is not None else 1
     c_puct = float(args.c_puct) if args.c_puct is not None else 0.5
 
-    if args.player is not None:
-        human = int(args.player)
-    else:
-        human = np.random.choice([1, 2])
+    human = int(args.player) if args.player is not None else np.random.choice([1, 2])
 
     if args.checkpoint:
         estimator = load_net(args.checkpoint)

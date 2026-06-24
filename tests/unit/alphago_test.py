@@ -4,13 +4,13 @@ pytest.importorskip("tensorflow")
 
 import numpy as np
 
-from alphago.alphago import process_training_data, process_self_play_data
-from alphago.evaluator import play
+from alphago.alphago import process_self_play_data
 from alphago.estimator import create_trivial_estimator
+from alphago.evaluator import play
 from alphago.games import NoughtsAndCrosses
 from alphago.player import MCTSPlayer
-from .games.mock_game import MockGame
 
+from .games.mock_game import MockGame
 
 # TODO: mock lots of things in this file, especially players
 
@@ -95,7 +95,7 @@ def test_process_self_play_data():
 
     assert len(training_data) == len(expected)
     mock_game.TERMINAL_STATE_VALUES = (1,) * 12
-    for comp, expec in zip(training_data, expected):
+    for comp, expec in zip(training_data, expected, strict=False):
         assert (comp[0] == expec[0]).all()
         assert comp[1] == expec[1]
         assert (comp[2] == expec[2]).all()

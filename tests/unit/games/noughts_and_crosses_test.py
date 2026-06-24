@@ -5,16 +5,17 @@ import pytest
 
 from alphago.games.noughts_and_crosses import (
     NoughtsAndCrosses,
-    UltimateNoughtsAndCrosses,
-    UltimateGameState,
     UltimateAction,
+    UltimateGameState,
+    UltimateNoughtsAndCrosses,
 )
+
 from .constants import (
+    actions_to_binary_list,
     expected_next_states_list,
     non_terminal_states,
-    actions_to_binary_list,
-    terminal_states,
     outcomes,
+    terminal_states,
     win_bitmasks_list,
 )
 
@@ -37,7 +38,7 @@ class TestMByNNoughtsAndCrosses:
         assert mock_game.initial_state == (0, 0, 1)
 
     @pytest.mark.parametrize(
-        "size, actions_to_binary", zip(sizes, actions_to_binary_list)
+        "size, actions_to_binary", zip(sizes, actions_to_binary_list, strict=False)
     )
     def test_action_to_binary_is_correct(self, size, actions_to_binary, mocker):
         mock_game = mocker.MagicMock()
@@ -46,7 +47,7 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list),
+        zip(sizes, actions_to_binary_list, win_bitmasks_list, strict=False),
     )
     def test_calculating_row_win_bitmasks(
         self, size, actions_to_binary, win_bitmasks, mocker
@@ -56,14 +57,19 @@ class TestMByNNoughtsAndCrosses:
             rows=rows, columns=columns, _actions_to_binary=actions_to_binary
         )
         row_win_bitmasks = NoughtsAndCrosses._calculate_row_bitmasks(mock_game)
-        print([(bin(x), bin(y)) for x, y in zip(row_win_bitmasks, win_bitmasks["row"])])
+        print(
+            [
+                (bin(x), bin(y))
+                for x, y in zip(row_win_bitmasks, win_bitmasks["row"], strict=False)
+            ]
+        )
         assert row_win_bitmasks == win_bitmasks["row"]
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list),
+        zip(sizes, actions_to_binary_list, win_bitmasks_list, strict=False),
     )
-    def test_calculating_minor_diagonal_win_bitmasks(
+    def test_calculating_column_win_bitmasks(
         self, size, actions_to_binary, win_bitmasks, mocker
     ):
         rows, columns = size
@@ -74,14 +80,16 @@ class TestMByNNoughtsAndCrosses:
         print(
             [
                 (bin(x), bin(y))
-                for x, y in zip(column_win_bitmasks, win_bitmasks["column"])
+                for x, y in zip(
+                    column_win_bitmasks, win_bitmasks["column"], strict=False
+                )
             ]
         )
         assert column_win_bitmasks == win_bitmasks["column"]
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list),
+        zip(sizes, actions_to_binary_list, win_bitmasks_list, strict=False),
     )
     def test_calculating_major_diagonal_win_bitmasks(
         self, size, actions_to_binary, win_bitmasks, mocker
@@ -97,7 +105,9 @@ class TestMByNNoughtsAndCrosses:
             [
                 (bin(x), bin(y))
                 for x, y in zip(
-                    major_diagonal_win_bitmasks, win_bitmasks["major_diagonal"]
+                    major_diagonal_win_bitmasks,
+                    win_bitmasks["major_diagonal"],
+                    strict=False,
                 )
             ]
         )
@@ -105,7 +115,7 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list),
+        zip(sizes, actions_to_binary_list, win_bitmasks_list, strict=False),
     )
     def test_calculating_minor_diagonal_win_bitmasks(
         self, size, actions_to_binary, win_bitmasks, mocker
@@ -121,7 +131,9 @@ class TestMByNNoughtsAndCrosses:
             [
                 (bin(x), bin(y))
                 for x, y in zip(
-                    minor_diagonal_win_bitmasks, win_bitmasks["minor_diagonal"]
+                    minor_diagonal_win_bitmasks,
+                    win_bitmasks["minor_diagonal"],
+                    strict=False,
                 )
             ]
         )
@@ -129,7 +141,13 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks, state",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list, terminal_states),
+        zip(
+            sizes,
+            actions_to_binary_list,
+            win_bitmasks_list,
+            terminal_states,
+            strict=False,
+        ),
     )
     def test_is_terminal_returns_true_for_terminal_states(
         self, size, actions_to_binary, win_bitmasks, state, mocker
@@ -146,7 +164,13 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "size, actions_to_binary, win_bitmasks, state",
-        zip(sizes, actions_to_binary_list, win_bitmasks_list, non_terminal_states),
+        zip(
+            sizes,
+            actions_to_binary_list,
+            win_bitmasks_list,
+            non_terminal_states,
+            strict=False,
+        ),
     )
     def test_is_terminal_returns_false_for_non_terminal_states(
         self, size, actions_to_binary, win_bitmasks, state, mocker
@@ -162,12 +186,16 @@ class TestMByNNoughtsAndCrosses:
 
     players = (2, 1, 1, 1, 1)
 
-    @pytest.mark.parametrize("player, state", zip(players, non_terminal_states))
+    @pytest.mark.parametrize(
+        "player, state", zip(players, non_terminal_states, strict=False)
+    )
     def test_current_player_returns_correct_player(self, player, state, mocker):
         mock_game = mocker.MagicMock()
         assert NoughtsAndCrosses.current_player(mock_game, state) == player
 
-    @pytest.mark.parametrize("size, state", zip(sizes, non_terminal_states))
+    @pytest.mark.parametrize(
+        "size, state", zip(sizes, non_terminal_states, strict=False)
+    )
     def test_utility_raises_exception_on_non_terminal_input_state(
         self, size, state, mocker
     ):
@@ -185,7 +213,7 @@ class TestMByNNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "size, win_bitmasks, state, outcome",
-        zip(sizes, win_bitmasks_list, terminal_states, outcomes),
+        zip(sizes, win_bitmasks_list, terminal_states, outcomes, strict=False),
     )
     def test_utility_function_returns_correct_outcomes(
         self, size, win_bitmasks, state, outcome, mocker
@@ -218,12 +246,14 @@ class TestMByNNoughtsAndCrosses:
             non_terminal_states,
             players,
             expected_next_states_list,
+            strict=False,
         ),
     )
     def test_generating_a_dict_of_all_possible_next_states(
         self, size, actions_to_binary, state, player, expected_states, mocker
     ):
-        # TODO: need to split this into two tests: one testing the _next_state function and one testing legal actions
+        # TODO: split this into two tests: one for the _next_state function
+        # and one for legal actions
         rows, columns = size
         mock_game = mocker.MagicMock(
             rows=rows, columns=columns, _actions_to_binary=actions_to_binary
@@ -246,7 +276,9 @@ class TestMByNNoughtsAndCrosses:
         "\n".join((" x | x | x ", div, " x | o | o ", div, " o | o | x ")) + "\n",
     ]
 
-    @pytest.mark.parametrize("state, expected_output", zip(states, outputs))
+    @pytest.mark.parametrize(
+        "state, expected_output", zip(states, outputs, strict=False)
+    )
     def test_display_function_outputs_correct_string_for_3x3(
         self, state, expected_output, capsys, mocker
     ):
@@ -612,7 +644,7 @@ class TestUltimateNoughtsAndCrosses:
 
     @pytest.mark.parametrize(
         "state, meta_board, utilities",
-        zip(terminal_states, meta_boards, utilities_list),
+        zip(terminal_states, meta_boards, utilities_list, strict=False),
     )
     def test_meta_board_delegates_to_sub_game_utility_method(
         self, state, meta_board, utilities, mocker

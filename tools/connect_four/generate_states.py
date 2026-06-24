@@ -1,10 +1,10 @@
 import argparse
-from typing import Iterable
 import random
+from collections.abc import Iterable
 
 from tqdm import tqdm
 
-from alphago.games.connect_four import action_list_to_state, ConnectFour
+from alphago.games.connect_four import ConnectFour, action_list_to_state
 
 
 def generate_states(num_states, min_length=1):
@@ -27,8 +27,8 @@ def generate_states(num_states, min_length=1):
         while len(states) <= num_states:
             cols = [i for i in range(7)] * 6
             random.shuffle(cols)
-            l = random.randint(min_length, 43)
-            state = cols[:l]
+            length = random.randint(min_length, 43)
+            state = cols[:length]
             state_array = action_list_to_state(state)
 
             if not game.is_terminal(state_array):
@@ -73,5 +73,5 @@ if __name__ == "__main__":
     states = generate_states(num_states, min_moves)
 
     with open(args.output_file, "w") as f:
-        string_states = ["".join((str(x) for x in state)) for state in states]
+        string_states = ["".join(str(x) for x in state) for state in states]
         f.write("\n".join(string_states))

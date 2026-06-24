@@ -1,8 +1,8 @@
 import numpy as np
 
-from .utilities import sample_distribution
-from . import mcts, MCTSNode
+from . import MCTSNode, mcts
 from .backwards_induction import backwards_induction, solve_game_alpha_beta
+from .utilities import sample_distribution
 
 # TODO: write tests and docstrings for all this!!!
 
@@ -27,7 +27,7 @@ class Player:
 class RandomPlayer(Player):
     def choose_action(self, game_state, return_probabilities=False):
         next_states = self.game.legal_actions(game_state)
-        action_probs = {action: 1 / len(next_states) for action in next_states.keys()}
+        action_probs = {action: 1 / len(next_states) for action in next_states}
 
         action = sample_distribution(action_probs)
 

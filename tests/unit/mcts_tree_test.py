@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphago import mcts, MCTSNode
+from alphago import MCTSNode, mcts
 from alphago.mcts_tree import (
     backup,
     compute_ucb,
@@ -9,8 +9,8 @@ from alphago.mcts_tree import (
     normalise_distribution,
     select,
 )
-from .games.mock_game import MockGame
 
+from .games.mock_game import MockGame
 
 # Utility functions
 
@@ -90,14 +90,15 @@ class TestSelectAndBackupFunctions:
     ]
 
     @pytest.mark.parametrize(
-        "nodes, expected_Q, values", zip(backup_nodes, backup_expected_Q, backup_values)
+        "nodes, expected_Q, values",
+        zip(backup_nodes, backup_expected_Q, backup_values, strict=False),
     )
     def test_mcts_backup(self, nodes, expected_Q, values):
         backup(nodes, values)
         for i, node in enumerate(nodes):
             assert node.N == 1.0
-            assert node.W == expected_Q[i]
-            assert node.Q == expected_Q[i]
+            assert expected_Q[i] == node.W
+            assert expected_Q[i] == node.Q
 
     backup_nodes_n_times = [
         [MCTSNode(3, player=1)],
@@ -109,16 +110,22 @@ class TestSelectAndBackupFunctions:
 
     @pytest.mark.parametrize(
         "nodes, expected_Q, values, n",
-        zip(backup_nodes_n_times, backup_expected_Q, backup_values, backup_n),
+        zip(
+            backup_nodes_n_times,
+            backup_expected_Q,
+            backup_values,
+            backup_n,
+            strict=False,
+        ),
     )
     def test_mcts_backup_n_times(self, nodes, expected_Q, values, n):
-        for i in range(n):
+        for _ in range(n):
             backup(nodes, values)
 
         for i, node in enumerate(nodes):
-            assert node.N == n
-            assert node.W == n * expected_Q[i]
-            assert node.Q == expected_Q[i]
+            assert n == node.N
+            assert n * expected_Q[i] == node.W
+            assert expected_Q[i] == node.Q
 
     def test_mcts_select(self):
         root = MCTSNode(1, player=1)
@@ -198,7 +205,7 @@ def test_mcts_action_count_at_root():
     root = MCTSNode(0, player=1)
     assert root.N == 0
 
-    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
+    mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert root.N == 100
@@ -208,7 +215,7 @@ def test_mcts_action_count_at_root_children():
     mock_game = MockGame()
     root = MCTSNode(0, player=1)
 
-    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
+    mcts(root, mock_game, mock_game.mock_estimator, 100, 1.0)
 
     # Each iteration of MCTS we should add 1 to N at the root.
     assert sum(child.N for child in root.children.values()) == 99

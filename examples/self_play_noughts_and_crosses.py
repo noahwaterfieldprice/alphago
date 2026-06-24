@@ -1,7 +1,7 @@
 import alphago.games as games
-from alphago.evaluator import play, evaluate
-from alphago.estimator import create_trivial_estimator, NACNetEstimator
-from alphago.player import MCTSPlayer, RandomPlayer, OptimalPlayer
+from alphago.estimator import create_trivial_estimator
+from alphago.evaluator import evaluate
+from alphago.player import MCTSPlayer
 
 if __name__ == "__main__":
     max_iters = 30

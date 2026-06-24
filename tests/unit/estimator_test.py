@@ -4,9 +4,9 @@ pytest.importorskip("tensorflow")
 
 import numpy as np
 
-from alphago import mcts, MCTSNode
-from alphago.estimator import create_trivial_estimator, NACNetEstimator, ConnectFourNet
-from alphago.games import NoughtsAndCrosses, ConnectFour
+from alphago import MCTSNode, mcts
+from alphago.estimator import ConnectFourNet, NACNetEstimator, create_trivial_estimator
+from alphago.games import ConnectFour, NoughtsAndCrosses
 
 from .games.mock_game import MockGame
 from .mock_estimator import MockNetEstimator
@@ -21,7 +21,8 @@ def test_trivial_estimator():
     assert trivial_estimator(5) == ({0: 1 / 3, 1: 1 / 3, 2: 1 / 3}, 0)
 
 
-def test_initialising_basic_net_with_random_parameters():  # TODO: redo this on mock game
+# TODO: redo this on mock game
+def test_initialising_basic_net_with_random_parameters():
     nac = NoughtsAndCrosses()
     nnet = NACNetEstimator(
         learning_rate=0.01, l2_weight=0.1, action_indices=nac.action_indices
@@ -47,7 +48,7 @@ def test_neural_net_estimator():
     nnet = MockNetEstimator(learning_rate=0.01)
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, nnet, 100, 1.0)
+    mcts(root, mock_game, nnet, 100, 1.0)
 
 
 def test_neural_net_estimate_game_state():
@@ -58,7 +59,7 @@ def test_neural_net_estimate_game_state():
 
     test_game_state = np.random.randn(7, 9)
 
-    computed = nnet(test_game_state)
+    nnet(test_game_state)
 
 
 def test_can_use_two_neural_nets():

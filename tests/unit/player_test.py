@@ -1,6 +1,7 @@
 import pytest
 
-from alphago.player import Player, MCTSPlayer, RandomPlayer
+from alphago.player import MCTSPlayer, Player, RandomPlayer
+
 from .games.mock_game import MockGame
 
 
@@ -11,11 +12,11 @@ class TestPlayer:
         mock_player.__repr__ = Player.__repr__
         mock_player.game = mock_game
 
-        assert repr(mock_player) == "{0}({1})".format(
-            mock_player.__class__.__name__, mock_player.game
+        assert (
+            repr(mock_player) == f"{mock_player.__class__.__name__}({mock_player.game})"
         )
-        assert str(mock_player) == "{0}({1})".format(
-            mock_player.__class__.__name__, mock_player.game
+        assert (
+            str(mock_player) == f"{mock_player.__class__.__name__}({mock_player.game})"
         )
 
     def test_calculating_action_probabilities(self, mocker):
@@ -58,7 +59,7 @@ class TestMCTSPlayer(TestPlayer):
 
         arg_names = ("game", "estimator", "mcts_iters", "c_puct", "tau", "current_node")
         args = (mock_game, mock_estimator, 20, 0.5, 1, None)
-        player_info = {key: value for key, value in zip(arg_names, args)}
+        player_info = {key: value for key, value in zip(arg_names, args, strict=False)}
         mock_player = mocker.MagicMock(**player_info)
         mock_player.choose_action = MCTSPlayer.choose_action
 

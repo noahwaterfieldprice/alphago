@@ -296,7 +296,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
         trained on multiple times before the every data point is in the
         training data is considered.
         """
-        disable_tqdm = False if verbose else True
+        disable_tqdm = not verbose
         for _ in tqdm(range(training_iters), disable=disable_tqdm):
             batch_indices = np.random.choice(len(training_data), batch_size)
             batch = [training_data[ix] for ix in batch_indices]
@@ -328,7 +328,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
             for i in range(training_iters)
         ]
 
-        disable_tqdm = False if verbose else True
+        disable_tqdm = not verbose
         for batch_indices in tqdm(batch_indices_list, disable=disable_tqdm):
             batch = [training_data[ix] for ix in batch_indices]
             summary = self.train_step(batch, return_summary=True)
@@ -495,11 +495,22 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
             is_training,
             summary,
         ]
-        names = (
-            "state_vector outcomes pi value prob_logits probs loss "
-            "loss_value loss_probs is_training summary"
-        ).split()
-        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
+        names = [
+            "state_vector",
+            "outcomes",
+            "pi",
+            "value",
+            "prob_logits",
+            "probs",
+            "loss",
+            "loss_value",
+            "loss_probs",
+            "is_training",
+            "summary",
+        ]
+        self.tensors = {
+            name: tensor for name, tensor in zip(names, tensors, strict=False)
+        }
 
     def _state_to_vector(self, state):
         state = np.array(state).reshape((-1, 9))
@@ -515,8 +526,8 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
 
     @staticmethod
     def _binary_state_to_array(state):
-        player1_board = [int(i) for i in "{0:018b}".format(state[0])]
-        player2_board = [int(i) for i in "{0:018b}".format(state[1])]
+        player1_board = [int(i) for i in f"{state[0]:018b}"]
+        player2_board = [int(i) for i in f"{state[1]:018b}"]
         return player1_board + player2_board
 
     def train_step(self, batch, return_summary=False):
@@ -841,11 +852,22 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
             is_training,
             summary,
         ]
-        names = (
-            "state_vector outcomes pi value prob_logits probs loss "
-            "loss_value loss_probs is_training summary"
-        ).split()
-        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
+        names = [
+            "state_vector",
+            "outcomes",
+            "pi",
+            "value",
+            "prob_logits",
+            "probs",
+            "loss",
+            "loss_value",
+            "loss_probs",
+            "is_training",
+            "summary",
+        ]
+        self.tensors = {
+            name: tensor for name, tensor in zip(names, tensors, strict=False)
+        }
 
 
 class ConnectFourNet(AbstractNeuralNetEstimator):
@@ -998,11 +1020,22 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
             is_training,
             summary,
         ]
-        names = (
-            "state_vector outcomes pi value prob_logits probs loss "
-            "loss_value loss_probs is_training summary".split()
-        )
-        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
+        names = [
+            "state_vector",
+            "outcomes",
+            "pi",
+            "value",
+            "prob_logits",
+            "probs",
+            "loss",
+            "loss_value",
+            "loss_probs",
+            "is_training",
+            "summary",
+        ]
+        self.tensors = {
+            name: tensor for name, tensor in zip(names, tensors, strict=False)
+        }
 
     def _state_to_vector(self, state):
         return np.array(state).reshape((-1, 42))

@@ -6,8 +6,8 @@ state, we back up the utility returned by the game.
 
 import numpy as np
 
-from alphago.games.noughts_and_crosses import NoughtsAndCrosses
 from alphago.estimator import create_trivial_estimator
+from alphago.games.noughts_and_crosses import NoughtsAndCrosses
 from alphago.player import MCTSPlayer
 
 if __name__ == "__main__":
@@ -18,14 +18,14 @@ if __name__ == "__main__":
     computer_player_no = np.random.choice([1, 2])
     computer_player = MCTSPlayer(nac, evaluator, mcts_iters=2000, c_puct=0.5, tau=0.01)
     human_player_no = 1 if computer_player_no == 2 else 2
-    print("You are player: {}".format(human_player_no))
+    print(f"You are player: {human_player_no}")
     while not nac.is_terminal(state):
         player_no = nac.current_player(state)
         next_states = nac.legal_actions(state)
         if player_no == computer_player_no:
             action = computer_player.choose_action(state)
             computer_player.update(action)
-            print("Taking action: {}".format(action))
+            print(f"Taking action: {action}")
         else:
             action = None
             while action not in next_states:

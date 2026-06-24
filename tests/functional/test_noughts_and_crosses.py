@@ -1,11 +1,9 @@
-import itertools
-
 import pytest
 
 from alphago.games import NoughtsAndCrosses, UltimateNoughtsAndCrosses
 from alphago.games.noughts_and_crosses import (
-    GameState,
     Action,
+    GameState,
     UltimateAction,
     UltimateGameState,
 )
@@ -375,14 +373,14 @@ class TestUltimateNoughtsAndCrosses:
         assert unac.initial_state == self.initial_state
 
     @pytest.mark.parametrize(
-        "state, terminality", zip(states, [False, False, True, True])
+        "state, terminality", zip(states, [False, False, True, True], strict=False)
     )
     def test_correctly_identifies_state_terminality(self, state, terminality):
         unac = UltimateNoughtsAndCrosses()
 
         assert unac.is_terminal(state) is terminality
 
-    @pytest.mark.parametrize("state, metaboard", zip(states, meta_boards))
+    @pytest.mark.parametrize("state, metaboard", zip(states, meta_boards, strict=False))
     def test_meta_board_is_calculated_correctly(self, state, metaboard):
         unac = UltimateNoughtsAndCrosses()
 

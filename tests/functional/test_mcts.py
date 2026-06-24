@@ -1,7 +1,8 @@
 import pytest
 
-from alphago import mcts, MCTSNode
+from alphago import MCTSNode, mcts
 from alphago.mcts_tree import print_tree
+
 from ..unit.games.mock_game import MockGame
 
 
@@ -29,13 +30,17 @@ def test_can_run_mcts_on_fake_game():
 
 
 def mock_evaluator_action0(state):
-    prior_probs = {action: prob for action, prob in zip(range(3), [1, 0, 0])}
+    prior_probs = {
+        action: prob for action, prob in zip(range(3), [1, 0, 0], strict=False)
+    }
     value = 0
     return prior_probs, value
 
 
 def mock_evaluator_action1(state):
-    prior_probs = {action: prob for action, prob in zip(range(3), [0, 1, 0])}
+    prior_probs = {
+        action: prob for action, prob in zip(range(3), [0, 1, 0], strict=False)
+    }
     value = 0
     return prior_probs, value
 
@@ -70,6 +75,6 @@ def test_print_mcts():
     mock_game.TERMINAL_STATE_VALUES = [0.01 * i for i in range(12)]
 
     root = MCTSNode(0, player=1)
-    action_probs = mcts(root, mock_game, mock_game.mock_estimator, 10, 1.0)
+    mcts(root, mock_game, mock_game.mock_estimator, 10, 1.0)
     print_tree(root)
     mock_game.TERMINAL_STATE_VALUES = (1,) * 12

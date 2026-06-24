@@ -1,10 +1,8 @@
 import time
 
-from alphago.games import NoughtsAndCrosses, ConnectFour
-from alphago.estimator import NACNetEstimator, ConnectFourNet
 from alphago.alphago import train_alphago
-
-from alphago.utilities import memoize_instance
+from alphago.estimator import ConnectFourNet
+from alphago.games import ConnectFour
 
 learning_rate = 1e-3
 game = ConnectFour()
@@ -31,7 +29,7 @@ win_rate = 0.6
 batch_size = 32
 
 current_time_format = time.strftime("experiment-%Y-%m-%d_%H:%M:%S")
-path = "experiments/{}-{}/".format(game_name, current_time_format)
+path = f"experiments/{game_name}-{current_time_format}/"
 checkpoint_path = path + "checkpoints/"
 summary_path = path + "logs/"
 

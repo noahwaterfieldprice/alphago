@@ -1,12 +1,11 @@
 import inspect
-from typing import Any, Callable, TypeVar, Dict
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
-T = TypeVar("T")
 
-
-def sample_distribution(distribution: Dict[T, float]) -> T:
+def sample_distribution[T](distribution: dict[T, float]) -> T:
     """Given a probability distribution as a dictionary, with keys the
     outcomes and values the probabilities, sample an outcome from the
     distribution according to the probabilities.
@@ -17,7 +16,7 @@ def sample_distribution(distribution: Dict[T, float]) -> T:
         A dictionary with keys the outcomes and values the probabilities.
     """
 
-    outcomes, probabilities = zip(*distribution.items())
+    outcomes, probabilities = zip(*distribution.items(), strict=False)
     outcome_ix = np.random.choice(len(outcomes), p=probabilities)
     outcome = outcomes[outcome_ix]
 
@@ -38,7 +37,7 @@ def memoize(func: Callable) -> Callable:
     return memoized_func
 
 
-def memoize_instance(instance: T) -> None:
+def memoize_instance[T](instance: T) -> None:
     """Given an instance of a class, replace each of its methods with
     a memoized copy."""
     for name, fn in inspect.getmembers(instance, inspect.ismethod):

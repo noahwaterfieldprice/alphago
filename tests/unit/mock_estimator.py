@@ -7,7 +7,9 @@ import tensorflow as tf
 
 
 class MockNetEstimator:
-    def __init__(self, learning_rate, action_indices={i + 1: i for i in range(18)}):
+    def __init__(self, learning_rate, action_indices=None):
+        if action_indices is None:
+            action_indices = {i + 1: i for i in range(18)}
         self._initialise_net()
 
     def _initialise_net(self):
@@ -27,8 +29,10 @@ class MockNetEstimator:
         probs = tf.nn.softmax(logits=prob_logits)
 
         tensors = [state_vector, values, prob_logits, probs]
-        names = "state_vector values prob_logits probs".split()
-        self.tensors = {name: tensor for name, tensor in zip(names, tensors)}
+        names = ["state_vector", "values", "prob_logits", "probs"]
+        self.tensors = {
+            name: tensor for name, tensor in zip(names, tensors, strict=False)
+        }
 
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is

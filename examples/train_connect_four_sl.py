@@ -1,29 +1,28 @@
 """This file trains a connect four net with supervised learning."""
 
 import argparse
-from collections import deque
 import os
 import pickle
 import time
+from collections import deque
 
 import numpy as np
 import tensorflow as tf
-from tqdm import tqdm
+from tools.summary_scalars import SummaryScalars
 
-from alphago.games.connect_four import action_list_to_state, ConnectFour
+from alphago.alphago import optimise_estimator
 from alphago.estimator import (
     ConnectFourNet,
-    create_trivial_estimator,
     create_rollout_estimator,
+    create_trivial_estimator,
 )
 from alphago.evaluator import run_gauntlet
-from alphago.alphago import optimise_estimator
-from tools.summary_scalars import SummaryScalars
-from alphago.player import RandomPlayer, MCTSPlayer
+from alphago.games.connect_four import ConnectFour, action_list_to_state
+from alphago.player import MCTSPlayer, RandomPlayer
 
 
 def compute_checkpoint_name(step, path):
-    return path + "{}.checkpoint".format(step)
+    return path + f"{step}.checkpoint"
 
 
 def solved_states_to_training_data(solved_states):
@@ -173,8 +172,8 @@ def train_network(solved_states, evaluate_every):
     rollout_estimator = create_rollout_estimator(game, 50)
     random_player = RandomPlayer(game)
     c_puct = 0.5
-    trivial_mcts_player = MCTSPlayer(game, trivial_estimator, mcts_iters, c_puct, 0.01)
-    rollout_mcts_player = MCTSPlayer(game, rollout_estimator, mcts_iters, c_puct, 0.01)
+    MCTSPlayer(game, trivial_estimator, mcts_iters, c_puct, 0.01)
+    MCTSPlayer(game, rollout_estimator, mcts_iters, c_puct, 0.01)
     # fixed_comparison_players = {1: random_player,
     #                             2: trivial_mcts_player,
     #                             3: rollout_mcts_player}
@@ -196,13 +195,14 @@ def train_network(solved_states, evaluate_every):
 
     # Build the hyperparameter string
     hyp_string = (
-        "lr={},batch_size={},value_weight={},l2_weight={},num_train={}"
-    ).format(learning_rate, batch_size, value_weight, l2_weight, num_train)
+        f"lr={learning_rate},batch_size={batch_size},"
+        f"value_weight={value_weight},l2_weight={l2_weight},num_train={num_train}"
+    )
 
     game_name = "connect_four-sl"
 
     current_time_format = time.strftime("%Y-%m-%d_%H:%M:%S")
-    path = "experiments/{}-{}-{}/".format(game_name, hyp_string, current_time_format)
+    path = f"experiments/{game_name}-{hyp_string}-{current_time_format}/"
     checkpoint_path = path + "checkpoints/"
     game_results_file_name = path + "game_results.pickle"
 
@@ -227,7 +227,7 @@ def train_network(solved_states, evaluate_every):
     ]
 
     for step in range(num_steps):
-        print("Step: {}".format(step))
+        print(f"Step: {step}")
         optimise_estimator(
             estimator,
             training_data,
@@ -242,10 +242,8 @@ def train_network(solved_states, evaluate_every):
         dev_loss, dev_loss_value, dev_loss_probs = estimator.loss(dev_data, batch_size)
         dev_accuracy = compute_accuracy(estimator, dev_optimal_actions)
         print(
-            "Dev loss: {}, dev loss value: {}, dev loss probs: {}, "
-            "dev accuracy: {}".format(
-                dev_loss, dev_loss_value, dev_loss_probs, dev_accuracy
-            )
+            f"Dev loss: {dev_loss}, dev loss value: {dev_loss_value}, "
+            f"dev loss probs: {dev_loss_probs}, dev accuracy: {dev_accuracy}"
         )
 
         summary_scalars.run(
@@ -317,7 +315,7 @@ def split_solved_state(line):
 
 def load_solved_states(training_data_file, max_lines=None):
     solved_states = []
-    with open(training_data_file, "r") as f:
+    with open(training_data_file) as f:
         for line in f:
             state, optimal_actions, value = split_solved_state(line)
             solved_states.append((state, optimal_actions, value))
@@ -367,7 +365,7 @@ if __name__ == "__main__":
         ]
 
         accuracy = compute_accuracy(estimator, optimal_actions_list)
-        print("Accuracy: {}".format(accuracy))
+        print(f"Accuracy: {accuracy}")
     else:
         # Otherwise, train the network.
         evaluate_every = 5

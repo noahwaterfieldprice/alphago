@@ -17,7 +17,7 @@ UltimateNoughtsAndCrosses
 import functools
 import itertools
 import operator
-from typing import Dict, List, NamedTuple, Tuple
+from typing import NamedTuple
 
 import numpy as np
 
@@ -131,7 +131,7 @@ class NoughtsAndCrosses(Game):
 
         self._win_bitmasks = self._calculate_win_bitmasks()
 
-    def _calculate_win_bitmasks(self) -> List[int]:
+    def _calculate_win_bitmasks(self) -> list[int]:
         """Construct bitmasks corresponding to each way to win noughts
         and crosses including wins by a full row, column or diagonal."""
         row_win_bitmasks = self._calculate_row_bitmasks()
@@ -146,7 +146,7 @@ class NoughtsAndCrosses(Game):
             + minor_diagonal_win_bitmasks
         )
 
-    def _calculate_row_bitmasks(self) -> List[int]:
+    def _calculate_row_bitmasks(self) -> list[int]:
         """Returns bitmasks for wins corresponding to a full row."""
         row_win_bitmasks = []
         for row in range(self.rows):
@@ -161,7 +161,7 @@ class NoughtsAndCrosses(Game):
 
         return row_win_bitmasks
 
-    def _calculate_column_bitmasks(self) -> List[int]:
+    def _calculate_column_bitmasks(self) -> list[int]:
         """Returns bitmasks for wins corresponding to a full column."""
         column_win_bitmasks = []
         for column in range(self.columns):
@@ -176,7 +176,7 @@ class NoughtsAndCrosses(Game):
 
         return column_win_bitmasks
 
-    def _calculate_major_diagonal_bitmasks(self) -> List[int]:
+    def _calculate_major_diagonal_bitmasks(self) -> list[int]:
         """Returns bitmasks for wins corresponding to a full major
         diagonal."""
         major_diagonal_win_bitmasks = []
@@ -203,7 +203,7 @@ class NoughtsAndCrosses(Game):
             major_diagonal_win_bitmasks.append(major_diagonal_win)
         return major_diagonal_win_bitmasks
 
-    def _calculate_minor_diagonal_bitmasks(self) -> List[int]:
+    def _calculate_minor_diagonal_bitmasks(self) -> list[int]:
         """Returns bitmasks for wins corresponding to a full minor
         diagonal."""
         minor_diagonal_win_bitmasks = []
@@ -258,11 +258,8 @@ class NoughtsAndCrosses(Game):
         # check if player 1 has won
         if any(p1_state & win == win for win in self._win_bitmasks):
             return True
-        # check if player 2 has won
-        if any(p2_state & win == win for win in self._win_bitmasks):
-            return True
-        # otherwise it is non-terminal
-        return False
+        # check if player 2 has won; otherwise it is non-terminal
+        return any(p2_state & win == win for win in self._win_bitmasks)
 
     def current_player(self, state: GameState) -> int:
         """Given a state, return an int indicating the player whose
@@ -281,7 +278,7 @@ class NoughtsAndCrosses(Game):
         """
         return state.current_player
 
-    def utility(self, state: GameState) -> Dict[int, int]:
+    def utility(self, state: GameState) -> dict[int, int]:
         """Given a terminal noughts and crosses state, calculates the
         outcomes for both players. These outcomes are given by +1, -1
         and 0 for a win, loss, or draw, respectively.
@@ -317,7 +314,7 @@ class NoughtsAndCrosses(Game):
         # otherwise it is a draw
         return {1: 0, 2: 0}
 
-    def legal_actions(self, state: GameState) -> Dict[Action, GameState]:
+    def legal_actions(self, state: GameState) -> dict[Action, GameState]:
         """Given a non-terminal state, generate a dictionary mapping
         legal actions onto their resulting game states.
 
@@ -394,7 +391,7 @@ class NoughtsAndCrosses(Game):
         row_strings = []
         for row in range(self.rows):
             row_string = "|".join(
-                [" {} ".format(board_dict[(row, col)]) for col in range(self.columns)]
+                [f" {board_dict[(row, col)]} " for col in range(self.columns)]
             )
             row_strings.append(row_string)
 
@@ -402,7 +399,7 @@ class NoughtsAndCrosses(Game):
         print(ascii_grid)
 
     def __repr__(self):
-        return "{0}({1}, {2})".format(self.__class__.__name__, self.rows, self.columns)
+        return f"{self.__class__.__name__}({self.rows}, {self.columns})"
 
 
 class UltimateAction(NamedTuple):
@@ -440,7 +437,7 @@ class UltimateNoughtsAndCrosses:
         sub_row, sub_col = action.sub_action
         return sub_board_row * 27 + sub_board_col * 3 + sub_row * 9 + sub_col
 
-    def _compute_meta_board(self, state: UltimateGameState) -> Tuple[int, ...]:
+    def _compute_meta_board(self, state: UltimateGameState) -> tuple[int, ...]:
         board = np.array(state.board).reshape(9, 9)
         sub_boards = [
             board[i * 3 : (i + 1) * 3, j * 3 : (j + 1) * 3]
@@ -465,7 +462,7 @@ class UltimateNoughtsAndCrosses:
         meta_board = self._compute_meta_board(state)
         return self.sub_game.is_terminal(meta_board)
 
-    def utility(self, state: UltimateGameState) -> Dict[int, int]:
+    def utility(self, state: UltimateGameState) -> dict[int, int]:
         meta_board = self._compute_meta_board(state)
         return self.sub_game.utility(meta_board)
 
@@ -474,7 +471,7 @@ class UltimateNoughtsAndCrosses:
 
     def compute_next_states(
         self, state: UltimateGameState
-    ) -> Dict[UltimateAction, UltimateGameState]:
+    ) -> dict[UltimateAction, UltimateGameState]:
         if self.is_terminal(state):
             raise ValueError("Next states can not be generated for a terminal state.")
         board = np.array(state.board).reshape(9, 9)
@@ -500,7 +497,7 @@ class UltimateNoughtsAndCrosses:
                 next_states[action] = next_state
             return next_states
         else:
-            available_sub_actions = tuple(zip(*np.where(sub_board == 0)))
+            available_sub_actions = tuple(zip(*np.where(sub_board == 0), strict=False))
             for sub_action in available_sub_actions:
                 action = UltimateAction(
                     sub_board=(sub_board_row, sub_board_col), sub_action=sub_action

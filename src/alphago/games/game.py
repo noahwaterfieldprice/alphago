@@ -1,6 +1,5 @@
-from typing import Any, Dict, Sequence
-
 import abc
+from typing import Any
 
 GameState, Action = Any, Any
 
@@ -29,7 +28,7 @@ class Game(abc.ABC):
         """Returns the player to play in the given state."""
 
     @abc.abstractmethod
-    def legal_actions(self, state: GameState) -> Dict[Action, GameState]:
+    def legal_actions(self, state: GameState) -> dict[Action, GameState]:
         """Computes the next states possible from the given state."""
 
     @abc.abstractmethod
@@ -37,6 +36,6 @@ class Game(abc.ABC):
         """Returns whether the given state is terminal."""
 
     @abc.abstractmethod
-    def utility(self, state: GameState) -> Dict[int, float]:
+    def utility(self, state: GameState) -> dict[int, float]:
         """Compute the utility of the given (terminal) state for each
         player."""

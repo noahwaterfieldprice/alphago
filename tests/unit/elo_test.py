@@ -50,11 +50,7 @@ def test_run_mm_large():
     initial_ll = compute_log_likelihood(wins, initial_gamma)
     gamma = run_mm(initial_gamma, wins)
     final_ll = compute_log_likelihood(wins, gamma)
-    print(
-        "Hidden ll: {}, initial ll: {}, final ll: {}".format(
-            hidden_ll, initial_ll, final_ll
-        )
-    )
+    print(f"Hidden ll: {hidden_ll}, initial ll: {initial_ll}, final ll: {final_ll}")
     print(hidden_gamma * 100)
     print(gamma * 100)
     assert initial_ll < final_ll

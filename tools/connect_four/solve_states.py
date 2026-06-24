@@ -4,7 +4,6 @@ from tqdm import tqdm
 
 from alphago.games.connect_four import optimal_moves
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", help="File to read input from.")
@@ -14,7 +13,7 @@ if __name__ == "__main__":
 
     # First read in the states.
     states = []
-    with open(args.input_file, "r") as f:
+    with open(args.input_file) as f:
         for line in f:
             state = map(int, line.strip())
             states.append(list(state))

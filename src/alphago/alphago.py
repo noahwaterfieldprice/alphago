@@ -1,12 +1,12 @@
 from collections import OrderedDict
 
 import numpy as np
-from tqdm import tqdm
 import tensorflow as tf
+from tqdm import tqdm
 
-from .player import MCTSPlayer, RandomPlayer, OptimalPlayer
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
+from .player import MCTSPlayer, OptimalPlayer, RandomPlayer
 from .utilities import sample_distribution
 
 __all__ = [
@@ -18,7 +18,7 @@ __all__ = [
 
 
 def compute_checkpoint_name(step, path):
-    return path + "{}.checkpoint".format(step)
+    return path + f"{step}.checkpoint"
 
 
 def train_alphago(
@@ -182,7 +182,7 @@ def train_alphago(
                 # recent training_estimator.
                 if verbose:
                     print("Updating self-play player.")
-                    print("Restoring from step: {}".format(alphago_step))
+                    print(f"Restoring from step: {alphago_step}")
                 self_play_estimator = create_estimator()
                 restore_path = compute_checkpoint_name(alphago_step, checkpoint_path)
                 self_play_estimator.restore(restore_path)
@@ -230,14 +230,13 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games, verbos
 
     if verbose:
         print(
-            "Self-play player wins: {}, Training player wins: {}, Draws: {}".format(
-                wins1, wins2, draws
-            )
+            f"Self-play player wins: {wins1}, "
+            f"Training player wins: {wins2}, Draws: {draws}"
         )
 
     success_rate = (wins2 + draws) / (wins1 + wins2 + draws)
     if verbose:
-        print("Win + draw rate for training player: {}".format(success_rate))
+        print(f"Win + draw rate for training player: {success_rate}")
 
     # Also evaluate against a random player
     wins1, wins2, draws = evaluate_mcts_against_random_player(
@@ -253,9 +252,7 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games, verbos
 
     if verbose:
         print(
-            "Training player vs random. Wins: {}, Losses: {}, Draws: {}".format(
-                wins1, wins2, draws
-            )
+            f"Training player vs random. Wins: {wins1}, Losses: {wins2}, Draws: {draws}"
         )
 
     ## Also evaluate against an optimal player
@@ -380,7 +377,7 @@ def generate_self_play_data(
         index = 0
 
     # Collect self-play training data using the best estimator.
-    disable_tqdm = False if verbose else True
+    disable_tqdm = not verbose
     for _ in tqdm(range(num_iters), disable=disable_tqdm):
         data[index] = self_play(
             game, estimator.create_estimate_fn(), mcts_iters, c_puct
@@ -471,12 +468,12 @@ def process_training_data(self_play_data, replay_length=None):
         tuples.
     """
     training_data = []
-    for index, game_log in self_play_data.items():
-        for state, action, probs_vector, z in game_log:
+    for game_log in self_play_data.values():
+        for state, _action, probs_vector, z in game_log:
             training_data.append((state, probs_vector, z))
 
-    print("Training data length: {}".format(len(training_data)))
-    print("Self play data length: {}".format(len(self_play_data)))
+    print(f"Training data length: {len(training_data)}")
+    print(f"Self play data length: {len(self_play_data)}")
 
     if replay_length is not None:
         training_data = training_data[-replay_length:]
@@ -526,7 +523,7 @@ def process_self_play_data(states_, actions_, action_probs_, game, action_indice
 
     # Now action_probs_ and states_ are the same length.
     training_data = []
-    for state, action, probs in zip(states_, actions_, action_probs_):
+    for state, action, probs in zip(states_, actions_, action_probs_, strict=False):
         # Get the player in the state, and the value to this player of the
         # terminal state.
         player = game.current_player(state)

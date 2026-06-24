@@ -5,14 +5,22 @@ not full).
 """
 
 import os
-from typing import Tuple
 import subprocess
 
 import numpy as np
 
 from .game import Game
 
-GameState, Action = Tuple[int, ...], int
+GameState, Action = tuple[int, ...], int
+
+__all__ = [
+    "Action",
+    "ConnectFour",
+    "GameState",
+    "action_list_to_state",
+    "heuristic",
+    "optimal_moves",
+]
 
 
 class ConnectFour(Game):
@@ -105,13 +113,9 @@ class ConnectFour(Game):
         if np.all(state):
             return True
 
-        # Check if there is a winner
+        # Check if there is a winner; otherwise it is non-terminal.
         line_sums = self._calculate_line_sums(state)
-        if np.any(np.abs(line_sums) == 4):
-            return True
-
-        # Otherwise it is non-terminal
-        return False
+        return bool(np.any(np.abs(line_sums) == 4))
 
     def utility(self, state):
         """Compute the utility of a terminal state.
@@ -197,7 +201,7 @@ class ConnectFour(Game):
 
         output_rows = []
         for state_row in np.array_split(tuple(state), indices_or_sections=6):
-            y = "|".join([" {} ".format(symbol_dict[x]) for x in state_row])
+            y = "|".join([f" {symbol_dict[x]} " for x in state_row])
             output_rows.append(y)
 
         ascii_grid = divider.join(output_rows)
@@ -220,7 +224,6 @@ def action_list_to_state(action_list):
     """
     columns = {action: [] for action in range(7)}
     for i, action in enumerate(action_list):
-        player = (i % 2) + 1
         player_symbol = 2 * (i % 2) - 1
         columns[action].append(player_symbol)
 

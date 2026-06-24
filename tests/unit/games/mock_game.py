@@ -30,7 +30,9 @@ class MockGame:
 
         return {
             action: next_state
-            for action, next_state in zip(range(3), self.legal_actions_map[state])
+            for action, next_state in zip(
+                range(3), self.legal_actions_map[state], strict=False
+            )
         }
 
     def utility(self, state):

@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, List, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -19,7 +20,7 @@ def mcts(
     tau: float = 1,
     dirichlet_epsilon: float = 0.25,
     dirichlet_alpha: float = 0.03,
-) -> Dict[Action, float]:
+) -> dict[Action, float]:
     """Perform a MCTS from a given starting node
 
     Parameters
@@ -63,7 +64,7 @@ def mcts(
     >>> from alphago import mcts
     """
 
-    for i in range(mcts_iters):
+    for _ in range(mcts_iters):
         # First select a leaf node from the MCTS tree. This actually
         # returns all nodes and actions taken, with the length of
         # actions being one less than the length of nodes. The last
@@ -175,7 +176,16 @@ class MCTSNode:
         A boolean indicating if the node is terminal.
     """
 
-    __slots__ = "Q W N is_terminal children prior_probs game_state player".split()
+    __slots__ = [
+        "Q",
+        "W",
+        "N",
+        "is_terminal",
+        "children",
+        "prior_probs",
+        "game_state",
+        "player",
+    ]
 
     def __init__(
         self, game_state: Any, player: Player, is_terminal: bool = False
@@ -208,10 +218,10 @@ class MCTSNode:
 
     def expand(
         self,
-        prior_probs: Dict[Action, float],
-        child_states: Dict[Action, State],
-        child_players: Dict[Action, Player],
-        child_terminals: Dict[Action, bool],
+        prior_probs: dict[Action, float],
+        child_states: dict[Action, State],
+        child_players: dict[Action, Player],
+        child_terminals: dict[Action, bool],
     ) -> None:
         """Expands the tree at the leaf node with the given
         probabilities.
@@ -248,17 +258,17 @@ class MCTSNode:
 
 
 def compute_ucb(
-    action_values: Dict[Action, float],
-    prior_probs: Dict[Action, float],
-    action_counts: Dict[Action, int],
+    action_values: dict[Action, float],
+    prior_probs: dict[Action, float],
+    action_counts: dict[Action, int],
     c_puct: float,
-) -> Dict[Action, float]:
+) -> dict[Action, float]:
     """Calculates the upper confidence bound, Q(s,a) + U(s,a), for each
     of the available actions.
 
     U(s,a) is defined as
     .. math::
-        c_\mathrm{puct} P(s, a)* \frac{\sqrt{\sum_b N(s, b)}}{(1 + N)}
+        c_\\mathrm{puct} P(s, a)* \frac{\\sqrt{\\sum_b N(s, b)}}{(1 + N)}
     where c_puct is a hyperparameter the determines the level of
     exploration, P is the probability and N is the action count.
 
@@ -286,14 +296,14 @@ def compute_ucb(
     upper_confidence_bounds = {
         k: action_values[k]
         + prior_probs[k] / float(1 + action_counts[k]) * c_puct * num
-        for k in action_values.keys()
+        for k in action_values
     }
     return upper_confidence_bounds
 
 
 def mix_dirichlet_noise(
-    distribution: Dict[Any, float], epsilon: float, alpha: float
-) -> Dict[Any, float]:
+    distribution: dict[Any, float], epsilon: float, alpha: float
+) -> dict[Any, float]:
     """Combine values in dictionary with Dirichlet noise. Samples
     dirichlet_noise according to dirichlet_alpha in each component. Then
     updates the value v for key k with (1-epsilon) * v + epsilon * noise_k.
@@ -319,7 +329,7 @@ def mix_dirichlet_noise(
     noise = np.random.dirichlet([alpha] * len(distribution))
     return {
         k: (1 - epsilon) * v + epsilon * noise
-        for ((k, v), noise) in zip(distribution.items(), noise)
+        for ((k, v), noise) in zip(distribution.items(), noise, strict=False)
     }
 
 
@@ -328,7 +338,7 @@ def select(
     c_puct: float,
     dirichlet_epsilon: float = 0.0,
     dirichlet_alpha: float = 0.03,
-) -> Tuple[List["MCTSNode"], List[Action]]:
+) -> tuple[list["MCTSNode"], list[Action]]:
     """Starting at a given node in the tree, traverse a path through
      child nodes until a leaf is reached. Return the sequence of nodes
      and actions taken along the path.
@@ -397,7 +407,7 @@ def select(
     return nodes, actions
 
 
-def backup(nodes: List["MCTSNode"], values: Dict[Player, float]) -> None:
+def backup(nodes: list["MCTSNode"], values: dict[Player, float]) -> None:
     """Given the sequence `nodes` (ending in the new expanded node)
     from the game tree, propagate back the Q-values and action counts.
 
@@ -425,7 +435,7 @@ def backup(nodes: List["MCTSNode"], values: Dict[Player, float]) -> None:
         parent_player = node.player
 
 
-def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
+def normalise_distribution(distribution: dict[Any, float]) -> dict[Any, float]:
     """Calculate a (normalised) probability distribution with
     probabilities proportional to the values in a dictionary.
 
@@ -448,8 +458,8 @@ def normalise_distribution(distribution: Dict[Any, float]) -> Dict[Any, float]:
 
 
 def extremise_distribution(
-    distribution: Dict[Any, float], tau: float = 1
-) -> Dict[Any, float]:
+    distribution: dict[Any, float], tau: float = 1
+) -> dict[Any, float]:
     """Calculate an extremised probability distribution parametrised by
     the temperature parameter `tau`.
 
