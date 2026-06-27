@@ -262,15 +262,17 @@ def compute_ucb(
     prior_probs: dict[Action, float],
     action_counts: dict[Action, int],
     c_puct: float,
+    parent_visit_count: float,
 ) -> dict[Action, float]:
     """Calculates the upper confidence bound, Q(s,a) + U(s,a), for each
     of the available actions.
 
     U(s,a) is defined as
     .. math::
-        c_\\mathrm{puct} P(s, a)* \frac{\\sqrt{\\sum_b N(s, b)}}{(1 + N)}
+        c_\\mathrm{puct} P(s, a)* \frac{\\sqrt{N(s)}}{(1 + N(s, a))}
     where c_puct is a hyperparameter the determines the level of
-    exploration, P is the probability and N is the action count.
+    exploration, P is the probability, N(s) is the parent visit count
+    and N(s, a) is the per-action count.
 
     Parameters
     ----------
@@ -280,6 +282,11 @@ def compute_ucb(
         prior probabilities and action counts, respectively.
     c_puct
         A hyperparameter determining the level of exploration.
+    parent_visit_count
+        The visit count N(s) of the parent node whose children are being
+        scored. Using the parent count (rather than the sum of child
+        counts) keeps the prior in play on the first selection at a
+        freshly expanded node.
 
     Returns
     -------
@@ -287,12 +294,13 @@ def compute_ucb(
         A dictionary mapping each of available the available actions to
         the corresponding upper confidence bounds, Q(s,a) + U(s,a).
     """
-    # TODO: Check if this is the right way to define this. Currently we ignore
-    # prior_probs if action_counts are 0. This is the case when we
-    # select children for the first time, which is exactly the time
-    # we want to be using prior_probs.
-    num = np.sqrt(sum(action_counts.values()))
-    # assert num > 0
+    for action, p in prior_probs.items():
+        if not np.isfinite(p):
+            raise ValueError(
+                f"compute_ucb received a non-finite prior probability "
+                f"for action {action!r}: {p}"
+            )
+    num = np.sqrt(parent_visit_count)
     upper_confidence_bounds = {
         k: action_values[k]
         + prior_probs[k] / float(1 + action_counts[k]) * c_puct * num
@@ -390,7 +398,7 @@ def select(
 
         # Compute the upper confidence bound values
         upper_confidence_bounds = compute_ucb(
-            action_values, prior_probs, action_counts, c_puct
+            action_values, prior_probs, action_counts, c_puct, node.N
         )
 
         # Take action with largest ucb
@@ -452,7 +460,11 @@ def normalise_distribution(distribution: dict[Any, float]) -> dict[Any, float]:
         corresponding (normalised) probabilities.
     """
     total = sum(distribution.values())
-    # assert total > 0
+    if total == 0:
+        raise ValueError(
+            f"Cannot normalise a distribution whose values sum to 0 "
+            f"(all-zero prior — broken estimator output): {distribution}"
+        )
     normalised_distribution = {k: v / total for k, v in distribution.items()}
     return normalised_distribution
 

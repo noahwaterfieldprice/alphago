@@ -66,7 +66,7 @@ TRAINING_DATA_EXPECTED = [
 
 def test_process_self_play_data():
     mock_game = MockGame()
-    mock_game.TERMINAL_STATE_VALUES = range(12)  # TODO: this is bad idea
+    mock_game.terminal_state_values = (1,) * 12
 
     states = [0, 1, 3, 8]
     actions_ = [0, 1, 0]
@@ -90,7 +90,7 @@ def test_process_self_play_data():
     ]
 
     assert len(training_data) == len(expected)
-    mock_game.TERMINAL_STATE_VALUES = (1,) * 12
+    mock_game.terminal_state_values = (1,) * 12
     for comp, expec in zip(training_data, expected, strict=False):
         assert (comp[0] == expec[0]).all()
         assert comp[1] == expec[1]

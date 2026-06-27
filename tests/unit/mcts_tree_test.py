@@ -165,13 +165,47 @@ def test_compute_ucb():
     action_values = {"a": 1.0, "b": 2.0, "c": 3.0}
     prior_probs = {"a": 0.2, "b": 0.5, "c": 0.3}
     action_counts = {"a": 10, "b": 20, "c": 30}
-    num = np.sqrt(sum(action_counts.values()))
+    parent_visit_count = 60
+    num = np.sqrt(parent_visit_count)
     expected = {
         a: action_values[a] + prior_probs[a] / (1.0 + action_counts[a]) * c_puct * num
         for a in action_values
     }
-    computed = compute_ucb(action_values, prior_probs, action_counts, c_puct)
+    computed = compute_ucb(
+        action_values, prior_probs, action_counts, c_puct, parent_visit_count
+    )
     assert expected == computed
+
+
+def test_compute_ucb_is_prior_driven_at_zero_visit_root():
+    game = MockGame()
+    root = MCTSNode(0, player=1)  # MockGame state 0: legal actions {0, 1}
+    child_states = game.legal_actions(0)
+    prior_probs = {0: 0.1, 1: 0.9}  # high prior on the NON-first key
+    child_players = {a: game.current_player(s) for a, s in child_states.items()}
+    child_terminals = {a: game.is_terminal(s) for a, s in child_states.items()}
+    root.expand(prior_probs, child_states, child_players, child_terminals)
+    root.N = 1.0
+
+    # Drive select() directly so dirichlet_epsilon defaults to 0.0 (no root noise).
+    nodes, actions = select(root, c_puct=1.0)
+    assert actions[0] == 1
+
+
+def test_normalise_distribution_raises_on_all_zero():
+    with pytest.raises(ValueError, match="sum to 0"):
+        normalise_distribution({0: 0.0, 1: 0.0})
+
+
+def test_compute_ucb_raises_on_non_finite_prior():
+    with pytest.raises(ValueError, match="non-finite prior"):
+        compute_ucb({0: 0.0}, {0: float("nan")}, {0: 0}, 1.0, 1.0)
+
+
+def test_guards_silent_on_wellformed_softmax():
+    good = {0: 0.2, 1: 0.5, 2: 0.3}
+    normalise_distribution(good)
+    compute_ucb({k: 0.0 for k in good}, good, {k: 0 for k in good}, 1.0, 1.0)
 
 
 def test_normalise_distribution_correctly_normalises_distribution():
