@@ -1,8 +1,40 @@
+"""Policy/value estimators for the AlphaGo Zero networks.
+
+This module ports the three game-specific neural-net estimators from
+TensorFlow 1.x to ``torch.nn``. The three near-identical TF topologies are
+collapsed into a single configurable :class:`PolicyValueNet` driven by a
+per-game :class:`NetConfig`. The frozen estimator seam is
+preserved verbatim: a callable ``(state) -> (probs_dict, value)`` keyed by all
+actions, a ``create_estimator()``-style zero-arg factory, and
+``train``/``save``/``restore``.
+
+Three documented behaviour changes (NOT faithful reproductions of the TF1 code)
+are folded in so later regressions are attributable:
+
+* **Explicit L2.** The TF1 code registered ``weights_regularizer`` on every
+  layer but never added it to the minimized loss (old ``estimator.py:465``), so
+  TF1 trained effectively L2-free. The port adds an explicit L2 penalty to the
+  loss.
+* **Dropping BatchNorm.** ``NAC3x6NetEstimator`` had ``use_batch_norm=True``
+  ACTIVE (old ``estimator.py:689``); removing BN is a real behaviour change for
+  NAC3x6 (a no-op only for NAC3x3 and Connect Four).
+* **l2_weight default.** The concrete TF1 ``__init__`` declared ``l2_weight``
+  with no default (old ``estimator.py:365/523/876``), so the zero-arg
+  ``create_estimator()`` factory raised ``TypeError``. ``l2_weight`` now has a
+  sane default.
+
+The 3D-conv -> Conv2d fix (on the true ``(N, C, H, W)`` board) and
+non-overlapping minibatches in :meth:`loss` are also folded in.
+"""
+
 import abc
 import random
+from dataclasses import dataclass, field
 
 import numpy as np
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from tqdm import tqdm
 
 from .games import Game
@@ -56,18 +88,131 @@ def create_rollout_estimator(game, num_rollouts):
         next_states = game.legal_actions(state)
         uniform_prior_probs = {action: 1 / len(next_states) for action in next_states}
         player_no = game.current_player(state)
+        # Snapshot the root state and roll out from a fresh copy each
+        # iteration; reassigning `state` in the loop previously left
+        # it terminal so every rollout after the first was a no-op.
+        root_state = state
         total_value = 0
         for _ in range(num_rollouts):
-            while not game.is_terminal(state):
-                next_states = game.legal_actions(state)
-                state = random.choice(list(next_states.values()))
+            s = root_state
+            while not game.is_terminal(s):
+                next_states = game.legal_actions(s)
+                s = random.choice(list(next_states.values()))
 
-            total_value += game.utility(state)[player_no]
+            total_value += game.utility(s)[player_no]
         mean_value = total_value / num_rollouts
 
         return uniform_prior_probs, mean_value
 
     return rollout_estimator
+
+
+@dataclass
+class NetConfig:
+    """Per-game configuration for :class:`PolicyValueNet`.
+
+    Attributes
+    ----------
+    board_h, board_w:
+        Spatial dimensions of the board (height, width) for the ``(N, C, H, W)``
+        conv input.
+    in_channels:
+        Number of input channels (e.g. 1 for a single board plane, 2 for the two
+        NAC 3x6 bitboard planes).
+    conv_specs:
+        ``(out_channels, kernel_size)`` for each ``Conv2d`` layer in order.
+    trunk_dims:
+        Hidden dims of the shared dense trunk (each followed by ReLU).
+    value_head_dims, policy_head_dims:
+        Hidden dims of the optional value/policy head towers. Empty towers read
+        straight off the trunk.
+    pi_dim:
+        Number of policy logits (the action space size).
+    """
+
+    board_h: int
+    board_w: int
+    in_channels: int
+    conv_specs: list[tuple[int, int]]
+    trunk_dims: list[int]
+    pi_dim: int
+    value_head_dims: list[int] = field(default_factory=list)
+    policy_head_dims: list[int] = field(default_factory=list)
+
+
+class PolicyValueNet(nn.Module):
+    """A single configurable policy/value CNN.
+
+    Reproduces the three pinned TF1 topologies via a :class:`NetConfig`. All
+    convolutions are ``Conv2d`` with ``padding="same"`` (fixing the old
+    3D-conv bug) and stride 1, so spatial dims are preserved and the flattened
+    trunk input is ``out_channels * board_h * board_w``. ``forward`` returns
+    ``(policy_logits, value)`` in a single pass; the value head uses a
+    ``tanh`` activation and the policy head has no activation.
+    """
+
+    def __init__(self, cfg: NetConfig) -> None:
+        super().__init__()
+        self.board_h = cfg.board_h
+        self.board_w = cfg.board_w
+
+        convs: list[nn.Module] = []
+        channels = cfg.in_channels
+        for out_ch, kernel in cfg.conv_specs:
+            convs.append(
+                nn.Conv2d(channels, out_ch, kernel_size=kernel, padding="same")
+            )
+            convs.append(nn.ReLU())
+            channels = out_ch
+        self.conv = nn.Sequential(*convs)
+
+        # "same" padding preserves H and W, so the flattened size is exact.
+        flat = channels * cfg.board_h * cfg.board_w
+        self.trunk = self._mlp(flat, cfg.trunk_dims)
+        trunk_out = cfg.trunk_dims[-1] if cfg.trunk_dims else flat
+
+        self.value_tower = self._mlp(trunk_out, cfg.value_head_dims)
+        self.policy_tower = self._mlp(trunk_out, cfg.policy_head_dims)
+        v_in = cfg.value_head_dims[-1] if cfg.value_head_dims else trunk_out
+        p_in = cfg.policy_head_dims[-1] if cfg.policy_head_dims else trunk_out
+        self.value_out = nn.Linear(v_in, 1)
+        self.policy_out = nn.Linear(p_in, cfg.pi_dim)
+
+    @staticmethod
+    def _mlp(in_dim: int, dims: list[int]) -> nn.Sequential:
+        """Build a ReLU MLP. An empty ``dims`` yields an identity passthrough."""
+        layers: list[nn.Module] = []
+        d = in_dim
+        for out in dims:
+            layers.append(nn.Linear(d, out))
+            layers.append(nn.ReLU())
+            d = out
+        return nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        # Verify Conv2d runs on the true (H, W) board so a
+        # transpose of a rectangular board (e.g. NAC 3x6 -> 6x3) fails loudly.
+        if tuple(x.shape[-2:]) != (self.board_h, self.board_w):
+            raise ValueError(
+                f"expected input (H, W) = ({self.board_h}, {self.board_w}), "
+                f"got {tuple(x.shape[-2:])}"
+            )
+        z = self.conv(x).flatten(1)
+        z = self.trunk(z)
+        value = torch.tanh(self.value_out(self.value_tower(z)))
+        policy_logits = self.policy_out(self.policy_tower(z))
+        return policy_logits, value
+
+
+def _iter_batches(data, batch_size):
+    """Yield consecutive NON-overlapping batches of ``batch_size``.
+
+    The TF1 ``loss`` used a sliding window ``range(i, i + batch_size)`` which
+    overlapped batches; this steps by ``batch_size`` so each row is used at most
+    once.
+    """
+    for start in range(0, len(data) - batch_size + 1, batch_size):
+        yield data[start : start + batch_size]
 
 
 class AbstractNeuralNetEstimator(abc.ABC):
@@ -81,62 +226,103 @@ class AbstractNeuralNetEstimator(abc.ABC):
         self._initialise_net()
 
     @abc.abstractmethod
-    def _initialise_net(self):
-        """Initialise the neural network and all associated tensors."""
+    def _config(self) -> NetConfig:
+        """Return the per-game network configuration."""
 
     @abc.abstractmethod
     def _state_to_vector(self, state):
-        """Map the state to a vector suitable for input to the
-        neural network estimator."""
+        """Map the state to a flat ``(N, in_channels * board_h * board_w)``
+        numpy array suitable for input to the network."""
+
+    def _initialise_net(self):
+        """Build the network, optimizer and step counter (replaces the TF
+        graph/session)."""
+        self.cfg = self._config()
+        self.net = PolicyValueNet(self.cfg)
+        # Direct equivalent of the old MomentumOptimizer(lr, momentum=0.9).
+        self.optimizer = torch.optim.SGD(
+            self.net.parameters(), lr=self.learning_rate, momentum=0.9
+        )
+        # Global_step stays a plain int.
+        self.global_step = 0
+
+    def _vectors_to_input(self, vectors) -> torch.Tensor:
+        """Reshape a flat ``(N, flat)`` numpy array to an ``(N, C, H, W)`` tensor.
+
+        The ``float32`` here is the minimal tensor-construction dtype needed for
+        Conv2d; the full numpy->tensor boundary cast + ``get_device()`` move is
+        deliberately deferred.
+        """
+        x = torch.as_tensor(np.asarray(vectors), dtype=torch.float32)
+        return x.reshape(-1, self.cfg.in_channels, self.cfg.board_h, self.cfg.board_w)
+
+    def _batch_to_tensors(self, batch):
+        """Encode a list of ``(state, pi, z)`` rows into ``(x, pi, z)`` tensors."""
+        vectors = np.concatenate([self._state_to_vector(x[0]) for x in batch], axis=0)
+        pis = np.array([x[1] for x in batch], dtype=np.float32)
+        zs = np.array([x[2] for x in batch], dtype=np.float32).reshape(-1, 1)
+        x = self._vectors_to_input(vectors)
+        pi = torch.as_tensor(pis, dtype=torch.float32)
+        z = torch.as_tensor(zs, dtype=torch.float32)
+        return x, pi, z
 
     def __call__(self, state):
         """Returns the result of the neural net applied to the state. This is
-        'probs' and 'value'
+        'probs' and 'value'.
 
         Parameters
         ----------
         state: ndarray
-            The input state to the network. Should be a numpy array.
+            The input state to the network. We expect a single state; if a batch
+            is passed the first state's outputs are returned (consistent with
+            ``probs`` below slicing the first row via ``action_indices``).
 
         Returns
         -------
         probs: dict
-            The probabilities returned by the net as a dictionary. The keys
-            are the actions and the .
-        value: ndarray
+            The probabilities returned by the net as a dictionary keyed by ALL
+            actions in ``action_indices`` (unmasked; the legal/sum-to-1
+            invariant is realized at the MCTS boundary).
+        value: float
             The value returned by the net.
         """
-        # Reshape the state if necessary so that it's 1 x game_state_shape. We
-        # should only be evaluating one state at a time in this function.
-        state = self._state_to_vector(state)
+        vectors = self._state_to_vector(state)
+        x = self._vectors_to_input(vectors)
 
-        # Evaluate the network at the state
-        probs = self.sess.run(
-            self.tensors["probs"],
-            feed_dict={
-                self.tensors["state_vector"]: state,
-                self.tensors["is_training"]: False,
-            },
-        )
-        value = self.sess.run(
-            self.tensors["value"],
-            feed_dict={
-                self.tensors["state_vector"]: state,
-                self.tensors["is_training"]: False,
-            },
-        )
+        self.net.eval()
+        with torch.no_grad():
+            logits, value = self.net(x)
+            probs = F.softmax(logits, dim=1)
 
-        # value is currently an np array, so extract the float.
-        probs = probs.ravel()
-        [value] = value.ravel()
+        probs = probs.numpy().ravel()
+        value = value.numpy().ravel()[0]
 
-        # probs is currently an np array. Put the value into a
-        # dictionary with keys the actions and values the probs.
         probs_dict = {
             action: probs[index] for action, index in self.action_indices.items()
         }
 
-        return probs_dict, value
+        return probs_dict, float(value)
+
+    def _compute_loss(self, x, pi, z):
+        """Compute the combined loss and its value/probs components.
+
+        Soft-target policy cross-entropy via ``F.log_softmax`` (a hand-rolled
+        soft-CE -- the policy targets are soft distributions, not class
+        indices), MSE value loss, and an EXPLICIT L2 penalty. NOTE: the
+        TF1 code never added L2 to
+        the minimized loss (old ``estimator.py:465``), so this explicit L2 is a
+        documented behaviour change. ``.mean()`` (not ``.sum(dim=1).mean()``)
+        matches the TF1 ``reduce_mean`` scale.
+        """
+        logits, value = self.net(x)
+        log_p = F.log_softmax(logits, dim=1)
+        loss_probs = -(pi * log_p).mean()
+        loss_value = F.mse_loss(value, z)
+        l2 = sum(
+            p.pow(2).sum() for n, p in self.net.named_parameters() if "weight" in n
+        )
+        loss = self.value_weight * loss_value + loss_probs + self.l2_weight * l2
+        return loss, loss_value, loss_probs
 
     def loss(self, data, batch_size):
         """Computes the loss of the network on the data.
@@ -158,36 +344,27 @@ class AbstractNeuralNetEstimator(abc.ABC):
         loss_probs: float
             The loss of the probability part of the network.
         """
-        iters = int(len(data) / batch_size)
         losses = []
         loss_value_list = []
         loss_probs_list = []
-        for i in range(iters):
-            batch_indices = range(i, i + batch_size)
-            batch_data = [data[i] for i in batch_indices]
 
-            # Set up the states, probs, zs arrays.
-            states = np.array([x[0] for x in batch_data])
-            pis = np.array([x[1] for x in batch_data])
-            zs = np.array([x[2] for x in batch_data])
-            zs = zs[:, np.newaxis]
+        self.net.eval()
+        with torch.no_grad():
+            for batch in _iter_batches(data, batch_size):
+                x, pi, z = self._batch_to_tensors(batch)
+                loss, loss_value, loss_probs = self._compute_loss(x, pi, z)
+                losses.append(loss.item())
+                loss_value_list.append(loss_value.item())
+                loss_probs_list.append(loss_probs.item())
 
-            loss, loss_value, loss_probs = self.sess.run(
-                [
-                    self.tensors["loss"],
-                    self.tensors["loss_value"],
-                    self.tensors["loss_probs"],
-                ],
-                feed_dict={
-                    self.tensors["state_vector"]: states,
-                    self.tensors["pi"]: pis,
-                    self.tensors["outcomes"]: zs,
-                    self.tensors["is_training"]: False,
-                },
-            )
-            losses.append(loss)
-            loss_value_list.append(loss_value)
-            loss_probs_list.append(loss_probs)
+            # A dataset smaller than `batch_size` yields no full batch;
+            # fall back to a single ragged batch over all the data so
+            # the loss is a real number rather than a silent NaN from
+            # ``np.mean([])``.
+            if not losses:
+                x, pi, z = self._batch_to_tensors(data)
+                loss, loss_value, loss_probs = self._compute_loss(x, pi, z)
+                return loss.item(), loss_value.item(), loss_probs.item()
 
         return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
 
@@ -201,39 +378,26 @@ class AbstractNeuralNetEstimator(abc.ABC):
             is the player in the state and z is the utility to player in
             the last state from the corresponding self-play game.
         return_summary: bool
-            Whether to return the TensforFlow summary tensor for use in
-            Tensorboard.
+            Whether to return the scalar loss (replaces the old TF
+            summary tensor).
+
         Returns
         -------
-        summary:
-            The summary tensor, run on the batch.
+        loss: float or None
+            The scalar loss on the batch when ``return_summary`` is True.
         """
-        # Set up the states, probs, zs arrays.
-        states = np.array([x[0] for x in batch])
-        pis = np.array([x[1] for x in batch])
-        zs = np.array([x[2] for x in batch])
-        zs = zs[:, np.newaxis]
+        self.net.train()
+        x, pi, z = self._batch_to_tensors(batch)
+        loss, _, _ = self._compute_loss(x, pi, z)
 
-        summary, value, probs, loss, _ = self.sess.run(
-            [
-                self.tensors["summary"],
-                self.tensors["value"],
-                self.tensors["probs"],
-                self.tensors["loss"],
-                self.train_op,
-            ],
-            feed_dict={
-                self.tensors["state_vector"]: states,
-                self.tensors["pi"]: pis,
-                self.tensors["outcomes"]: zs,
-                self.tensors["is_training"]: True,
-            },
-        )
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         # Update the global step
         self.global_step += 1
         if return_summary:
-            return summary
+            return float(loss.item())
 
     def train(
         self,
@@ -265,8 +429,9 @@ class AbstractNeuralNetEstimator(abc.ABC):
             at each training iteration. If running in supervised mode,
             then the data is randomly ordered and then each training
             iteration steps through the data in batches.
-        writer: tf.summary.FileWriter
-            A FileWriter object for writing TensorFlow summaries to.
+        writer:
+            Retained for signature compatibility; summary logging is currently
+            a no-op.
         verbose: bool
             Print out progress if True, else don't print anything.
         """
@@ -300,9 +465,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
         for _ in tqdm(range(training_iters), disable=disable_tqdm):
             batch_indices = np.random.choice(len(training_data), batch_size)
             batch = [training_data[ix] for ix in batch_indices]
-            summary = self.train_step(batch, return_summary=True)
-            if writer is not None:
-                writer.add_summary(summary, self.global_step)
+            self.train_step(batch, return_summary=True)
 
     def _train_supervised(
         self, training_data, batch_size, training_iters, writer, verbose
@@ -327,13 +490,14 @@ class AbstractNeuralNetEstimator(abc.ABC):
             training_indices[i * batch_size : min(size, (i + 1) * batch_size)]
             for i in range(training_iters)
         ]
+        # Drop empty trailing slices when `training_iters` exceeds the batch
+        # count; otherwise `train_step([])` hits `np.concatenate([])`.
+        batch_indices_list = [b for b in batch_indices_list if b]
 
         disable_tqdm = not verbose
         for batch_indices in tqdm(batch_indices_list, disable=disable_tqdm):
             batch = [training_data[ix] for ix in batch_indices]
-            summary = self.train_step(batch, return_summary=True)
-            if writer is not None:
-                writer.add_summary(summary, self.global_step)
+            self.train_step(batch, return_summary=True)
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.
@@ -351,166 +515,52 @@ class AbstractNeuralNetEstimator(abc.ABC):
         return self.__call__
 
     def save(self, save_file):
-        """Saves the net to save_file."""
-        self.saver.save(self.sess, save_file)
+        """Saves the net to ``save_file`` as a ``.pt`` bundle.
+
+        Bundles the model weights, optimizer state and ``global_step`` so a
+        training run can resume.
+        """
+        torch.save(
+            {
+                "model": self.net.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "global_step": self.global_step,
+            },
+            save_file,
+        )
 
     def restore(self, save_file):
-        """Restore the net from save_file."""
-        self.saver.restore(self.sess, save_file)
+        """Restore the net from ``save_file``.
+
+        ``map_location="cpu"`` keeps restore device-agnostic.
+        """
+        checkpoint = torch.load(save_file, map_location="cpu")
+        self.net.load_state_dict(checkpoint["model"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.global_step = checkpoint["global_step"]
 
 
 class NACNetEstimator(AbstractNeuralNetEstimator):
     game_state_shape = (1, 9)
 
-    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+    def __init__(
+        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+    ):
         super().__init__(learning_rate, l2_weight, value_weight)
         self.action_indices = action_indices
 
-    def _initialise_net(self):
-        # TODO: test reshape recreates game properly
-
-        # Initialise a graph, session and saver for the net. This is so we can
-        # use separate functions to run functions on the tensorflow graph.
-        # Using 'with sess:' means you start with a new net each time.
-        self.graph = tf.Graph()
-        self.sess = tf.Session(graph=self.graph)
-
-        # Use the graph to create the tensors
-        with self.graph.as_default():
-            state_vector = tf.placeholder(
-                tf.float32,
-                shape=(
-                    None,
-                    9,
-                ),
-            )
-            pi = tf.placeholder(tf.float32, shape=(None, 9))
-            outcomes = tf.placeholder(tf.float32, shape=(None, 1))
-
-            input_layer = tf.reshape(state_vector, [-1, 3, 3, 1])
-
-            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
-            is_training = tf.placeholder(tf.bool)
-            use_batch_norm = False
-
-            conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer,
-                num_outputs=8,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training)
-            conv1 = tf.nn.relu(conv1)
-
-            conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1,
-                num_outputs=16,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv2 = tf.contrib.layers.batch_norm(conv2, is_training=is_training)
-            conv2 = tf.nn.relu(conv2)
-
-            conv3 = tf.contrib.layers.conv3d(
-                inputs=conv2,
-                num_outputs=16,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv3 = tf.contrib.layers.batch_norm(conv3, is_training=is_training)
-            conv3 = tf.nn.relu(conv3)
-
-            conv3_flat = tf.contrib.layers.flatten(conv3)
-
-            dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv3_flat, num_outputs=32, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                dense1 = tf.contrib.layers.batch_norm(dense1, is_training=is_training)
-            dense1 = tf.nn.relu(dense1)
-
-            value = tf.contrib.layers.fully_connected(
-                inputs=dense1,
-                num_outputs=1,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh,
-            )
-
-            prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense1,
-                num_outputs=9,
-                weights_regularizer=regularizer,
-                activation_fn=None,
-            )
-            probs = tf.nn.softmax(logits=prob_logits)
-
-            # We want to compute log_probs = log(softmax(prob_logits)). This
-            # simplifies to log_probs = prob_logits -
-            # log(sum(exp(prob_logits))).
-            log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
-            log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
-
-            loss_value = tf.losses.mean_squared_error(outcomes, value)
-            loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
-
-            loss = self.value_weight * loss_value + loss_probs
-
-            # Set up the training op
-            self.train_op = tf.train.MomentumOptimizer(
-                self.learning_rate, momentum=0.9
-            ).minimize(loss)
-
-            # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar("loss", loss)
-
-            summary = tf.summary.merge([loss_summary])
-
-            self.sess.run(tf.global_variables_initializer())
-
-            # Create a saver.
-            self.saver = tf.train.Saver(max_to_keep=20)
-
-        # Initialise global step (the number of training steps taken).
-        self.global_step = 0
-
-        tensors = [
-            state_vector,
-            outcomes,
-            pi,
-            value,
-            prob_logits,
-            probs,
-            loss,
-            loss_value,
-            loss_probs,
-            is_training,
-            summary,
-        ]
-        names = [
-            "state_vector",
-            "outcomes",
-            "pi",
-            "value",
-            "prob_logits",
-            "probs",
-            "loss",
-            "loss_value",
-            "loss_probs",
-            "is_training",
-            "summary",
-        ]
-        self.tensors = {
-            name: tensor for name, tensor in zip(names, tensors, strict=False)
-        }
+    def _config(self) -> NetConfig:
+        # NAC 3x3: in (N, 1, 3, 3); conv 8->16->16 k=2; trunk dense 32;
+        # value dense 1 (tanh); policy dense 9. BN was inactive here (no-op
+        # removal). The old third conv layer was a 3D-conv BUG -> Conv2d.
+        return NetConfig(
+            board_h=3,
+            board_w=3,
+            in_channels=1,
+            conv_specs=[(8, 2), (16, 2), (16, 2)],
+            trunk_dims=[32],
+            pi_dim=9,
+        )
 
     def _state_to_vector(self, state):
         state = np.array(state).reshape((-1, 9))
@@ -520,7 +570,9 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
 class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
     game_state_shape = (1, 36)
 
-    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+    def __init__(
+        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+    ):
         super().__init__(learning_rate, l2_weight, value_weight)
         self.action_indices = action_indices
 
@@ -530,512 +582,59 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
         player2_board = [int(i) for i in f"{state[1]:018b}"]
         return player1_board + player2_board
 
-    def train_step(self, batch, return_summary=False):
-        """Trains the network on the batch.
-
-        Parameters
-        ----------
-        batch: list
-            A list consisting of (state, probs, z) tuples, where player
-            is the player in the state and z is the utility to player in
-            the last state from the corresponding self-play game.
-        return_summary: bool
-            Whether to return the TensforFlow summary tensor for use in
-            Tensorboard.
-        Returns
-        -------
-        summary:
-            The summary tensor, run on the batch.
-        """
-        # Set up the states, probs, zs arrays.
-        states = np.array([self._binary_state_to_array(x[0]) for x in batch])
-        pis = np.array([x[1] for x in batch])
-
-        zs = np.array([x[2] for x in batch])
-        zs = zs[:, np.newaxis]
-
-        summary, value, probs, loss, _ = self.sess.run(
-            [
-                self.tensors["summary"],
-                self.tensors["value"],
-                self.tensors["probs"],
-                self.tensors["loss"],
-                self.train_op,
-            ],
-            feed_dict={
-                self.tensors["state_vector"]: states,
-                self.tensors["pi"]: pis,
-                self.tensors["outcomes"]: zs,
-                self.tensors["is_training"]: True,
-            },
+    def _config(self) -> NetConfig:
+        # NAC 3x6: in (N, 2, 3, 6) -- the rectangular-board net, so a
+        # (N, 2, 6, 3) transpose fails loudly in PolicyValueNet.forward.
+        # conv 32->64->128->128 k=2 (old third/fourth conv layers were 3D-conv
+        # BUGs -> Conv2d); trunk 128->128->256; value tower 128->64;
+        # policy tower
+        # 256->128; pi_dim 18.
+        # NOTE: the TF1 net had use_batch_norm=True ACTIVE
+        # (old estimator.py:689). Dropping BatchNorm here is a REAL behaviour
+        # change for NAC3x6 (not a no-op as it is for NAC3x3 / Connect Four).
+        return NetConfig(
+            board_h=3,
+            board_w=6,
+            in_channels=2,
+            conv_specs=[(32, 2), (64, 2), (128, 2), (128, 2)],
+            trunk_dims=[128, 128, 256],
+            value_head_dims=[128, 64],
+            policy_head_dims=[256, 128],
+            pi_dim=18,
         )
 
-        # Update the global step
-        self.global_step += 1
-        if return_summary:
-            return summary
-
-    def loss(self, data, batch_size):
-        """Computes the loss of the network on the data.
-
-        Parameters
-        ----------
-        data: list
-            A list consisting of (state, probs, z) tuples, where player is the
-            player in the state and z is the utility to player in the last state
-            from the corresponding self-play game.
-        batch_size: int
-
-        Returns
-        -------
-        loss: float
-            The loss of the network on the given data.
-        loss_value: float
-            The loss of the value part of the network.
-        loss_probs: float
-            The loss of the probability part of the network.
-        """
-        iters = int(len(data) / batch_size)
-        losses = []
-        loss_value_list = []
-        loss_probs_list = []
-        for i in range(iters):
-            batch_indices = range(i, i + batch_size)
-            batch_data = [data[i] for i in batch_indices]
-
-            # Set up the states, probs, zs arrays.
-            states = np.array([self._binary_state_to_array(x[0]) for x in batch_data])
-            pis = np.array([x[1] for x in batch_data])
-            zs = np.array([x[2] for x in batch_data])
-            zs = zs[:, np.newaxis]
-
-            loss, loss_value, loss_probs = self.sess.run(
-                [
-                    self.tensors["loss"],
-                    self.tensors["loss_value"],
-                    self.tensors["loss_probs"],
-                ],
-                feed_dict={
-                    self.tensors["state_vector"]: states,
-                    self.tensors["pi"]: pis,
-                    self.tensors["outcomes"]: zs,
-                    self.tensors["is_training"]: False,
-                },
-            )
-            losses.append(loss)
-            loss_value_list.append(loss_value)
-            loss_probs_list.append(loss_probs)
-
-        return np.mean(losses), np.mean(loss_value_list), np.mean(loss_probs_list)
-
-    def create_estimate_fn(self):
-        """Returns an evaluator function corresponding to the neural network.
-
-        Note that we expect self.action_indices to be a dictionary with keys
-        the available actions and values the index of that action. Indices
-        must be unique in 0, 1, .., #actions-1.
-
-        Returns
-        -------
-        estimate: func
-            A function that evaluates states.
-        """
-
-        def estimate_fn(state):
-            # Reshape the state if necessary so that it's 1 x 9. We should
-            # only be evaluating one state at a time in this function.
-            state = np.reshape(self._binary_state_to_array(state), (1, 36))
-            state = np.nan_to_num(state)
-
-            # Evaluate the network at the state
-            probs, [value] = self(state)
-
-            # probs is currently an np array. Put the value into a
-            # dictionary with keys the actions and values the probs.
-            probs_dict = {
-                action: probs[self.action_indices[action]]
-                for action in self.action_indices
-            }
-
-            return probs_dict, value
-
-        return estimate_fn
-
-    def _initialise_net(self):
-        # TODO: test reshape recreates game properly
-
-        # Initialise a graph, session and saver for the net. This is so we can
-        # use separate functions to run functions on the tensorflow graph.
-        # Using 'with sess:' means you start with a new net each time.
-        self.graph = tf.Graph()
-        self.sess = tf.Session(graph=self.graph)
-
-        # Use the graph to create the tensors
-        with self.graph.as_default():
-            state_vector = tf.placeholder(
-                tf.float32,
-                shape=(
-                    None,
-                    36,
-                ),
-            )
-            pi = tf.placeholder(tf.float32, shape=(None, 18))
-            outcomes = tf.placeholder(tf.float32, shape=(None, 1))
-
-            input_layer = tf.reshape(state_vector, [-1, 3, 6, 2])
-
-            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
-            is_training = tf.placeholder(tf.bool)
-            use_batch_norm = True
-
-            conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer,
-                num_outputs=32,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training)
-            conv1 = tf.nn.relu(conv1)
-
-            conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1,
-                num_outputs=64,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv2 = tf.contrib.layers.batch_norm(conv2, is_training=is_training)
-            conv2 = tf.nn.relu(conv2)
-
-            conv3 = tf.contrib.layers.conv3d(
-                inputs=conv2,
-                num_outputs=128,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv3 = tf.contrib.layers.batch_norm(conv3, is_training=is_training)
-            conv3 = tf.nn.relu(conv3)
-
-            conv4 = tf.contrib.layers.conv3d(
-                inputs=conv3,
-                num_outputs=128,
-                kernel_size=[2, 2],
-                stride=1,
-                padding="SAME",
-                weights_regularizer=regularizer,
-            )
-            if use_batch_norm:
-                conv4 = tf.contrib.layers.batch_norm(conv4, is_training=is_training)
-            conv4 = tf.nn.relu(conv4)
-
-            conv4_flat = tf.contrib.layers.flatten(conv4)
-
-            dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv4_flat, num_outputs=128, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                dense1 = tf.contrib.layers.batch_norm(dense1, is_training=is_training)
-            dense1 = tf.nn.relu(dense1)
-
-            dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1, num_outputs=128, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                dense2 = tf.contrib.layers.batch_norm(dense2, is_training=is_training)
-            dense2 = tf.nn.relu(dense2)
-
-            dense3 = tf.contrib.layers.fully_connected(
-                inputs=dense2, num_outputs=256, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                dense3 = tf.contrib.layers.batch_norm(dense3, is_training=is_training)
-            dense3 = tf.nn.relu(dense3)
-
-            value_head1 = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=128, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                value_head1 = tf.contrib.layers.batch_norm(
-                    value_head1, is_training=is_training
-                )
-            value_head1 = tf.nn.relu(value_head1)
-
-            value_head2 = tf.contrib.layers.fully_connected(
-                inputs=value_head1, num_outputs=64, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                value_head2 = tf.contrib.layers.batch_norm(
-                    value_head2, is_training=is_training
-                )
-            value_head2 = tf.nn.relu(value_head2)
-
-            value = tf.contrib.layers.fully_connected(
-                inputs=value_head2,
-                num_outputs=1,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh,
-            )
-
-            policy_head1 = tf.contrib.layers.fully_connected(
-                inputs=dense3, num_outputs=256, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                policy_head1 = tf.contrib.layers.batch_norm(
-                    policy_head1, is_training=is_training
-                )
-            policy_head1 = tf.nn.relu(policy_head1)
-
-            policy_head2 = tf.contrib.layers.fully_connected(
-                inputs=policy_head1, num_outputs=128, weights_regularizer=regularizer
-            )
-            if use_batch_norm:
-                policy_head2 = tf.contrib.layers.batch_norm(
-                    policy_head2, is_training=is_training
-                )
-            policy_head2 = tf.nn.relu(policy_head2)
-
-            prob_logits = tf.contrib.layers.fully_connected(
-                inputs=policy_head2,
-                num_outputs=18,
-                weights_regularizer=regularizer,
-                activation_fn=None,
-            )
-            probs = tf.nn.softmax(logits=prob_logits)
-
-            # We want to compute log_probs = log(softmax(prob_logits)). This
-            # simplifies to log_probs = prob_logits -
-            # log(sum(exp(prob_logits))).
-            log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
-            log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
-
-            loss_value = tf.losses.mean_squared_error(outcomes, value)
-            loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
-
-            loss = self.value_weight * loss_value + loss_probs
-
-            # Set up the training op
-            self.train_op = tf.train.MomentumOptimizer(
-                self.learning_rate, momentum=0.9
-            ).minimize(loss)
-
-            # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar("loss", loss)
-
-            summary = tf.summary.merge([loss_summary])
-
-            self.sess.run(tf.global_variables_initializer())
-
-            # Create a saver.
-            self.saver = tf.train.Saver(max_to_keep=20)
-
-        # Initialise global step (the number of training steps taken).
-        self.global_step = 0
-
-        tensors = [
-            state_vector,
-            outcomes,
-            pi,
-            value,
-            prob_logits,
-            probs,
-            loss,
-            loss_value,
-            loss_probs,
-            is_training,
-            summary,
-        ]
-        names = [
-            "state_vector",
-            "outcomes",
-            "pi",
-            "value",
-            "prob_logits",
-            "probs",
-            "loss",
-            "loss_value",
-            "loss_probs",
-            "is_training",
-            "summary",
-        ]
-        self.tensors = {
-            name: tensor for name, tensor in zip(names, tensors, strict=False)
-        }
+    def _state_to_vector(self, state):
+        # Give NAC3x6 a real
+        # _state_to_vector that wraps the binary encoder so the SINGLE base
+        # __call__ and create_estimate_fn work uniformly for all three nets
+        # (removing the old custom estimate_fn override) without changing
+        # externally observed behaviour.
+        return np.array(self._binary_state_to_array(state)).reshape((-1, 36))
 
 
 class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
 
-    def __init__(self, learning_rate, l2_weight, action_indices, value_weight=1):
+    def __init__(
+        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+    ):
         super().__init__(learning_rate, l2_weight, value_weight)
         self.action_indices = action_indices
 
-    def _initialise_net(self):
-        # TODO: test reshape recreates game properly
-
-        # Initialise a graph, session and saver for the net. This is so we can
-        # use separate functions to run functions on the tensorflow graph.
-        # Using 'with sess:' means you start with a new net each time.
-        self.graph = tf.Graph()
-        self.sess = tf.Session(graph=self.graph)
-
-        # Use the graph to create the tensors
-        with self.graph.as_default():
-            state_vector = tf.placeholder(
-                tf.float32,
-                shape=(
-                    None,
-                    42,
-                ),
-            )
-            pi = tf.placeholder(tf.float32, shape=(None, 7))
-            outcomes = tf.placeholder(tf.float32, shape=(None, 1))
-
-            input_layer = tf.reshape(state_vector, [-1, 6, 7, 1])
-
-            regularizer = tf.contrib.layers.l2_regularizer(scale=self.l2_weight)
-            is_training = tf.placeholder(tf.bool)
-
-            conv1 = tf.contrib.layers.conv2d(
-                inputs=input_layer,
-                num_outputs=8,
-                kernel_size=[3, 3],
-                padding="SAME",
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            conv2 = tf.contrib.layers.conv2d(
-                inputs=conv1,
-                num_outputs=16,
-                kernel_size=[3, 3],
-                padding="SAME",
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            conv3 = tf.contrib.layers.conv2d(
-                inputs=conv2,
-                num_outputs=32,
-                kernel_size=[3, 3],
-                padding="SAME",
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            conv4 = tf.contrib.layers.conv2d(
-                inputs=conv3,
-                num_outputs=64,
-                kernel_size=[3, 3],
-                padding="SAME",
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            conv4_flat = tf.contrib.layers.flatten(conv4)
-
-            dense1 = tf.contrib.layers.fully_connected(
-                inputs=conv4_flat,
-                num_outputs=64,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            dense2 = tf.contrib.layers.fully_connected(
-                inputs=dense1,
-                num_outputs=128,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            dense3 = tf.contrib.layers.fully_connected(
-                inputs=dense2,
-                num_outputs=256,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.relu,
-            )
-
-            value = tf.contrib.layers.fully_connected(
-                inputs=dense3,
-                num_outputs=1,
-                weights_regularizer=regularizer,
-                activation_fn=tf.nn.tanh,
-            )
-
-            prob_logits = tf.contrib.layers.fully_connected(
-                inputs=dense3,
-                num_outputs=7,
-                weights_regularizer=regularizer,
-                activation_fn=None,
-            )
-            probs = tf.nn.softmax(logits=prob_logits)
-
-            # We want to compute log_probs = log(softmax(prob_logits)). This
-            # simplifies to log_probs = prob_logits -
-            # log(sum(exp(prob_logits))).
-            log_sum_exp = tf.log(tf.reduce_sum(tf.exp(prob_logits), axis=1))
-            log_probs = prob_logits - tf.expand_dims(log_sum_exp, 1)
-
-            loss_value = tf.losses.mean_squared_error(outcomes, value)
-            loss_probs = -tf.reduce_mean(tf.multiply(pi, log_probs))
-
-            loss = self.value_weight * loss_value + loss_probs
-
-            # Set up the training op
-            self.train_op = tf.train.MomentumOptimizer(
-                self.learning_rate, momentum=0.9
-            ).minimize(loss)
-
-            # Create summary variables for tensorboard
-            loss_summary = tf.summary.scalar("loss", loss)
-
-            summary = tf.summary.merge([loss_summary])
-
-            # Initialise all variables
-            self.sess.run(tf.global_variables_initializer())
-
-            # Create a saver.
-            self.saver = tf.train.Saver(max_to_keep=20)
-
-        # Initialise global step (the number of training steps taken).
-        self.global_step = 0
-
-        tensors = [
-            state_vector,
-            outcomes,
-            pi,
-            value,
-            prob_logits,
-            probs,
-            loss,
-            loss_value,
-            loss_probs,
-            is_training,
-            summary,
-        ]
-        names = [
-            "state_vector",
-            "outcomes",
-            "pi",
-            "value",
-            "prob_logits",
-            "probs",
-            "loss",
-            "loss_value",
-            "loss_probs",
-            "is_training",
-            "summary",
-        ]
-        self.tensors = {
-            name: tensor for name, tensor in zip(names, tensors, strict=False)
-        }
+    def _config(self) -> NetConfig:
+        # Connect Four: in (N, 1, 6, 7); conv 8->16->32->64 k=3 (all conv2d in
+        # the TF1 code -- no bug); trunk 64->128->256; value dense 1 (tanh);
+        # policy dense 7. No BatchNorm.
+        return NetConfig(
+            board_h=6,
+            board_w=7,
+            in_channels=1,
+            conv_specs=[(8, 3), (16, 3), (32, 3), (64, 3)],
+            trunk_dims=[64, 128, 256],
+            pi_dim=7,
+        )
 
     def _state_to_vector(self, state):
+        # Preserve the asymmetry vs NAC: NO nan_to_num here (the TF1 code did not
+        # apply it for Connect Four).
         return np.array(state).reshape((-1, 42))

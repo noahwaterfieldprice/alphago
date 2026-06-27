@@ -1,7 +1,6 @@
 from collections import OrderedDict
 
 import numpy as np
-import tensorflow as tf
 from tqdm import tqdm
 
 from .evaluator import evaluate
@@ -18,7 +17,7 @@ __all__ = [
 
 
 def compute_checkpoint_name(step, path):
-    return path + f"{step}.checkpoint"
+    return path + f"{step}.pt"
 
 
 def train_alphago(
@@ -94,31 +93,14 @@ def train_alphago(
     self_play_estimator = create_estimator()
     training_estimator = create_estimator()
 
-    graph = tf.Graph()
-    sess = tf.Session(graph=graph)
-
-    with graph.as_default():
-        tf_success_rate = tf.placeholder(tf.float32, name="success_rate_summary")
-        success_rate_summary = tf.summary.scalar(
-            "success_rate_summary", tf_success_rate
-        )
-        tf_success_rate_random = tf.placeholder(tf.float32, name="success_rate_random")
-        success_rate_random_summary = tf.summary.scalar(
-            "success_rate_random", tf_success_rate_random
-        )
-        # tf_success_rate_optimal = tf.placeholder(
-        #    tf.float32, name='success_rate_optimal')
-        # success_rate_optimal_summary = tf.summary.scalar(
-        #    'success_rate_optimal', tf_success_rate_optimal)
-        # merged_summary = tf.summary.merge([success_rate_summary,
-        #                                   success_rate_random_summary,
-        #                                   success_rate_optimal_summary])
-        merged_summary = tf.summary.merge(
-            [success_rate_summary, success_rate_random_summary]
-        )
-        sess.run(tf.global_variables_initializer())
-
-    writer = tf.summary.FileWriter(summary_path)
+    # Minimal writer shim: the TF Graph/Session/FileWriter summary
+    # plumbing has been removed with the TensorFlow port. The training loop
+    # runs writer-free (the `if writer is not None` guards in
+    # `optimise_estimator`/`estimator.train` short-circuit). Full
+    # MetricLogger/SummaryWriter decoupling is deferred for now;
+    # `success_rate`/`success_rate_random` are still computed below so champion
+    # replacement is unaffected.
+    writer = None
 
     if restore_step:
         restore_path = compute_checkpoint_name(restore_step, checkpoint_path)
@@ -163,15 +145,6 @@ def train_alphago(
                 num_evaluate_games,
                 verbose=verbose,
             )
-
-            summary = sess.run(
-                merged_summary,
-                feed_dict={
-                    tf_success_rate: success_rate,
-                    tf_success_rate_random: success_rate_random,
-                },
-            )
-            writer.add_summary(summary, training_estimator.global_step)
 
             checkpoint_model(training_estimator, alphago_step, checkpoint_path)
 

@@ -22,7 +22,7 @@ assets/
 # Notes
 papers/
 
-# Local data files
+# Local experiment outputs
 experiments/
 examples/experiments/
 

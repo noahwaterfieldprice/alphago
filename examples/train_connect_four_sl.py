@@ -7,52 +7,38 @@ import time
 from collections import deque
 
 import numpy as np
-import tensorflow as tf
-from tools.summary_scalars import SummaryScalars
 
 from alphago.alphago import optimise_estimator
+from alphago.connect_four_data import load_solved_states
 from alphago.estimator import (
     ConnectFourNet,
     create_rollout_estimator,
     create_trivial_estimator,
 )
 from alphago.evaluator import run_gauntlet
-from alphago.games.connect_four import ConnectFour, action_list_to_state
+from alphago.games.connect_four import ConnectFour
 from alphago.player import MCTSPlayer, RandomPlayer
 
 
 def compute_checkpoint_name(step, path):
-    return path + f"{step}.checkpoint"
+    return path + f"{step}.pt"
 
 
-def solved_states_to_training_data(solved_states):
-    """Converts a list of tuples to training data for AlphaGo.
+def probs_vector_to_optimal_actions(probs_vector):
+    """Recovers the 1-indexed optimal actions from a solver probs vector.
 
-    Parameters
-    ----------
-    solved_states: list
-        A list, with each element being a tuple. The tuples are of the form
-        (state, actions, outcome), where state is a connect four state;
-        actions are the optimal actions to play in the state, and outcome is
-        the eventual outcome to the current player.
+    The solver-data loader (``alphago.connect_four_data.load_solved_states``)
+    encodes the optimal actions as a probability vector that is uniform over the
+    optimal columns and zero elsewhere. The optimal actions are therefore the
+    (1-indexed) columns with positive probability.
 
-    Returns
-    -------
-    training_data: list
-        A list of training data suitable for AlphaGo.
+    Args:
+        probs_vector: A length-7 one-hot/uniform policy target over the columns.
+
+    Returns:
+        A list of the optimal actions, indexed 1 to 7.
     """
-    training_data = []
-    for state, actions, outcome in solved_states:
-        # Set the probs vector to be 1 for the optimal actions, and 0 for all
-        # other actions, but normalise so it sums to 1.
-        probs_vector = np.array(
-            [1 / len(actions) if a + 1 in actions else 0 for a in range(7)]
-        )
-
-        # Store in training_data.
-        training_data.append((state, probs_vector, outcome))
-
-    return training_data
+    return [i + 1 for i, prob in enumerate(probs_vector) if prob > 0]
 
 
 def update_results(game_results, game_results_file_name):
@@ -135,11 +121,9 @@ def compute_accuracy(estimator, optimal_actions):
     )
 
 
-# Training data should be a file with lines of the form:
-# action_list value optimal_actions
-# where optimal actions is a space separated sequence of the optimal actions
-# in that position. All actions should be indexed 1 to 7.
-# This is as output by c4solver.
+# Training data is loaded via `alphago.connect_four_data.load_solved_states`,
+# which parses the c4solver output (one record per line in the format
+# `<moves> <opt_action> <value>`) into (state, probs_vector, z) training tuples.
 
 
 def load_net(step, checkpoint_path):
@@ -156,9 +140,7 @@ def load_net(step, checkpoint_path):
     return estimator
 
 
-def train_network(solved_states, evaluate_every):
-    print("Converting solved states to training data.")
-    training_data = solved_states_to_training_data(solved_states)
+def train_network(training_data, evaluate_every):
     np.random.shuffle(training_data)
     dev_fraction = 0.02
     num_dev = int(dev_fraction * len(training_data))
@@ -206,6 +188,11 @@ def train_network(solved_states, evaluate_every):
     checkpoint_path = path + "checkpoints/"
     game_results_file_name = path + "game_results.pickle"
 
+    # Create the experiment/checkpoint directories up front; the TF
+    # `Saver` used to create them implicitly, but `torch.save` does not, so the
+    # first checkpoint would otherwise raise FileNotFoundError.
+    os.makedirs(checkpoint_path, exist_ok=True)
+
     estimator = ConnectFourNet(
         learning_rate=learning_rate,
         l2_weight=l2_weight,
@@ -213,17 +200,14 @@ def train_network(solved_states, evaluate_every):
         action_indices=game.action_indices,
     )
 
-    summary_path = path + "logs/"
-    scalar_names = ["dev_loss", "dev_loss_value", "dev_loss_probs", "dev_accuracy"]
-    summary_scalars = SummaryScalars(scalar_names)
-
     verbose = True
     training_iters = -1
 
-    writer = tf.summary.FileWriter(summary_path)
-
+    # TensorBoard summary logging was removed with the TF port; dev metrics
+    # are printed below.
     dev_optimal_actions = [
-        (state, optimal_actions) for state, optimal_actions, value in dev_data
+        (state, probs_vector_to_optimal_actions(probs_vector))
+        for state, probs_vector, value in dev_data
     ]
 
     for step in range(num_steps):
@@ -234,7 +218,7 @@ def train_network(solved_states, evaluate_every):
             batch_size,
             training_iters,
             mode="supervised",
-            writer=writer,
+            writer=None,
             verbose=verbose,
         )
 
@@ -244,17 +228,6 @@ def train_network(solved_states, evaluate_every):
         print(
             f"Dev loss: {dev_loss}, dev loss value: {dev_loss_value}, "
             f"dev loss probs: {dev_loss_probs}, dev accuracy: {dev_accuracy}"
-        )
-
-        summary_scalars.run(
-            {
-                "dev_loss": dev_loss,
-                "dev_loss_value": dev_loss_value,
-                "dev_loss_probs": dev_loss_probs,
-                "dev_accuracy": dev_accuracy,
-            },
-            estimator.global_step,
-            writer,
         )
 
         if step % checkpoint_every == 0 and step > 0:
@@ -280,51 +253,8 @@ def train_network(solved_states, evaluate_every):
 
             update_results(game_results, game_results_file_name)
 
-            # elo to writer
-
             supervised_players_queue.appendleft((supervised_player_no, new_player))
             supervised_player_no += 1
-
-
-def split_solved_state(line):
-    """Splits a line from a solved states file into the action list,
-    value and optimal actions.
-
-    Parameters
-    ----------
-    s: str
-        A line from a solved states file.
-
-    Returns
-    -------
-    state: ndarray
-        Numpy array representing the state.
-    optimal_actions: list
-        List of the optimal actions.
-    value: int
-        The value of the state. Equals 1 if player can force a win,
-        0 if player can force a draw and -1 if opponent can force a win.
-    """
-    data = line.strip().split(",")
-    action_list = list(map(int, data[0]))
-    state = action_list_to_state([a - 1 for a in action_list])
-    value = int(data[1])
-    optimal_actions = list(map(int, data[2].split(" ")))
-    return state, optimal_actions, value
-
-
-def load_solved_states(training_data_file, max_lines=None):
-    solved_states = []
-    with open(training_data_file) as f:
-        for line in f:
-            state, optimal_actions, value = split_solved_state(line)
-            solved_states.append((state, optimal_actions, value))
-
-            # Break if we have reached max lines.
-            if max_lines is not None and len(solved_states) >= max_lines:
-                break
-
-    return solved_states
 
 
 if __name__ == "__main__":
@@ -348,10 +278,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Load the training data.
+    # Load the training data as (state, probs_vector, z) tuples.
     max_lines = int(args.max_lines) if args.max_lines is not None else None
 
-    solved_states = load_solved_states(args.training_data, max_lines=max_lines)
+    training_data = load_solved_states(args.training_data, max_lines=max_lines)
 
     # If evaluate checkpoint path is given, then just evaluate that network.
     if args.evaluate_checkpoint_path is not None:
@@ -361,7 +291,8 @@ if __name__ == "__main__":
         estimator = load_net(checkpoint_step, checkpoint_path)
 
         optimal_actions_list = [
-            (state, optimal_actions) for state, optimal_actions, _ in solved_states
+            (state, probs_vector_to_optimal_actions(probs_vector))
+            for state, probs_vector, _ in training_data
         ]
 
         accuracy = compute_accuracy(estimator, optimal_actions_list)
@@ -372,4 +303,4 @@ if __name__ == "__main__":
         if args.evaluate_every is not None:
             evaluate_every = int(args.evaluate_every)
 
-        train_network(solved_states, evaluate_every)
+        train_network(training_data, evaluate_every)

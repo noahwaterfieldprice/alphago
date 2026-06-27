@@ -20,7 +20,8 @@ def load_net(checkpoint):
     ----------
     checkpoint: str
         Should be the name of the checkpoint, including the path. Probably
-        ends in '.checkpoint'.
+        ends in '.pt'. Loaded via the estimator's ``restore`` (``torch.load``
+        with ``map_location``).
 
     Returns
     -------
@@ -62,9 +63,13 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
         if player == computer:
             root = mcts_tree.MCTSNode(state, player)
             if mcts_iters == 0:
-                # Choose the maximum probability action of the net.
+                # Choose the maximum probability action of the net. The
+                # estimator returns unmasked probabilities over ALL actions,
+                # so restrict the argmax to legal columns;
+                # otherwise a full column could be picked and `next_states`
+                # lookup below would raise KeyError.
                 action_probs, _ = estimator(state)
-                action = max(action_probs, key=action_probs.get)
+                action = max(next_states, key=lambda a: action_probs[a])
             else:
                 action_probs = mcts_tree.mcts(
                     root, cf, estimator, mcts_iters=mcts_iters, c_puct=c_puct, tau=tau
