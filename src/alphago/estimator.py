@@ -37,6 +37,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
+from .device import get_device
 from .games import Game
 
 
@@ -219,10 +220,20 @@ class AbstractNeuralNetEstimator(abc.ABC):
     game_state_shape = NotImplemented
     action_indices = NotImplemented
 
-    def __init__(self, learning_rate=1e-2, l2_weight=1e-4, value_weight=1):
+    def __init__(
+        self,
+        learning_rate=1e-2,
+        l2_weight=1e-4,
+        value_weight=1,
+        device: str | None = None,
+    ):
         self.learning_rate = learning_rate
         self.l2_weight = l2_weight
         self.value_weight = value_weight
+        # Additive device= (default None -> CPU). Stored for the eager
+        # resolve in _initialise_net so the zero-arg create_estimator() factory
+        # and positional constructions stay valid.
+        self._device_arg = device
         self._initialise_net()
 
     @abc.abstractmethod
@@ -237,9 +248,14 @@ class AbstractNeuralNetEstimator(abc.ABC):
     def _initialise_net(self):
         """Build the network, optimizer and step counter (replaces the TF
         graph/session)."""
+        # Resolve the compute device once, then place the net on it
+        # BEFORE constructing the optimizer (its parameters must already be
+        # on-device).
+        self.device = get_device(self._device_arg)
         self.cfg = self._config()
-        self.net = PolicyValueNet(self.cfg)
-        # Direct equivalent of the old MomentumOptimizer(lr, momentum=0.9).
+        self.net = PolicyValueNet(self.cfg).to(self.device)
+        # Direct equivalent of the old MomentumOptimizer(lr, momentum=0.9);
+        # SGD is the real optimizer, NOT AdamW.
         self.optimizer = torch.optim.SGD(
             self.net.parameters(), lr=self.learning_rate, momentum=0.9
         )
@@ -249,21 +265,23 @@ class AbstractNeuralNetEstimator(abc.ABC):
     def _vectors_to_input(self, vectors) -> torch.Tensor:
         """Reshape a flat ``(N, flat)`` numpy array to an ``(N, C, H, W)`` tensor.
 
-        The ``float32`` here is the minimal tensor-construction dtype needed for
-        Conv2d; the full numpy->tensor boundary cast + ``get_device()`` move is
-        deliberately deferred.
+        The ``float32`` cast is the load-bearing numpy->tensor boundary defense
+        (float64 crashes on MPS); the reshaped tensor is then
+        moved to the resolved ``self.device``.
         """
         x = torch.as_tensor(np.asarray(vectors), dtype=torch.float32)
-        return x.reshape(-1, self.cfg.in_channels, self.cfg.board_h, self.cfg.board_w)
+        x = x.reshape(-1, self.cfg.in_channels, self.cfg.board_h, self.cfg.board_w)
+        return x.to(self.device)
 
     def _batch_to_tensors(self, batch):
         """Encode a list of ``(state, pi, z)`` rows into ``(x, pi, z)`` tensors."""
         vectors = np.concatenate([self._state_to_vector(x[0]) for x in batch], axis=0)
         pis = np.array([x[1] for x in batch], dtype=np.float32)
         zs = np.array([x[2] for x in batch], dtype=np.float32).reshape(-1, 1)
+        # x is already on self.device via _vectors_to_input; move pi/z too.
         x = self._vectors_to_input(vectors)
-        pi = torch.as_tensor(pis, dtype=torch.float32)
-        z = torch.as_tensor(zs, dtype=torch.float32)
+        pi = torch.as_tensor(pis, dtype=torch.float32).to(self.device)
+        z = torch.as_tensor(zs, dtype=torch.float32).to(self.device)
         return x, pi, z
 
     def __call__(self, state):
@@ -294,8 +312,10 @@ class AbstractNeuralNetEstimator(abc.ABC):
             logits, value = self.net(x)
             probs = F.softmax(logits, dim=1)
 
-        probs = probs.numpy().ravel()
-        value = value.numpy().ravel()[0]
+        # Numpy only accepts CPU tensors; .cpu() is a no-op on CPU
+        # and the required marshal off MPS.
+        probs = probs.cpu().numpy().ravel()
+        value = value.cpu().numpy().ravel()[0]
 
         probs_dict = {
             action: probs[index] for action, index in self.action_indices.items()
@@ -532,10 +552,13 @@ class AbstractNeuralNetEstimator(abc.ABC):
     def restore(self, save_file):
         """Restore the net from ``save_file``.
 
-        ``map_location="cpu"`` keeps restore device-agnostic.
+        ``map_location=self.device`` remaps the checkpoint onto the estimator's
+        resolved device; ``self.net.to(self.device)`` after the load is
+        belt-and-braces for cross-device restores.
         """
-        checkpoint = torch.load(save_file, map_location="cpu")
+        checkpoint = torch.load(save_file, map_location=self.device, weights_only=True)
         self.net.load_state_dict(checkpoint["model"])
+        self.net.to(self.device)
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         self.global_step = checkpoint["global_step"]
 
@@ -544,9 +567,14 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
     game_state_shape = (1, 9)
 
     def __init__(
-        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+        self,
+        learning_rate=1e-2,
+        l2_weight=1e-4,
+        action_indices=None,
+        value_weight=1,
+        device: str | None = None,
     ):
-        super().__init__(learning_rate, l2_weight, value_weight)
+        super().__init__(learning_rate, l2_weight, value_weight, device)
         self.action_indices = action_indices
 
     def _config(self) -> NetConfig:
@@ -571,9 +599,14 @@ class NAC3x6NetEstimator(AbstractNeuralNetEstimator):
     game_state_shape = (1, 36)
 
     def __init__(
-        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+        self,
+        learning_rate=1e-2,
+        l2_weight=1e-4,
+        action_indices=None,
+        value_weight=1,
+        device: str | None = None,
     ):
-        super().__init__(learning_rate, l2_weight, value_weight)
+        super().__init__(learning_rate, l2_weight, value_weight, device)
         self.action_indices = action_indices
 
     @staticmethod
@@ -616,9 +649,14 @@ class ConnectFourNet(AbstractNeuralNetEstimator):
     game_state_shape = (1, 42)
 
     def __init__(
-        self, learning_rate=1e-2, l2_weight=1e-4, action_indices=None, value_weight=1
+        self,
+        learning_rate=1e-2,
+        l2_weight=1e-4,
+        action_indices=None,
+        value_weight=1,
+        device: str | None = None,
     ):
-        super().__init__(learning_rate, l2_weight, value_weight)
+        super().__init__(learning_rate, l2_weight, value_weight, device)
         self.action_indices = action_indices
 
     def _config(self) -> NetConfig:
