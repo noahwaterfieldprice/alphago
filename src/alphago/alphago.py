@@ -37,7 +37,6 @@ def train_alphago(
     win_rate=0.55,
     verbose=True,
     restore_step=None,
-    self_play_file_path=None,
 ):
     """Trains AlphaGo on the game.
 
@@ -78,8 +77,6 @@ def train_alphago(
         Whether or not to output progress.
     restore_step: int or None
         If given, restore the network from the checkpoint at this step.
-    self_play_file_path: str or None
-        Where to load self play data from, if given.
     """
     # TODO: Do self-play, training and evaluating in parallel.
 
@@ -228,17 +225,6 @@ def evaluate_model(game, player1, player2, mcts_iters, c_puct, num_games, verbos
             f"Training player vs random. Wins: {wins1}, Losses: {wins2}, Draws: {draws}"
         )
 
-    ## Also evaluate against an optimal player
-    # wins1, wins2, draws = evaluate_mcts_against_optimal_player(
-    #    game, player2.create_estimate_fn(), mcts_iters, c_puct, num_games,
-    #    tau=0.1, verbose=verbose)
-    # success_rate_optimal = (wins1 + draws) / (wins1 + wins2 + draws)
-
-    # if verbose:
-    #    print("Training player vs optimal. Wins: {}, Losses: {}, "
-    #          "Draws: {}".format(wins1, wins2, draws))
-
-    # return success_rate, success_rate_random, success_rate_optimal
     return success_rate, success_rate_random
 
 
@@ -339,10 +325,6 @@ def generate_self_play_data(
     """Generates self play data for a number of iterations for a given
     estimator. Saves to save_file_path, if given.
     """
-    # if save_file_path is not None:
-    #     with open(save_file_path, 'r') as f:
-    #         data = json.load(save_file_path)
-    #     index = max(data.keys()) + 1
     if data is not None:
         index = max(data.keys()) + 1
     else:
@@ -356,10 +338,6 @@ def generate_self_play_data(
             game, estimator.create_estimate_fn(), mcts_iters, c_puct
         )
         index += 1
-
-    # if save_file_path is not None:
-    #     with open(save_file_path, 'w') as f:
-    #         json.dump(data, f)
 
     return data
 
@@ -491,7 +469,7 @@ def process_self_play_data(states_, actions_, action_probs_, game, action_indice
     """
 
     # Get the outcome for the game. This should be the last state in states_.
-    last_state = states_.pop()
+    last_state = states_[-1]
     outcome = game.utility(last_state)
 
     # Now action_probs_ and states_ are the same length.

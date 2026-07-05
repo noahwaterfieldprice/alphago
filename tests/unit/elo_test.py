@@ -1,6 +1,12 @@
 import numpy as np
 
-from alphago.elo import compute_log_likelihood, run_mm, update_gamma
+from alphago.elo import (
+    compute_log_likelihood,
+    compute_player_indices,
+    compute_win_matrix,
+    run_mm,
+    update_gamma,
+)
 
 
 def test_compute_log_likelihood():
@@ -17,6 +23,16 @@ def test_compute_log_likelihood():
 
     computed = compute_log_likelihood(wins, gamma)
     assert expected == computed
+
+
+def test_compute_win_matrix_includes_losers_only_players():
+    # Player 2 appears only as the loser j, never as the winner i.
+    game_results = [(1, 2, 5)]
+    player_indices = compute_player_indices(game_results)
+
+    wins = compute_win_matrix(game_results, player_indices)
+
+    assert wins.shape == (2, 2)
 
 
 def test_run_mm():

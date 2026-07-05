@@ -4,8 +4,8 @@ Seven columns, six rows. On your turn you can play any of the columns (if it is
 not full).
 """
 
-import os
 import subprocess
+from pathlib import Path
 
 import numpy as np
 
@@ -288,10 +288,26 @@ def optimal_moves(action_list):
     list
         A list of the optimal moves in the position, indexed 1 up to 7.
     """
-    solver = "tools/connect_four/solver/connect_four_optimal_moves"
-    assert os.path.exists(solver)
+    # Resolve the solver absolutely from this file so it works regardless of
+    # the process CWD (parents[3] is the repo root).
+    solver = (
+        Path(__file__).resolve().parents[3]
+        / "tools/connect_four/solver/connect_four_optimal_moves"
+    )
+    if not solver.exists():
+        raise FileNotFoundError(f"Connect Four solver binary not found: {solver}")
+
     action_list_str = "".join(map(str, action_list))
-    completed = subprocess.run([solver, action_list_str], stdout=subprocess.PIPE)
+    # Validate the move string before spawning the subprocess. The empty string
+    # is the initial position and is a legitimate solver query, so permit it;
+    # any other non-digit value is rejected (argument-injection defense).
+    if action_list_str != "" and not action_list_str.isdigit():
+        raise ValueError(
+            f"action_list must stringify to digits only, got {action_list_str!r}"
+        )
+    completed = subprocess.run(
+        [str(solver), action_list_str], check=True, capture_output=True
+    )
 
     # The result is a space-separated string consisting of the action list,
     # then the optimal moves for that position.

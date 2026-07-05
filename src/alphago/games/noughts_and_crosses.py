@@ -8,22 +8,15 @@ Classes
 NoughtsAndCrosses
     A class for representing a game of noughts and crosses (or
     tic-tac-toe) for any given two dimensions i.e. rows and columns
-
-UltimateNoughtsAndCrosses
-    A class for representing a game of ultimate noughts and crosses (or
-    ultimate tic-tac-toe).
 """
 
 import functools
-import itertools
 import operator
 from typing import NamedTuple
 
-import numpy as np
-
 from .game import Game
 
-__all__ = ["NoughtsAndCrosses", "UltimateNoughtsAndCrosses"]
+__all__ = ["NoughtsAndCrosses"]
 
 
 class GameState(NamedTuple):
@@ -400,116 +393,3 @@ class NoughtsAndCrosses(Game):
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.rows}, {self.columns})"
-
-
-class UltimateAction(NamedTuple):
-    sub_board: tuple
-    sub_action: tuple
-
-
-class UltimateGameState(NamedTuple):
-    last_sub_action: tuple
-    board: tuple
-
-
-class UltimateNoughtsAndCrosses:
-    """A class to represent the game of ultimate noughts and crosses
-    (or tic-tac-toe)."""
-
-    def __init__(self) -> None:
-        self.initial_state = UltimateGameState((0, 0), (0,) * 81)
-        self.sub_game = NoughtsAndCrosses()
-        self.action_space = tuple(
-            UltimateAction(sub_board, sub_action)
-            for sub_board in itertools.product(range(3), range(3))
-            for sub_action in itertools.product(range(3), range(3))
-        )
-        self.action_indices = {
-            action: self._action_to_index(action) for action in self.action_space
-        }
-        self.index_to_action = {
-            index: action for action, index in self.action_indices.items()
-        }
-
-    @staticmethod
-    def _action_to_index(action: UltimateAction) -> int:
-        sub_board_row, sub_board_col = action.sub_board
-        sub_row, sub_col = action.sub_action
-        return sub_board_row * 27 + sub_board_col * 3 + sub_row * 9 + sub_col
-
-    def _compute_meta_board(self, state: UltimateGameState) -> tuple[int, ...]:
-        board = np.array(state.board).reshape(9, 9)
-        sub_boards = [
-            board[i * 3 : (i + 1) * 3, j * 3 : (j + 1) * 3]
-            for i in range(3)
-            for j in range(3)
-        ]
-        meta_board = []
-        for sub_board in sub_boards:
-            sub_board_state = tuple(sub_board.ravel())
-            try:
-                utility = self.sub_game.utility(sub_board_state)
-            except ValueError:
-                symbol = 0
-            else:
-                sub_board_winner = max(utility, key=utility.get)
-                symbol = 1 if sub_board_winner == 1 else -1
-
-            meta_board.append(symbol)
-        return tuple(meta_board)
-
-    def is_terminal(self, state: UltimateGameState) -> bool:
-        meta_board = self._compute_meta_board(state)
-        return self.sub_game.is_terminal(meta_board)
-
-    def utility(self, state: UltimateGameState) -> dict[int, int]:
-        meta_board = self._compute_meta_board(state)
-        return self.sub_game.utility(meta_board)
-
-    def current_player(self, state: UltimateGameState) -> int:
-        return self.sub_game.current_player(state.board)
-
-    def compute_next_states(
-        self, state: UltimateGameState
-    ) -> dict[UltimateAction, UltimateGameState]:
-        if self.is_terminal(state):
-            raise ValueError("Next states can not be generated for a terminal state.")
-        board = np.array(state.board).reshape(9, 9)
-        sub_board_row, sub_board_col = state.last_sub_action
-        sub_board = board[
-            sub_board_row * 3 : (sub_board_row + 1) * 3,
-            sub_board_col * 3 : (sub_board_col + 1) * 3,
-        ]
-        sub_board_state = tuple(sub_board.ravel())
-
-        player_symbol = 1 if self.which_player(state) == 1 else -1
-
-        next_states = {}
-        if state == self.initial_state or self.sub_game.is_terminal(sub_board_state):
-            [available_action_indices] = np.where(np.asarray(state.board) == 0)
-            for action_index in available_action_indices:
-                action = self.index_to_action[action_index]
-                next_board = list(state.board)
-                next_board[action_index] = player_symbol
-                next_state = UltimateGameState(
-                    last_sub_action=action.sub_action, board=tuple(next_board)
-                )
-                next_states[action] = next_state
-            return next_states
-        else:
-            available_sub_actions = tuple(zip(*np.where(sub_board == 0), strict=False))
-            for sub_action in available_sub_actions:
-                action = UltimateAction(
-                    sub_board=(sub_board_row, sub_board_col), sub_action=sub_action
-                )
-                next_board = list(state.board)
-                next_board[self.action_indices[action]] = player_symbol
-                next_state = UltimateGameState(
-                    last_sub_action=action.sub_action, board=tuple(next_board)
-                )
-                next_states[action] = next_state
-            return next_states
-
-    def display(self, state: UltimateGameState) -> None:
-        game = NoughtsAndCrosses(rows=9, columns=9)
-        game.display(state.board)

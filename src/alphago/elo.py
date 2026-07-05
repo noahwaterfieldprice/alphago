@@ -82,9 +82,8 @@ def compute_win_matrix(
         diagonal is zero.
     """
     players = set(i for i, _, _ in game_results)
-    players.union(set(j for _, j, _ in game_results))
+    players |= set(j for _, j, _ in game_results)
     num_players = len(players)
-    print(num_players)
     wins = np.zeros(shape=(num_players, num_players))
     for i, j, n in game_results:
         wins[player_indices[i], player_indices[j]] += n

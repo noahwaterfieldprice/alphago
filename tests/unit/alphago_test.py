@@ -78,9 +78,13 @@ def test_process_self_play_data():
 
     action_indices = {0: 0, 1: 1, 2: 2}
 
+    states_before = list(states)
     training_data = process_self_play_data(
         states, actions_, action_probs, mock_game, action_indices
     )
+
+    # process_self_play_data must not mutate the caller's states list.
+    assert states == states_before
 
     # The utility in terminal state 8 is {1: 1, 2: -1} in the mock game.
     expected = [

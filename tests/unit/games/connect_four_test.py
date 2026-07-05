@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphago.games.connect_four import ConnectFour
+from alphago.games.connect_four import ConnectFour, optimal_moves
 
 
 def test_connect_four_initial_state(mocker):
@@ -773,3 +773,15 @@ def test_display_function_outputs_correct_strings(state, expected_output, capsys
     ConnectFour.display(state)
     output = capsys.readouterr().out
     assert output == expected_output
+
+
+def test_optimal_moves_rejects_non_digit_input(mocker):
+    # Stub the native solver so the binary is never executed; validation must
+    # reject the non-digit move string before subprocess.run is ever reached.
+    mock_run = mocker.patch("alphago.games.connect_four.subprocess.run")
+    mock_run.return_value = mocker.MagicMock(stdout=b"4x 0 1")
+
+    with pytest.raises(ValueError, match="'4x'"):
+        optimal_moves([4, "x"])
+
+    mock_run.assert_not_called()

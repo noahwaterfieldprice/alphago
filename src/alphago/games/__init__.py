@@ -7,7 +7,7 @@ from .connect_four import (
     optimal_moves,
 )
 from .game import Game
-from .noughts_and_crosses import NoughtsAndCrosses, UltimateNoughtsAndCrosses
+from .noughts_and_crosses import NoughtsAndCrosses
 
 __all__ = [
     "Action",
@@ -15,7 +15,6 @@ __all__ = [
     "Game",
     "GameState",
     "NoughtsAndCrosses",
-    "UltimateNoughtsAndCrosses",
     "action_list_to_state",
     "heuristic",
     "optimal_moves",
