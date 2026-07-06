@@ -398,17 +398,19 @@ class AbstractNeuralNetEstimator(abc.ABC):
             is the player in the state and z is the utility to player in
             the last state from the corresponding self-play game.
         return_summary: bool
-            Whether to return the scalar loss (replaces the old TF
-            summary tensor).
+            Whether to return the per-step loss summary (replaces
+            the old TF summary tensor).
 
         Returns
         -------
-        loss: float or None
-            The scalar loss on the batch when ``return_summary`` is True.
+        summary: dict or None
+            When ``return_summary`` is True, a dict with keys ``total``,
+            ``value``, and ``policy`` holding the scalar loss components the
+            loop logs. ``None`` otherwise.
         """
         self.net.train()
         x, pi, z = self._batch_to_tensors(batch)
-        loss, _, _ = self._compute_loss(x, pi, z)
+        loss, loss_value, loss_probs = self._compute_loss(x, pi, z)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -417,7 +419,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
         # Update the global step
         self.global_step += 1
         if return_summary:
-            return float(loss.item())
+            return {
+                "total": float(loss.item()),
+                "value": float(loss_value.item()),
+                "policy": float(loss_probs.item()),
+            }
 
     def train(
         self,
@@ -425,7 +431,6 @@ class AbstractNeuralNetEstimator(abc.ABC):
         batch_size,
         training_iters,
         mode="reinforcement",
-        writer=None,
         verbose=True,
     ):
         """Trains the net on the training data.
@@ -449,11 +454,15 @@ class AbstractNeuralNetEstimator(abc.ABC):
             at each training iteration. If running in supervised mode,
             then the data is randomly ordered and then each training
             iteration steps through the data in batches.
-        writer:
-            Retained for signature compatibility; summary logging is currently
-            a no-op.
         verbose: bool
             Print out progress if True, else don't print anything.
+
+        Returns
+        -------
+        summary: dict or None
+            The loss summary from the final training step -- a dict with keys
+            ``total``, ``value``, and ``policy`` that the training loop
+            logs. ``None`` when no training step ran (e.g. empty data).
         """
         # TODO: This concrete implementation of two cases probably shouldn't be in ABC
 
@@ -463,16 +472,16 @@ class AbstractNeuralNetEstimator(abc.ABC):
         if mode == "reinforcement":
             if training_iters == -1:
                 raise ValueError("`training_iters` must be > 1 for reinforcement mode.")
-            self._train_reinforcement(
-                training_data, batch_size, training_iters, writer, verbose
+            return self._train_reinforcement(
+                training_data, batch_size, training_iters, verbose
             )
         elif mode == "supervised":
-            self._train_supervised(
-                training_data, batch_size, training_iters, writer, verbose
+            return self._train_supervised(
+                training_data, batch_size, training_iters, verbose
             )
 
     def _train_reinforcement(
-        self, training_data, batch_size, training_iters, writer, verbose
+        self, training_data, batch_size, training_iters, verbose
     ):
         """Train the net in reinforcement learning mode.
 
@@ -480,21 +489,29 @@ class AbstractNeuralNetEstimator(abc.ABC):
         training iteration. This may mean that the same data points are
         trained on multiple times before the every data point is in the
         training data is considered.
+
+        Returns the loss summary from the final training step, or ``None`` if
+        no step ran.
         """
         disable_tqdm = not verbose
+        summary = None
         for _ in tqdm(range(training_iters), disable=disable_tqdm):
             batch_indices = np.random.choice(len(training_data), batch_size)
             batch = [training_data[ix] for ix in batch_indices]
-            self.train_step(batch, return_summary=True)
+            summary = self.train_step(batch, return_summary=True)
+        return summary
 
     def _train_supervised(
-        self, training_data, batch_size, training_iters, writer, verbose
+        self, training_data, batch_size, training_iters, verbose
     ):
         """Train the net in supervised learning mode.
 
         In this case, the training data are randomly shuffled and then
         they are processed sequentially in batches. The number of
         batches trained on is equal to the number training iterations.
+
+        Returns the loss summary from the final training step, or ``None`` if
+        no step ran.
         """
         size = len(training_data)
         training_indices = [i for i in range(size)]
@@ -515,9 +532,11 @@ class AbstractNeuralNetEstimator(abc.ABC):
         batch_indices_list = [b for b in batch_indices_list if b]
 
         disable_tqdm = not verbose
+        summary = None
         for batch_indices in tqdm(batch_indices_list, disable=disable_tqdm):
             batch = [training_data[ix] for ix in batch_indices]
-            self.train_step(batch, return_summary=True)
+            summary = self.train_step(batch, return_summary=True)
+        return summary
 
     def create_estimate_fn(self):
         """Returns an evaluator function corresponding to the neural network.

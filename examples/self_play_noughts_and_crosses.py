@@ -3,34 +3,31 @@ from alphago.estimator import create_trivial_estimator
 from alphago.evaluator import evaluate
 from alphago.player import MCTSPlayer
 
-if __name__ == "__main__":
-    max_iters = 30
-    c_puct = 1.0
 
+def main(num_games=1000, max_iters=30, c_puct=1.0):
+    """Play trivial-estimator MCTS players against each other on 3x6 NAC.
+
+    Args:
+        num_games: Games per evaluation call. Kept overridable so a smoke test
+            can pass ``num_games=1``.
+        max_iters: MCTS simulations per move.
+        c_puct: PUCT exploration constant.
+    """
     nac = games.NoughtsAndCrosses(3, 6)
 
     estimator = create_trivial_estimator(nac)
 
-    # nn_estimator = NACNetEstimator(learning_rate=1E-4,
-    #                                l2_weight=0.01,
-    #                                action_indices=nac.action_indices)
-
     players = {
-        # 1: RandomPlayer(nac),
-        # 2: RandomPlayer(nac),
         1: MCTSPlayer(nac, estimator, max_iters, c_puct),
         2: MCTSPlayer(nac, estimator, max_iters, c_puct),
     }
 
     players_switched = {1: players[2], 2: players[1]}
 
-    # I think this doesn't work because before the nodes were explicitly
-    # expanded by the MCTS algorithm before - now this is called contained
-    # inside the player object so maybe they dont interact in the play
-    # function?
-    player1_results_a, _ = evaluate(nac, players, 1000)
-    player1_results_b, _ = evaluate(nac, players_switched, 1000)
+    player1_results_a, _ = evaluate(nac, players, num_games)
+    player1_results_b, _ = evaluate(nac, players_switched, num_games)
     print(player1_results_a, player1_results_b)
-    # for state in game_states:
-    #     nac.display(state)
-    #     print("\n")
+
+
+if __name__ == "__main__":
+    main()

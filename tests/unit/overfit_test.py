@@ -67,11 +67,13 @@ def test_overfit_tiny_batch_connect_four():
         action_indices=game.action_indices,
     )
 
-    loss = None
+    summary = None
     for _ in range(1000):
-        loss = estimator.train_step(batch, return_summary=True)
+        summary = estimator.train_step(batch, return_summary=True)
 
     # Threshold tuned empirically for this seed/config and recorded here. The hard
     # requirement is top-1 accuracy == 1.0; the loss bound proves the loss collapses.
+    # ``train_step`` now returns a (total/value/policy) loss summary.
+    loss = summary["total"]
     assert loss < 0.05, f"overfit loss did not collapse: {loss}"
     assert _top1_accuracy(estimator, batch) == 1.0

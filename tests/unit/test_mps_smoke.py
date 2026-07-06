@@ -59,5 +59,6 @@ def test_mps_op_coverage_finite_outputs(net_cls, game_cls):
     #     batch.
     pi = np.ones(len(game.action_space)) / len(game.action_space)
     batch = [(state, pi, 0.0) for _ in range(32)]
-    loss = est.train_step(batch, return_summary=True)
-    assert math.isfinite(loss)
+    # ``train_step`` returns a (total/value/policy) loss summary.
+    summary = est.train_step(batch, return_summary=True)
+    assert math.isfinite(summary["total"])

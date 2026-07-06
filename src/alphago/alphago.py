@@ -1,10 +1,12 @@
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
 
 from .evaluator import evaluate
 from .mcts_tree import MCTSNode, mcts
+from .metric_logger import NullLogger
 from .player import MCTSPlayer, OptimalPlayer, RandomPlayer
 from .utilities import sample_distribution
 
@@ -17,27 +19,10 @@ __all__ = [
 
 
 def compute_checkpoint_name(step, path):
-    return path + f"{step}.pt"
+    return str(Path(path) / f"{step}.pt")
 
 
-def train_alphago(
-    game,
-    create_estimator,
-    self_play_iters,
-    training_iters,
-    checkpoint_path,
-    summary_path,
-    alphago_steps=100,
-    evaluate_every=1,
-    batch_size=32,
-    mcts_iters=100,
-    c_puct=1.0,
-    replay_length=100000,
-    num_evaluate_games=500,
-    win_rate=0.55,
-    verbose=True,
-    restore_step=None,
-):
+def train_alphago(game, create_estimator, cfg, logger=None):
     """Trains AlphaGo on the game.
 
     Parameters
@@ -47,38 +32,41 @@ def train_alphago(
     create_estimator: func
         Creates a trainable estimator for the game. The estimator should
         have a train function.
-    self_play_iters: int
-        Number of self-play games to play each self-play step.
-    training_iters: int
-        Number of training iters to use for each training step.
-    checkpoint_path: str
-        Where to save the checkpoints to.
-    summary_path: str
-        Where to save the summaries (tensorboard) to.
-    alphago_steps: int
-        Number of steps to run the alphago loop for.
-    evaluate_every: int
-        Evaluate the network every evaluate_every steps.
-    batch_size: int
-        Batch size to train with.
-    mcts_iters: int
-        Number of iterations to run MCTS for.
-    c_puct: float
-        Parameter for MCTS. See AlphaGo paper.
-    replay_length: int
-        The amount of training data to use. Only train on the most recent
-        training data.
-    num_evaluate_games: int
-        Number of games to evaluate the players for.
-    win_rate: float
-        Number between 0 and 1. Only update self-play player when training
-        player beats self-play player by at least this rate.
-    verbose: bool
-        Whether or not to output progress.
-    restore_step: int or None
-        If given, restore the network from the checkpoint at this step.
+    cfg: Config
+        The resolved experiment configuration. Every scalar hyperparameter is
+        read from this object (``cfg.training.*``, ``cfg.mcts.*``,
+        ``cfg.paths.*``, ``cfg.verbose``) and only plain primitives are passed
+        below the estimator/MCTS seam.
+    logger: MetricLogger or None
+        A metric sink exposing ``log_scalar(tag, value, step)`` and ``close()``.
+        ``None`` resolves to a :class:`NullLogger`, so the loop can log losses
+        and eval rates unconditionally.
     """
     # TODO: Do self-play, training and evaluating in parallel.
+    logger = logger or NullLogger()
+
+    # Extract every scalar from cfg into plain locals. Only these primitives
+    # (ints/floats/strings) cross the estimator/MCTS seam below — never cfg or
+    # a cfg subgroup.
+    self_play_iters = cfg.training.self_play_iters
+    training_iters = cfg.training.training_iters
+    alphago_steps = cfg.training.alphago_steps
+    evaluate_every = cfg.training.evaluate_every
+    batch_size = cfg.training.batch_size
+    replay_length = cfg.training.replay_length
+    num_evaluate_games = cfg.training.num_evaluate_games
+    win_rate = cfg.training.win_rate
+    restore_dir = cfg.training.restore_dir
+    restore_step = cfg.training.restore_step
+    mcts_iters = cfg.mcts.mcts_iters
+    c_puct = cfg.mcts.c_puct
+    checkpoint_path = cfg.paths.checkpoint_dir
+    verbose = cfg.verbose
+
+    # Ensure the checkpoint directory exists before the first write. This covers
+    # both the train_alphago and comparator entry points, so the first
+    # torch.save cannot raise FileNotFoundError.
+    Path(checkpoint_path).mkdir(parents=True, exist_ok=True)
 
     # We use a fixed estimator (the best one that's been trained) to
     # generate self-play training data. We then train the training estimator
@@ -90,24 +78,19 @@ def train_alphago(
     self_play_estimator = create_estimator()
     training_estimator = create_estimator()
 
-    # Minimal writer shim: the TF Graph/Session/FileWriter summary
-    # plumbing has been removed with the TensorFlow port. The training loop
-    # runs writer-free (the `if writer is not None` guards in
-    # `optimise_estimator`/`estimator.train` short-circuit). Full
-    # MetricLogger/SummaryWriter decoupling is deferred for now;
-    # `success_rate`/`success_rate_random` are still computed below so champion
-    # replacement is unaffected.
-    writer = None
-
-    if restore_step:
-        restore_path = compute_checkpoint_name(restore_step, checkpoint_path)
+    # Cross-run restore: read from the PREVIOUS run's checkpoint dir
+    # (restore_dir) when set, while checkpoints below write the fresh run's
+    # checkpoint_path.
+    if restore_step is not None:
+        restore_source = restore_dir if restore_dir is not None else checkpoint_path
+        restore_path = compute_checkpoint_name(restore_step, restore_source)
         self_play_estimator.restore(restore_path)
         training_estimator.restore(restore_path)
 
     all_losses = []
     self_play_data = None
 
-    initial_step = restore_step + 1 if restore_step else 0
+    initial_step = restore_step + 1 if restore_step is not None else 0
     for alphago_step in range(initial_step, initial_step + alphago_steps):
         self_play_data = generate_self_play_data(
             game,
@@ -122,14 +105,20 @@ def train_alphago(
         training_data = process_training_data(self_play_data, replay_length)
         if len(training_data) < 100:
             continue
-        optimise_estimator(
+        summary = optimise_estimator(
             training_estimator,
             training_data,
             batch_size,
             training_iters,
-            writer=writer,
             verbose=verbose,
         )
+
+        # Log the loss components on the alphago_step axis. Guard against
+        # a None summary (no training step ran on this pass).
+        if summary is not None:
+            logger.log_scalar("loss/total", summary["total"], step=alphago_step)
+            logger.log_scalar("loss/policy", summary["policy"], step=alphago_step)
+            logger.log_scalar("loss/value", summary["value"], step=alphago_step)
 
         # Evaluate the players and choose the best.
         if alphago_step % evaluate_every == 0:
@@ -141,6 +130,12 @@ def train_alphago(
                 c_puct,
                 num_evaluate_games,
                 verbose=verbose,
+            )
+
+            # Log eval success rates on the same alphago_step axis.
+            logger.log_scalar("eval/success_rate", success_rate, step=alphago_step)
+            logger.log_scalar(
+                "eval/success_rate_random", success_rate_random, step=alphago_step
             )
 
             checkpoint_model(training_estimator, alphago_step, checkpoint_path)
@@ -157,6 +152,7 @@ def train_alphago(
                 restore_path = compute_checkpoint_name(alphago_step, checkpoint_path)
                 self_play_estimator.restore(restore_path)
 
+    logger.close()
     return all_losses
 
 
@@ -166,7 +162,6 @@ def optimise_estimator(
     batch_size,
     training_iters,
     mode="reinforcement",
-    writer=None,
     verbose=True,
 ):
     summary = estimator.train(
@@ -174,7 +169,6 @@ def optimise_estimator(
         batch_size,
         training_iters,
         mode=mode,
-        writer=writer,
         verbose=verbose,
     )
     return summary
@@ -361,17 +355,17 @@ def self_play(game, estimator, mcts_iters, c_puct):
     game_state_list: list
         A list of game states encountered in the self-play game. Starts
         with the initial state and ends with a terminal state.
-    action_probs_list: list
+    probs_list: list
         A list of action probability dictionaries, as returned by MCTS
         each time the algorithm has to take an action. The ith action
         probabilities dictionary corresponds to the ith game_state, and
-        action_probs_list has length one less than game_state_list,
+        probs_list has length one less than game_state_list,
         since we don't have to move in a terminal state.
     """
     node = MCTSNode(game.initial_state, game.current_player(game.initial_state))
 
     game_state_list = [node.game_state]
-    action_probs_list = []
+    probs_list = []
     action_list = []
 
     move_count = 0
@@ -393,12 +387,12 @@ def self_play(game, estimator, mcts_iters, c_puct):
         node = node.children[action]
 
         # Add the action probabilities and game state to the list.
-        action_probs_list.append(action_probs)
+        probs_list.append(action_probs)
         game_state_list.append(node.game_state)
         move_count += 1
 
     data = process_self_play_data(
-        game_state_list, action_list, action_probs_list, game, game.action_indices
+        game_state_list, action_list, probs_list, game, game.action_indices
     )
 
     return data
@@ -432,7 +426,7 @@ def process_training_data(self_play_data, replay_length=None):
     return training_data
 
 
-def process_self_play_data(states_, actions_, action_probs_, game, action_indices):
+def process_self_play_data(states, actions, action_probs, game, action_indices):
     """Takes a list of states and action probabilities, as returned by
     play, and creates training data from this. We build up a list
     consisting of (state, probs, z) tuples, where player is the player
@@ -440,16 +434,16 @@ def process_self_play_data(states_, actions_, action_probs_, game, action_indice
 
     We omit the terminal state from the list as there are no probabilities to
     train. TODO: Potentially include the terminal state in order to train the
-    value. # TODO: why the underscores in the parameter names?
+    value.
 
     Parameters
     ----------
-    states_: list
+    states: list
         A list of n states, with the last being terminal.
-    actions_: list
+    actions: list
         A list of n-1 actions, being the action taken in the corresponding
         state.
-    action_probs_: list
+    action_probs: list
         A list of n-1 dictionaries containing action probabilities. The ith
         dictionary applies to the ith state, representing the probabilities
         returned by play of taking each available action in the state.
@@ -468,13 +462,13 @@ def process_self_play_data(states_, actions_, action_probs_, game, action_indice
         'last_state'.
     """
 
-    # Get the outcome for the game. This should be the last state in states_.
-    last_state = states_[-1]
+    # Get the outcome for the game. This should be the last state in states.
+    last_state = states[-1]
     outcome = game.utility(last_state)
 
-    # Now action_probs_ and states_ are the same length.
+    # Now action_probs and states are the same length.
     training_data = []
-    for state, action, probs in zip(states_, actions_, action_probs_, strict=False):
+    for state, action, probs in zip(states, actions, action_probs, strict=False):
         # Get the player in the state, and the value to this player of the
         # terminal state.
         player = game.current_player(state)

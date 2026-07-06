@@ -1,14 +1,16 @@
 """This file trains a connect four net with supervised learning."""
 
-import argparse
 import os
 import pickle
-import time
 from collections import deque
+from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
+from omegaconf import MISSING
 
-from alphago.alphago import optimise_estimator
+from alphago.alphago import compute_checkpoint_name, optimise_estimator
+from alphago.config import load_config, resolve_paths
 from alphago.connect_four_data import load_solved_states
 from alphago.estimator import (
     ConnectFourNet,
@@ -20,8 +22,55 @@ from alphago.games.connect_four import ConnectFour
 from alphago.player import MCTSPlayer, RandomPlayer
 
 
-def compute_checkpoint_name(step, path):
-    return path + f"{step}.pt"
+@dataclass
+class SupervisedPathsConfig:
+    """Filesystem paths for the supervised experiment.
+
+    Attributes:
+        training_data: Input solver-data file (``MISSING`` so an omitted path
+            fails loud at startup). Invoke as
+            ``paths.training_data=data/connect_four_data.txt``.
+        experiment_dir: Absolute run directory; derived by :func:`resolve_paths`.
+        checkpoint_dir: Absolute checkpoint directory; derived likewise.
+    """
+
+    training_data: str = MISSING
+    experiment_dir: str | None = None
+    checkpoint_dir: str | None = None
+
+
+@dataclass
+class SupervisedConfig:
+    """Supervised Connect Four training configuration.
+
+    Attributes:
+        paths: Input-data and experiment paths.
+        max_lines: Maximum lines to read from the training data (``None`` = all).
+        evaluate_every: Steps between checkpoint + gauntlet evaluations.
+        evaluate_checkpoint_path: If set, evaluate this checkpoint instead of
+            training (``evaluate_step`` must also be provided).
+        evaluate_step: The checkpoint step to evaluate.
+        learning_rate: Optimizer learning rate.
+        l2_weight: L2 regularization weight.
+        value_weight: Relative weight of the value loss term.
+        batch_size: Mini-batch size.
+        num_steps: Number of supervised training steps.
+        mcts_iters: Simulations per move for the evaluation players.
+        c_puct: PUCT exploration constant for the evaluation players.
+    """
+
+    paths: SupervisedPathsConfig = field(default_factory=SupervisedPathsConfig)
+    max_lines: int | None = None
+    evaluate_every: int = 5
+    evaluate_checkpoint_path: str | None = None
+    evaluate_step: int | None = None
+    learning_rate: float = 1e-4
+    l2_weight: float = 1e-1
+    value_weight: float = 1e-2
+    batch_size: int = 32
+    num_steps: int = 1000
+    mcts_iters: int = 10
+    c_puct: float = 0.5
 
 
 def probs_vector_to_optimal_actions(probs_vector):
@@ -140,7 +189,13 @@ def load_net(step, checkpoint_path):
     return estimator
 
 
-def train_network(training_data, evaluate_every):
+def train_network(cfg, training_data):
+    """Trains a Connect Four net by supervised learning from solver data.
+
+    Args:
+        cfg: The resolved :class:`SupervisedConfig`.
+        training_data: A list of ``(state, probs_vector, z)`` training tuples.
+    """
     np.random.shuffle(training_data)
     dev_fraction = 0.02
     num_dev = int(dev_fraction * len(training_data))
@@ -148,12 +203,12 @@ def train_network(training_data, evaluate_every):
     training_data = training_data[num_dev:]
 
     # Comparison players for evaluation
-    mcts_iters = 10
+    mcts_iters = cfg.mcts_iters
     game = ConnectFour()
     trivial_estimator = create_trivial_estimator(game)
     rollout_estimator = create_rollout_estimator(game, 50)
     random_player = RandomPlayer(game)
-    c_puct = 0.5
+    c_puct = cfg.c_puct
     MCTSPlayer(game, trivial_estimator, mcts_iters, c_puct, 0.01)
     MCTSPlayer(game, rollout_estimator, mcts_iters, c_puct, 0.01)
     # fixed_comparison_players = {1: random_player,
@@ -166,27 +221,18 @@ def train_network(training_data, evaluate_every):
     supervised_players_queue = deque(maxlen=2)
 
     # Hyperparameters
-    learning_rate = 1e-4
-    batch_size = 32
-    l2_weight = 1e-1
-    value_weight = 1e-2
-    num_train = len(training_data)
+    learning_rate = cfg.learning_rate
+    batch_size = cfg.batch_size
+    l2_weight = cfg.l2_weight
+    value_weight = cfg.value_weight
 
-    checkpoint_every = evaluate_every
-    num_steps = 1000
+    checkpoint_every = cfg.evaluate_every
+    num_steps = cfg.num_steps
 
-    # Build the hyperparameter string
-    hyp_string = (
-        f"lr={learning_rate},batch_size={batch_size},"
-        f"value_weight={value_weight},l2_weight={l2_weight},num_train={num_train}"
-    )
-
-    game_name = "connect_four-sl"
-
-    current_time_format = time.strftime("%Y-%m-%d_%H:%M:%S")
-    path = f"experiments/{game_name}-{hyp_string}-{current_time_format}/"
-    checkpoint_path = path + "checkpoints/"
-    game_results_file_name = path + "game_results.pickle"
+    # Derive absolute experiment/checkpoint dirs in place when unset.
+    resolve_paths(cfg, "connect_four-sl")
+    checkpoint_path = cfg.paths.checkpoint_dir
+    game_results_file_name = str(Path(cfg.paths.experiment_dir) / "game_results.pickle")
 
     # Create the experiment/checkpoint directories up front; the TF
     # `Saver` used to create them implicitly, but `torch.save` does not, so the
@@ -218,7 +264,6 @@ def train_network(training_data, evaluate_every):
             batch_size,
             training_iters,
             mode="supervised",
-            writer=None,
             verbose=verbose,
         )
 
@@ -257,38 +302,19 @@ def train_network(training_data, evaluate_every):
             supervised_player_no += 1
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("training_data", help="Input file with training data.")
-    parser.add_argument(
-        "--max_lines",
-        help="The maximum number of lines to read in from the training data.",
-    )
-    parser.add_argument(
-        "--evaluate_every", help="The number of epochs between evaluatingiterations."
-    )
-    parser.add_argument(
-        "--evaluate_checkpoint_path",
-        help="The checkpoint path to evaluate. If given, "
-        "then evaluate_step must also be provided.",
-    )
-    parser.add_argument(
-        "--evaluate_step", help="The step of the checkpoint to evaluate."
-    )
+def main(cfg) -> None:
+    """Train, or evaluate a checkpoint, per the resolved config.
 
-    args = parser.parse_args()
+    Args:
+        cfg: The resolved :class:`SupervisedConfig`.
+    """
+    # Load the training data as (state, probs_vector, z) tuples. Accessing the
+    # MISSING training_data path here fails loud at startup if it was omitted.
+    training_data = load_solved_states(cfg.paths.training_data, max_lines=cfg.max_lines)
 
-    # Load the training data as (state, probs_vector, z) tuples.
-    max_lines = int(args.max_lines) if args.max_lines is not None else None
-
-    training_data = load_solved_states(args.training_data, max_lines=max_lines)
-
-    # If evaluate checkpoint path is given, then just evaluate that network.
-    if args.evaluate_checkpoint_path is not None:
-        checkpoint_path = args.evaluate_checkpoint_path
-        checkpoint_step = args.evaluate_step
-
-        estimator = load_net(checkpoint_step, checkpoint_path)
+    # If an evaluate checkpoint path is given, then just evaluate that network.
+    if cfg.evaluate_checkpoint_path is not None:
+        estimator = load_net(cfg.evaluate_step, cfg.evaluate_checkpoint_path)
 
         optimal_actions_list = [
             (state, probs_vector_to_optimal_actions(probs_vector))
@@ -299,8 +325,8 @@ if __name__ == "__main__":
         print(f"Accuracy: {accuracy}")
     else:
         # Otherwise, train the network.
-        evaluate_every = 5
-        if args.evaluate_every is not None:
-            evaluate_every = int(args.evaluate_every)
+        train_network(cfg, training_data)
 
-        train_network(training_data, evaluate_every)
+
+if __name__ == "__main__":
+    main(load_config(SupervisedConfig))

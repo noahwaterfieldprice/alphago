@@ -4,13 +4,33 @@ probability distribution over available actions and a value of 0. In a
 terminal state, we back up the utility returned by the game.
 """
 
-import argparse
+from dataclasses import dataclass
 
 import numpy as np
 
 from alphago import mcts_tree
+from alphago.config import load_config
 from alphago.estimator import ConnectFourNet, create_trivial_estimator
 from alphago.games.connect_four import ConnectFour, optimal_moves
+
+
+@dataclass
+class PlayConnectFourConfig:
+    """Interactive Connect Four play knobs (overridable via dotlist).
+
+    Attributes:
+        player: 1 to play first, 2 to play second; ``None`` picks at random.
+        checkpoint: Estimator checkpoint path; ``None`` uses a trivial estimator.
+        mcts_iters: Simulations per computer move; ``0`` uses the raw network.
+        tau: Sampling temperature; closer to 0 exploits more.
+        c_puct: PUCT exploration constant.
+    """
+
+    player: int | None = None
+    checkpoint: str | None = None
+    mcts_iters: int = 1000
+    tau: float = 1.0
+    c_puct: float = 0.5
 
 
 def load_net(checkpoint):
@@ -107,32 +127,18 @@ def play_game(human, estimator, mcts_iters, c_puct, tau):
     return utility[human]
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--player", help="1 if you play first, 2 if you play second.")
-    parser.add_argument(
-        "--checkpoint",
-        help="The checkpoint path to use for the estimator. "
-        "If not given, then use a trivial estimator.",
-    )
-    parser.add_argument("--mcts_iters", help="If 0, then just use the raw network.")
-    parser.add_argument(
-        "--tau", help="Defaults to 1. Set closer to 0 for more exploitation."
-    )
-    parser.add_argument("--c_puct", help="Defaults to 0.5")
+def main(cfg) -> None:
+    """Run an interactive Connect Four game driven by ``cfg``."""
+    human = int(cfg.player) if cfg.player is not None else np.random.choice([1, 2])
 
-    args = parser.parse_args()
-
-    mcts_iters = int(args.mcts_iters) if args.mcts_iters is not None else 1000
-    tau = float(args.tau) if args.tau is not None else 1
-    c_puct = float(args.c_puct) if args.c_puct is not None else 0.5
-
-    human = int(args.player) if args.player is not None else np.random.choice([1, 2])
-
-    if args.checkpoint:
-        estimator = load_net(args.checkpoint)
+    if cfg.checkpoint:
+        estimator = load_net(cfg.checkpoint)
     else:
         cf = ConnectFour()
         estimator = create_trivial_estimator(cf)
 
-    play_game(human, estimator, mcts_iters, c_puct, tau)
+    play_game(human, estimator, cfg.mcts_iters, cfg.c_puct, cfg.tau)
+
+
+if __name__ == "__main__":
+    main(load_config(PlayConnectFourConfig))
