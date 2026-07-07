@@ -40,7 +40,10 @@ known-first-party = ["alphago"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-vv"
+addopts = "-vv -m 'not gate'"
+markers = [
+    "gate: slow behavioral validation gate (run with -m gate)",
+]
 
 [tool.coverage.run]
 omit = ["tests/*"]
