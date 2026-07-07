@@ -109,6 +109,68 @@ def test_train_connect_four_sl_smoke(tmp_path, monkeypatch):
     module.main(cfg)
 
 
+def _write_sl_fixture(path: Path, num_rows: int) -> None:
+    """Write a tiny, valid solver-data fixture (``<moves> <opt_action> <value>``)."""
+    lines = []
+    for i in range(num_rows):
+        col = (i % 7) + 1
+        opt = ((i + 3) % 7) + 1
+        value = (i % 3) - 1
+        lines.append(f"{col} {opt} {value}")
+    path.write_text("\n".join(lines) + "\n")
+
+
+def test_train_connect_four_sl_tiny_dev_split_does_not_collapse(tmp_path, monkeypatch):
+    """A <50-row dataset must not collapse the dev split to zero rows.
+
+    With 40 rows, ``int(0.02 * 40) == 0``; before the ``num_dev = max(1, ...)``
+    guard this yields an empty dev split and ``estimator.loss([], ...)`` /
+    ``compute_accuracy`` crash. The ``max(1, ...)`` guard keeps at least one
+    held-out row, so ``main()`` runs to completion.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    data_file = tmp_path / "sl_data.txt"
+    _write_sl_fixture(data_file, num_rows=40)
+
+    module = load_example("train_connect_four_sl.py")
+
+    cfg = module.load_config(
+        module.SupervisedConfig,
+        [
+            f"paths.training_data={data_file}",
+            "num_steps=1",
+            "batch_size=4",
+            "mcts_iters=2",
+        ],
+    )
+
+    module.main(cfg)
+
+
+def test_train_connect_four_sl_evaluate_without_step_fails_loud(tmp_path, monkeypatch):
+    """An evaluate path without ``evaluate_step`` fails loud before training."""
+    monkeypatch.chdir(tmp_path)
+
+    data_file = tmp_path / "sl_data.txt"
+    _write_sl_fixture(data_file, num_rows=40)
+
+    module = load_example("train_connect_four_sl.py")
+
+    cfg = module.load_config(
+        module.SupervisedConfig,
+        [
+            f"paths.training_data={data_file}",
+            "evaluate_checkpoint_path=/tmp/does-not-need-to-exist",
+        ],
+    )
+    # evaluate_step defaults to None, so this is the misconfigured case.
+    assert cfg.evaluate_step is None
+
+    with pytest.raises(RuntimeError):
+        module.main(cfg)
+
+
 @pytest.mark.xfail(
     strict=True,
     reason=(

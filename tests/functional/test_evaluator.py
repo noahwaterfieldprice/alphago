@@ -1,7 +1,3 @@
-import pytest
-
-pytest.importorskip("tensorflow")
-
 import numpy as np
 
 from alphago.estimator import create_trivial_estimator
@@ -59,9 +55,13 @@ def test_evaluator_on_noughts_and_crosses():
     # Check the evaluators aren't equal.
     assert player1 is not player2
 
-    evaluate(nac, players, 20)
+    num_games = 20
+    player1_results, game_logs = evaluate(nac, players, num_games)
 
-    # TODO: Test something here!
+    # Every game must be accounted for as a win, loss or draw for player 1.
+    assert set(player1_results) == {1, -1, 0}
+    assert sum(player1_results.values()) == num_games
+    assert len(game_logs) == num_games
 
 
 # def test_evaluator_on_noughts_and_crosses_with_nets():

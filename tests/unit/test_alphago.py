@@ -40,32 +40,6 @@ def test_mcts_can_self_play_noughts_and_crosses():
     assert nac.is_terminal(game_states[-1])
 
 
-TRAINING_DATA_STATES = [
-    [1, 2, 3, 4],
-    [1, 4, 3, 6, 7],
-]
-
-TRAINING_DATA_ACTION_PROBS = [
-    [{1: 0.5, 2: 0.5}, {3: 0.7}, {2: 0.3, 5: 0.7}],
-    [{1: 0.5, 2: 0.5}, {3: 0.7}, {2: 0.3, 5: 0.7}, {1: 1.0}],
-]
-
-TRAINING_DATA_ACTION_INDICES = [
-    {1: 0, 2: 1, 3: 2, 4: 3, 5: 4},
-    {1: 0, 2: 1, 3: 2, 4: 3, 5: 4},
-]
-
-TRAINING_DATA_EXPECTED = [
-    [(1, {1: 0.5, 2: 0.5}, -4), (2, {3: 0.7}, 4), (3, {2: 0.3, 5: 0.7}, -4)],
-    [
-        (1, {1: 0.5, 2: 0.5}, -7),
-        (4, {3: 0.7}, 7),
-        (3, {2: 0.3, 5: 0.7}, -7),
-        (6, {1: 1.0}, 7),
-    ],
-]
-
-
 def test_process_self_play_data():
     mock_game = MockGame()
     mock_game.terminal_state_values = (1,) * 12

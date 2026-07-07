@@ -224,7 +224,7 @@ def action_list_to_state(action_list):
     """
     columns = {action: [] for action in range(7)}
     for i, action in enumerate(action_list):
-        player_symbol = 2 * (i % 2) - 1
+        player_symbol = 1 - 2 * (i % 2)
         columns[action].append(player_symbol)
 
     for action in range(7):

@@ -198,7 +198,10 @@ def train_network(cfg, training_data):
     """
     np.random.shuffle(training_data)
     dev_fraction = 0.02
-    num_dev = int(dev_fraction * len(training_data))
+    # max(1, ...) so a small dataset (<50 rows, where int(0.02 * len) rounds to
+    # 0) never collapses to an empty dev split; compute_accuracy
+    # and estimator.loss then always have at least one held-out row.
+    num_dev = max(1, int(dev_fraction * len(training_data)))
     dev_data = training_data[:num_dev]
     training_data = training_data[num_dev:]
 
@@ -314,6 +317,16 @@ def main(cfg) -> None:
 
     # If an evaluate checkpoint path is given, then just evaluate that network.
     if cfg.evaluate_checkpoint_path is not None:
+        # An evaluate path without evaluate_step cannot resolve which
+        # checkpoint to load; fail loud (what + why + fix) rather than passing
+        # evaluate_step=None into compute_checkpoint_name and crashing opaquely.
+        if cfg.evaluate_step is None:
+            raise RuntimeError(
+                "evaluate_checkpoint_path is set but evaluate_step is None: "
+                "cannot resolve which checkpoint step to evaluate. Set "
+                "evaluate_step=<int> to the checkpoint step to evaluate, or "
+                "unset evaluate_checkpoint_path to train instead."
+            )
         estimator = load_net(cfg.evaluate_step, cfg.evaluate_checkpoint_path)
 
         optimal_actions_list = [

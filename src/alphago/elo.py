@@ -117,15 +117,19 @@ def elo(
     # ensure that there are no games in which players played themselves
     assert np.all(wins.diagonal() == 0)
 
-    # Initialise gamma randomly
-    gamma = np.random.rand(len(player_indices))
+    # Initialise gamma with all-positive values for the MM algorithm.
+    initial_gamma = np.ones(len(player_indices))
 
-    # Fix reference values, if given
+    # Fix reference values, if given.
     reference_gammas_v = np.zeros(len(player_indices))
     if reference_gammas:
-        for i, g in reference_gammas:
-            reference_gammas_v[player_indices[i]] = g
-    max_likelihood_gammas = np.where(reference_gammas_v > 0, reference_gammas_v, gamma)
+        for player_no, g in reference_gammas.items():
+            reference_gammas_v[player_indices[player_no]] = g
+
+    # Run minorisation maximisation to compute the maximum likelihood gammas.
+    max_likelihood_gammas = run_mm(
+        initial_gamma, wins, reference_gammas=reference_gammas_v
+    )
 
     gammas = {}
     for player_no in player_indices:
@@ -170,6 +174,7 @@ def run_mm(
     wins: np.ndarray,
     num_iters: int = 30,
     reference_gammas: np.ndarray = None,
+    verbose: bool = False,
 ) -> np.ndarray:
     """Runs minorisation maximisation (Hunter).
 
@@ -192,6 +197,8 @@ def run_mm(
         A numpy array with ith entry either 0, if no reference gamma,
         or a positive float with the fixed value of gamma for the ith
         player.
+    verbose:
+        If True, print the log likelihood at each iteration.
 
     Returns
     -------
@@ -210,7 +217,8 @@ def run_mm(
         if reference_gammas is not None:
             gamma = np.where(reference_gammas > 0, reference_gammas, gamma)
 
-        log_likelihood = compute_log_likelihood(wins, gamma)
-        print(f"Log likelihood: {log_likelihood}")
+        if verbose:
+            log_likelihood = compute_log_likelihood(wins, gamma)
+            print(f"Log likelihood: {log_likelihood}")
 
     return gamma

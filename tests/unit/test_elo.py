@@ -4,6 +4,7 @@ from alphago.elo import (
     compute_log_likelihood,
     compute_player_indices,
     compute_win_matrix,
+    elo,
     run_mm,
     update_gamma,
 )
@@ -97,3 +98,28 @@ def test_reference_gammas():
     assert initial_ll < final_ll
 
     assert gamma[1] == reference_gammas[1]
+
+
+def test_elo_rates_dominant_player_higher():
+    # Player 1 dominates player 2; the third player keeps the win graph
+    # connected so the MM algorithm has a well-defined solution. Player 1
+    # never loses to player 2, so its rating must strictly exceed player 2's.
+    # Before the fix, elo() returned random gammas and this ordering
+    # only held by chance.
+    game_results = [(1, 2, 10), (2, 3, 5), (3, 1, 1)]
+
+    ratings = elo(game_results)
+
+    assert ratings[1] > ratings[2]
+
+
+def test_elo_reference_gammas_dict_does_not_crash():
+    # elo() must accept reference_gammas as a dict keyed by player number.
+    # Before the fix, `for i, g in reference_gammas` iterated the dict
+    # keys and raised a TypeError while trying to unpack an int.
+    game_results = [(1, 2, 10), (2, 3, 5), (3, 1, 1)]
+
+    ratings = elo(game_results, reference_gammas={1: 2.0})
+
+    assert set(ratings.keys()) == {1, 2, 3}
+    assert ratings[1] == 2.0

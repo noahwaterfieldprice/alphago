@@ -382,6 +382,13 @@ class AbstractNeuralNetEstimator(abc.ABC):
             # the loss is a real number rather than a silent NaN from
             # ``np.mean([])``.
             if not losses:
+                if not data:
+                    raise RuntimeError(
+                        "loss() received an empty dataset: there is no full "
+                        "batch and no rows to form a ragged fallback batch. "
+                        "Pass at least one (state, pi, z) row, or check the "
+                        "caller's data pipeline for an empty split."
+                    )
                 x, pi, z = self._batch_to_tensors(data)
                 loss, loss_value, loss_probs = self._compute_loss(x, pi, z)
                 return loss.item(), loss_value.item(), loss_probs.item()
@@ -480,9 +487,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
                 training_data, batch_size, training_iters, verbose
             )
 
-    def _train_reinforcement(
-        self, training_data, batch_size, training_iters, verbose
-    ):
+    def _train_reinforcement(self, training_data, batch_size, training_iters, verbose):
         """Train the net in reinforcement learning mode.
 
         In this case, a random batch is sampled for the data every
@@ -501,9 +506,7 @@ class AbstractNeuralNetEstimator(abc.ABC):
             summary = self.train_step(batch, return_summary=True)
         return summary
 
-    def _train_supervised(
-        self, training_data, batch_size, training_iters, verbose
-    ):
+    def _train_supervised(self, training_data, batch_size, training_iters, verbose):
         """Train the net in supervised learning mode.
 
         In this case, the training data are randomly shuffled and then
@@ -610,8 +613,18 @@ class NACNetEstimator(AbstractNeuralNetEstimator):
         )
 
     def _state_to_vector(self, state):
-        state = np.array(state).reshape((-1, 9))
-        return np.nan_to_num(state)
+        # Expand the two 9-bit NAC bitboards into a single signed 3x3 board
+        # (player-1 cells +1, player-2 cells -1), mirroring
+        # NAC3x6NetEstimator._binary_state_to_array. The real NAC GameState is
+        # (player1_board, player2_board, current_player) -- three ints -- so the
+        # old np.array(state).reshape((-1, 9)) could not vectorize it (it
+        # assumed a flat 9-cell board and raised "cannot reshape array of size
+        # 3 into shape (9)"). in_channels=1, so the two boards collapse into one
+        # signed channel matching the game's +1/-1 symbol convention.
+        player1_board = [int(bit) for bit in f"{state[0]:09b}"]
+        player2_board = [int(bit) for bit in f"{state[1]:09b}"]
+        board = [p1 - p2 for p1, p2 in zip(player1_board, player2_board, strict=True)]
+        return np.nan_to_num(np.array(board).reshape((-1, 9)))
 
 
 class NAC3x6NetEstimator(AbstractNeuralNetEstimator):

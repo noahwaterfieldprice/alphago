@@ -17,7 +17,7 @@ import numpy as np
 import torch
 
 from alphago.connect_four_data import load_solved_states
-from alphago.estimator import ConnectFourNet
+from alphago.estimator import ConnectFourNet, NAC3x6NetEstimator
 from alphago.games.connect_four import ConnectFour
 
 # Resolve the fixture relative to this file so the test is cwd-independent and
@@ -77,3 +77,62 @@ def test_overfit_tiny_batch_connect_four():
     loss = summary["total"]
     assert loss < 0.05, f"overfit loss did not collapse: {loss}"
     assert _top1_accuracy(estimator, batch) == 1.0
+
+
+def _top1_accuracy_nac3x6(estimator, batch) -> float:
+    """Top-1 policy move-match accuracy for the NAC 3x6 net.
+
+    The NAC3x6 action_indices are the 0-indexed identity map, so (unlike the
+    1-indexed Connect Four columns) the estimator's argmax key compares directly
+    to the batch target's argmax.
+    """
+    correct = 0
+    for state, probs_vector, _ in batch:
+        probs_dict, _ = estimator(state)
+        predicted = max(probs_dict, key=probs_dict.get)
+        optimal = int(np.argmax(probs_vector))
+        correct += int(predicted == optimal)
+    return correct / len(batch)
+
+
+def test_overfit_tiny_batch_nac3x6():
+    """The NAC 3x6 net memorizes a tiny synthetic batch: loss collapses, acc -> 1.0.
+
+    This extends the learning proof to the rectangular-board
+    ``NAC3x6NetEstimator``. No solver exists for 3x6, so a tiny self-consistent
+    batch of distinct bitboard states with distinct one-hot policy targets is
+    generated; overfitting it proves gradients, the loss, and the bitboard
+    ``_binary_state_to_array`` wiring are correct for the 3x6 net.
+    """
+    _seed_everything(0)
+
+    # Distinct (player1_board, player2_board) bitboard states, each assigned a
+    # distinct one-hot optimal action so the net must memorize the mapping.
+    states = [
+        (0b000000000000000001, 0b000000000000000010),
+        (0b000000000000000100, 0b000000000000001000),
+        (0b000000000000010000, 0b000000000000100000),
+        (0b000000000001000000, 0b000000000010000000),
+    ]
+    batch = []
+    for i, state in enumerate(states):
+        probs = np.zeros(18, dtype=np.float32)
+        probs[i] = 1.0
+        z = 1.0 if i % 2 == 0 else -1.0
+        batch.append((state, probs, z))
+
+    action_indices = {i: i for i in range(18)}
+    estimator = NAC3x6NetEstimator(
+        learning_rate=5e-2,
+        l2_weight=0.0,  # L2 must not floor the overfit loss.
+        value_weight=1.0,
+        action_indices=action_indices,
+    )
+
+    summary = None
+    for _ in range(1000):
+        summary = estimator.train_step(batch, return_summary=True)
+
+    loss = summary["total"]
+    assert loss < 0.05, f"overfit loss did not collapse: {loss}"
+    assert _top1_accuracy_nac3x6(estimator, batch) == 1.0

@@ -1,7 +1,11 @@
 import numpy as np
 import pytest
 
-from alphago.games.connect_four import ConnectFour, optimal_moves
+from alphago.games.connect_four import (
+    ConnectFour,
+    action_list_to_state,
+    optimal_moves,
+)
 
 
 def test_connect_four_initial_state(mocker):
@@ -394,6 +398,22 @@ def test_compute_next_states(state, expected_next_states, mocker):
     assert next_states == expected_next_states
 
 
+@pytest.mark.parametrize("column", range(7))
+def test_action_list_to_state_matches_legal_actions_oracle(column):
+    """action_list_to_state([c]) equals the engine's own next state.
+
+    Self-consistency oracle: applying column ``c`` from the
+    initial state via ``legal_actions`` produces the ground-truth state, so no
+    hand-computed expected value is needed. Player 1 moves first and
+    ``legal_actions`` places the marker ``1``, so the single-move state built by
+    ``action_list_to_state`` must place ``+1`` in the same cell. This pins the
+    symbol-mapping fix and fails against the pre-fix inverted mapping.
+    """
+    cf = ConnectFour()
+    oracle_next_state = cf.legal_actions(cf.initial_state)[column]
+    assert action_list_to_state([column]) == oracle_next_state
+
+
 SUB_GRIDS = [(1, 1, 0, 0, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0, 0, 1), (0,) * 16]
 
 EXPECTED_LINE_SUMS = [[2, 0, 2, 2, 2, 3, -1, 2, 3, 1], [0 for i in range(10)]]
@@ -410,7 +430,7 @@ def test_connect_four_line_sums_4_by_4(grid, expected_line_sums, mocker):
 TERMINAL_STATES = [
     (1,) * 42,  # All 1s
     (-1,) * 42,  # All -1s
-    tuple(-(1**i) for i in range(42)),
+    tuple((-1) ** i for i in range(42)),  # Alternating checkerboard
     (
         0,
         0,

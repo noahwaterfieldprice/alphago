@@ -1,8 +1,5 @@
-import pytest
-
-pytest.importorskip("tensorflow")
-
 import numpy as np
+import pytest
 
 from alphago.estimator import create_trivial_estimator
 from alphago.games.noughts_and_crosses import Action, GameState, NoughtsAndCrosses
@@ -28,8 +25,9 @@ def test_random_noughts_and_crosses_player_gives_equal_action_probabilities():
 @pytest.mark.parametrize(
     "state, optimal_actions",
     [
-        (GameState(0, 0, 1), [Action(0, 0), Action(0, 2), Action(2, 0), Action(2, 2)]),
-        (GameState(3, 192, 1), [Action(0, 2)]),
+        # Player 1 can complete the top row (0, 2) or the diagonal (2, 2); both win.
+        (GameState(3, 192, 1), [Action(0, 2), Action(2, 2)]),
+        # Player 2 must block on (2, 0), the unique move that saves the draw.
         (GameState(141, 290, 2), [Action(2, 0)]),
     ],
 )

@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -10,6 +12,7 @@ from alphago.estimator import (
     create_trivial_estimator,
 )
 from alphago.games import ConnectFour, NoughtsAndCrosses
+from alphago.games.noughts_and_crosses import GameState
 
 from .games.mock_game import MockGame
 from .mock_estimator import MockNetEstimator
@@ -52,7 +55,9 @@ def test_neural_net_estimate_game_state():
         learning_rate=0.01, l2_weight=0.1, action_indices=nac.action_indices
     )
 
-    test_game_state = np.random.randn(7, 9)
+    # A real bitboard GameState (player1_board, player2_board, current_player),
+    # not the legacy flat (7, 9) array that predates the NAC bitboard migration.
+    test_game_state = nac.initial_state
 
     nnet(test_game_state)
 
@@ -68,7 +73,8 @@ def test_can_use_two_neural_nets():
         learning_rate=0.01, l2_weight=0.1, action_indices=nac.action_indices
     )
 
-    test_game_state = np.random.randn(1, 9)
+    # A real bitboard GameState, not the legacy flat (1, 9) array.
+    test_game_state = GameState(0b000000001, 0b000000010, 1)
 
     probs_dict1, value1 = nnet1(test_game_state)
     probs_dict2, value2 = nnet2(test_game_state)
@@ -145,6 +151,66 @@ def test_nac_net_call():
     probs_dict, value = computed
     assert isinstance(probs_dict, dict)
     assert len(probs_dict) == 9
+
+
+def assert_estimator_invariants(probs: dict, value: float) -> None:
+    """The frozen estimator contract: the policy is a distribution and
+    the value lies in the tanh range. These invariants replace the brittle exact
+    TF1 float assertions."""
+    assert abs(sum(probs.values()) - 1.0) < 1e-6  # policy sums to 1
+    assert all(p >= 0.0 for p in probs.values())  # non-negative
+    assert -1.0 <= value <= 1.0  # tanh value-head range
+
+
+def test_nac_net_call_on_real_bitboard_state():
+    # Regression for deferred-items D1: NACNetEstimator must vectorize the real
+    # 3-element bitboard GameState. Before the _state_to_vector fix this raised
+    # "cannot reshape array of size 3 into shape (9)"; it now returns a valid
+    # (probs, value) pair. Uses a real mid-game state, NOT the legacy (0,) * 9.
+    np.random.seed(0)
+    torch.manual_seed(0)
+    nac = NoughtsAndCrosses()
+    net = NACNetEstimator(
+        learning_rate=0.01, l2_weight=0.1, action_indices=nac.action_indices
+    )
+
+    # A real, non-trivial bitboard GameState reached by playing one move.
+    first_action = next(iter(nac.legal_actions(nac.initial_state)))
+    state = nac.legal_actions(nac.initial_state)[first_action]
+    assert isinstance(state, GameState)
+
+    probs, value = net(state)
+
+    assert isinstance(probs, dict)
+    assert len(probs) == 9
+    assert isinstance(value, float)
+    assert_estimator_invariants(probs, value)
+
+
+def test_loss_empty_data_fails_loud():
+    # Task 1 fail-loud guard: loss() on an empty dataset raises a descriptive
+    # error rather than silently propagating a NaN from np.mean([]).
+    nac = NoughtsAndCrosses()
+    net = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+
+    with pytest.raises(RuntimeError):
+        net.loss([], batch_size=4)
+
+
+def test_loss_sub_batch_size_data_is_finite():
+    # Task 1 guard: a non-empty dataset smaller than batch_size falls back to a
+    # single ragged batch and returns a real (finite) loss, not NaN.
+    nac = NoughtsAndCrosses()
+    net = NACNetEstimator(learning_rate=0.01, action_indices=nac.action_indices)
+
+    pi = np.full(9, 1 / 9, dtype=np.float32)
+    data = [(nac.initial_state, pi, 1.0)]  # one row, < batch_size
+
+    total, loss_value, loss_probs = net.loss(data, batch_size=4)
+
+    assert math.isfinite(total)
+    assert math.isfinite(loss_value)
+    assert math.isfinite(loss_probs)
 
 
 def test_connect_four_net_runs_on_state():

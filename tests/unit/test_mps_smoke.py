@@ -20,21 +20,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _empty_board_state(est):
-    """Empty-board grid the estimator's net consumes via ``_state_to_vector``.
-
-    The net takes a flat ``in_channels * board_h * board_w`` board grid;
-    ConnectFour's game state already IS this flat board, while NAC's game state
-    is a bitboard, so we build the net's grid representation of the empty board
-    (matching ``tests/unit/estimator_test.py``). The input flows through the
-    real ``__call__`` / ``_state_to_vector`` path, not a fabricated raw tensor
-   .
-    """
-    cfg = est.cfg
-    flat = cfg.in_channels * cfg.board_h * cfg.board_w
-    return np.zeros(flat, dtype=np.float32)
-
-
 @pytest.mark.parametrize(
     "net_cls, game_cls",
     [
@@ -48,8 +33,11 @@ def test_mps_op_coverage_finite_outputs(net_cls, game_cls):
     est = net_cls(action_indices=game.action_indices, device="mps")
     assert est.device.type == "mps"
 
-    # (a) forward via the __call__ inference path on the empty-board state.
-    state = _empty_board_state(est)
+    # (a) forward via the __call__ inference path on the real empty-board game
+    # state (ConnectFour: flat 42-tuple; NAC: bitboard GameState). The input
+    # flows through the real __call__ / _state_to_vector path, not a
+    # fabricated raw tensor.
+    state = game.initial_state
     probs_dict, value = est(state)
     assert all(math.isfinite(p) for p in probs_dict.values())
     assert math.isfinite(value)
