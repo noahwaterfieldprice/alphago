@@ -81,6 +81,16 @@ def train_alphago(game, create_estimator, cfg, logger=None):
     # Cross-run restore: read from the PREVIOUS run's checkpoint dir
     # (restore_dir) when set, while checkpoints below write the fresh run's
     # checkpoint_path.
+    # Fail loud: a restore_dir without a restore_step would silently
+    # no-op the restore (the block below only fires when restore_step is set),
+    # so surface the misconfiguration instead of quietly starting from scratch.
+    if restore_dir is not None and restore_step is None:
+        raise RuntimeError(
+            "cfg.training.restore_dir is set but cfg.training.restore_step is "
+            "None, so no checkpoint would be restored (the restore silently "
+            "no-ops). Set cfg.training.restore_step to the step to restore "
+            "from, or clear restore_dir to start training from scratch."
+        )
     if restore_step is not None:
         restore_source = restore_dir if restore_dir is not None else checkpoint_path
         restore_path = compute_checkpoint_name(restore_step, restore_source)
@@ -91,68 +101,80 @@ def train_alphago(game, create_estimator, cfg, logger=None):
     self_play_data = None
 
     initial_step = restore_step + 1 if restore_step is not None else 0
-    for alphago_step in range(initial_step, initial_step + alphago_steps):
-        self_play_data = generate_self_play_data(
-            game,
-            self_play_estimator,
-            mcts_iters,
-            c_puct,
-            self_play_iters,
-            verbose=verbose,
-            data=self_play_data,
-        )
-
-        training_data = process_training_data(self_play_data, replay_length)
-        if len(training_data) < 100:
-            continue
-        summary = optimise_estimator(
-            training_estimator,
-            training_data,
-            batch_size,
-            training_iters,
-            verbose=verbose,
-        )
-
-        # Log the loss components on the alphago_step axis. Guard against
-        # a None summary (no training step ran on this pass).
-        if summary is not None:
-            logger.log_scalar("loss/total", summary["total"], step=alphago_step)
-            logger.log_scalar("loss/policy", summary["policy"], step=alphago_step)
-            logger.log_scalar("loss/value", summary["value"], step=alphago_step)
-
-        # Evaluate the players and choose the best.
-        if alphago_step % evaluate_every == 0:
-            success_rate, success_rate_random = evaluate_model(
+    # Run the step loop under try/finally so logger.close() releases the
+    # metric sink (e.g. flushes/closes the wandb run) even if a step raises,
+    # rather than leaking it on the failure path.
+    try:
+        for alphago_step in range(initial_step, initial_step + alphago_steps):
+            self_play_data = generate_self_play_data(
                 game,
                 self_play_estimator,
-                training_estimator,
                 mcts_iters,
                 c_puct,
-                num_evaluate_games,
+                self_play_iters,
+                verbose=verbose,
+                data=self_play_data,
+            )
+
+            training_data = process_training_data(
+                self_play_data, replay_length, verbose=verbose
+            )
+            if len(training_data) < 100:
+                continue
+            summary = optimise_estimator(
+                training_estimator,
+                training_data,
+                batch_size,
+                training_iters,
                 verbose=verbose,
             )
 
-            # Log eval success rates on the same alphago_step axis.
-            logger.log_scalar("eval/success_rate", success_rate, step=alphago_step)
-            logger.log_scalar(
-                "eval/success_rate_random", success_rate_random, step=alphago_step
-            )
+            # Log the loss components on the alphago_step axis. Guard
+            # against a None summary (no training step ran on this pass).
+            if summary is not None:
+                logger.log_scalar("loss/total", summary["total"], step=alphago_step)
+                logger.log_scalar("loss/policy", summary["policy"], step=alphago_step)
+                logger.log_scalar("loss/value", summary["value"], step=alphago_step)
+                # Record each step's total loss so the return value is a
+                # real loss history rather than an always-empty list.
+                all_losses.append(summary["total"])
 
-            checkpoint_model(training_estimator, alphago_step, checkpoint_path)
+            # Evaluate the players and choose the best.
+            if alphago_step % evaluate_every == 0:
+                success_rate, success_rate_random = evaluate_model(
+                    game,
+                    self_play_estimator,
+                    training_estimator,
+                    mcts_iters,
+                    c_puct,
+                    num_evaluate_games,
+                    verbose=verbose,
+                )
 
-            # If training player beats self-play player by a large enough
-            # margin, then it becomes the new best estimator.
-            if success_rate > win_rate:
-                # Create a new self player, with the weights of the most
-                # recent training_estimator.
-                if verbose:
-                    print("Updating self-play player.")
-                    print(f"Restoring from step: {alphago_step}")
-                self_play_estimator = create_estimator()
-                restore_path = compute_checkpoint_name(alphago_step, checkpoint_path)
-                self_play_estimator.restore(restore_path)
+                # Log eval success rates on the same alphago_step axis.
+                logger.log_scalar("eval/success_rate", success_rate, step=alphago_step)
+                logger.log_scalar(
+                    "eval/success_rate_random", success_rate_random, step=alphago_step
+                )
 
-    logger.close()
+                checkpoint_model(training_estimator, alphago_step, checkpoint_path)
+
+                # If training player beats self-play player by a large enough
+                # margin, then it becomes the new best estimator.
+                if success_rate > win_rate:
+                    # Create a new self player, with the weights of the most
+                    # recent training_estimator.
+                    if verbose:
+                        print("Updating self-play player.")
+                        print(f"Restoring from step: {alphago_step}")
+                    self_play_estimator = create_estimator()
+                    restore_path = compute_checkpoint_name(
+                        alphago_step, checkpoint_path
+                    )
+                    self_play_estimator.restore(restore_path)
+    finally:
+        logger.close()
+
     return all_losses
 
 
@@ -398,7 +420,7 @@ def self_play(game, estimator, mcts_iters, c_puct):
     return data
 
 
-def process_training_data(self_play_data, replay_length=None):
+def process_training_data(self_play_data, replay_length=None, verbose=True):
     """Takes self play data and returns a list of tuples (state,
     action_probs, utility) suitable for training an estimator.
 
@@ -411,14 +433,19 @@ def process_training_data(self_play_data, replay_length=None):
     replay_length: int or None
         If given, only return the last replay_length (state, probs, utility)
         tuples.
+    verbose: bool
+        If True, print the training-data and self-play-data lengths. Gated so
+        the training loop stays quiet unless verbose output is requested
+       , mirroring the evaluator's verbose convention.
     """
     training_data = []
     for game_log in self_play_data.values():
         for state, _action, probs_vector, z in game_log:
             training_data.append((state, probs_vector, z))
 
-    print(f"Training data length: {len(training_data)}")
-    print(f"Self play data length: {len(self_play_data)}")
+    if verbose:
+        print(f"Training data length: {len(training_data)}")
+        print(f"Self play data length: {len(self_play_data)}")
 
     if replay_length is not None:
         training_data = training_data[-replay_length:]

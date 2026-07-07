@@ -1,7 +1,7 @@
 import numpy as np
 
 from alphago.estimator import create_trivial_estimator
-from alphago.evaluator import evaluate, play
+from alphago.evaluator import evaluate, play, run_tournament
 from alphago.games import NoughtsAndCrosses
 from alphago.player import MCTSPlayer, RandomPlayer
 
@@ -64,27 +64,24 @@ def test_evaluator_on_noughts_and_crosses():
     assert len(game_logs) == num_games
 
 
-# def test_evaluator_on_noughts_and_crosses_with_nets():
-#     # Seed the random number generator.
-#     np.random.seed(0)
-#
-#     # Create the nets.
-#     net1 = BasicNACNet()
-#     net2 = BasicNACNet()
-#
-#     # Create the evaluators
-#     evaluator1 = net1.create_estimator(nac.ACTION_INDICES)
-#     evaluator2 = net2.create_estimator(nac.ACTION_INDICES)
-#
-#     # Check the evaluators aren't equal.
-#     assert net1 != net2
-#
-#     evaluator1_wins, evaluator2_wins, draws = evaluator.evaluate(
-#         nac, evaluator1, evaluator2, mcts_iters=100, num_games=6)
-#
-#     # TODO: This doesn't seem to be deterministic.
-
-
 def test_running_tournament_between_mcts_players():
     np.random.seed(0)
-    MockGame()
+    mock_game = MockGame()
+
+    estimator = create_trivial_estimator(mock_game)
+    player1 = MCTSPlayer(mock_game, estimator, 100, 0.5)
+    player2 = MCTSPlayer(mock_game, estimator, 100, 0.5)
+    players = {1: player1, 2: player2}
+
+    num_rounds = 3
+    results = run_tournament(mock_game, players, num_rounds)
+
+    # With two players there is one pairing played twice per round, so the
+    # tournament plays num_rounds * 2 games; update_results credits exactly
+    # 1.0 total per game (a win is 1.0, a draw is 0.5 + 0.5). Every game must
+    # therefore be accounted for in the results.
+    assert sum(n for _, _, n in results) == num_rounds * 2
+    # Every player number appearing in the results is one of the two players.
+    for i, j, _ in results:
+        assert i in {1, 2}
+        assert j in {1, 2}

@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from alphago.elo import (
@@ -111,6 +113,23 @@ def test_elo_rates_dominant_player_higher():
     ratings = elo(game_results)
 
     assert ratings[1] > ratings[2]
+
+
+def test_elo_finite_when_player_has_zero_wins():
+    # Player 3 never wins a single game, which drives update_gamma's
+    # sum-of-wins numerator to zero. Before the fix, the unguarded
+    # `pairings / gamma_sum` division produced a 0/0 = NaN that cascaded to
+    # every rating, returning {1: nan, 2: nan, 3: nan}. The guarded division
+    # and gamma floor must keep every rating finite and correctly ordered.
+    game_results = [(1, 2, 10), (2, 3, 5), (1, 3, 4)]
+
+    ratings = elo(game_results)
+
+    assert all(math.isfinite(v) for v in ratings.values())
+    # Player 3 lost every game, so it must be the strictly lowest rating.
+    assert ratings[3] == min(ratings.values())
+    assert ratings[3] < ratings[1]
+    assert ratings[3] < ratings[2]
 
 
 def test_elo_reference_gammas_dict_does_not_crash():

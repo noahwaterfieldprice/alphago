@@ -20,9 +20,15 @@ from alphago.player import MCTSPlayer, OptimalPlayer
 
 # Tiny demo overrides so the self-play loop completes quickly. CLI dotlist
 # args are appended after these, so a user override always wins.
+#
+# self_play_iters=20 clears the hardcoded 100-row `continue` guard in
+# train_alphago (a NAC self-play game yields ~7 rows, so ~20 games give ~140
+# rows). Below the threshold the loop trains nothing and the demo
+# only ever compared two untrained players; above it a real optimise/evaluate
+# step runs so the comparison reflects a trained network.
 DEMO_OVERRIDES = [
     "training.alphago_steps=2",
-    "training.self_play_iters=2",
+    "training.self_play_iters=20",
     "training.training_iters=10",
     "training.evaluate_every=1",
     "training.num_evaluate_games=2",
@@ -58,12 +64,14 @@ def main(cfg) -> None:
 
     trivial_estimator = create_trivial_estimator(game)
     player_no = 1
-    player = MCTSPlayer(
-        game, trivial_estimator, cfg.mcts.mcts_iters, cfg.mcts.c_puct
-    )
-    compare_against_optimal(
+    player = MCTSPlayer(game, trivial_estimator, cfg.mcts.mcts_iters, cfg.mcts.c_puct)
+    results, _ = compare_against_optimal(
         game, player, player_no, cfg.training.num_evaluate_games
     )
+
+    # Print the comparison so the demo produces a visible result.
+    wins, losses, draws = results[1], results[-1], results[0]
+    print(f"MCTS player vs optimal — wins: {wins}, losses: {losses}, draws: {draws}")
 
 
 if __name__ == "__main__":

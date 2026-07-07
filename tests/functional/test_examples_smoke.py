@@ -171,18 +171,17 @@ def test_train_connect_four_sl_evaluate_without_step_fails_loud(tmp_path, monkey
         module.main(cfg)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Pre-existing core bug (deferred-items.md D1): NACNetEstimator."
-        "_state_to_vector cannot reshape the 3-element NAC bitboard GameState "
-        "into (1, 9), so NAC self-play with the real net is not runnable "
-        "end-to-end. strict=True makes this XPASS (and fail) once the estimator "
-        "is fixed, forcing removal of this marker."
-    ),
-)
 def test_comparator_smoke(tmp_path, monkeypatch):
-    """The NAC comparator runs a short self-play run then compares vs optimal."""
+    """The NAC comparator runs a real self-play training run then compares vs optimal.
+
+    NAC self-play with the real net runs end-to-end. ``self_play_iters``
+    is raised to clear the hardcoded 100-row ``continue`` guard (a NAC game yields ~7
+    rows, so ~20 games give ~140 rows), so the loop reaches ``optimise_estimator``,
+    ``evaluate_model``, and ``checkpoint_model``. With ``alphago_steps=1`` and
+    ``0 % evaluate_every == 0`` a checkpoint is written to ``<checkpoint_dir>/0.pt`` —
+    the permanent regression guard that the comparator actually trained (not just that
+    the script exited).
+    """
     monkeypatch.chdir(tmp_path)
     module = load_example("alphago_noughts_and_crosses_comparator.py")
 
@@ -190,7 +189,7 @@ def test_comparator_smoke(tmp_path, monkeypatch):
         module.Config,
         [
             "training.alphago_steps=1",
-            "training.self_play_iters=1",
+            "training.self_play_iters=20",
             "training.training_iters=2",
             "training.evaluate_every=1",
             "training.num_evaluate_games=1",
@@ -201,6 +200,13 @@ def test_comparator_smoke(tmp_path, monkeypatch):
     )
 
     module.main(cfg)
+
+    # main() resolves cfg.paths in place, so checkpoint_dir is an absolute path
+    # under tmp_path. A checkpoint at step 0 only lands if the 100-row training
+    # guard was cleared and optimise -> evaluate -> checkpoint ran, so this
+    # asserts the comparator actually trained end-to-end.
+    checkpoint_file = Path(cfg.paths.checkpoint_dir) / "0.pt"
+    assert checkpoint_file.is_file()
 
 
 def test_play_tournament_smoke(tmp_path, monkeypatch):

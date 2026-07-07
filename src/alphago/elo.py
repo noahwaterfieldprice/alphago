@@ -139,7 +139,9 @@ def elo(
     return gammas
 
 
-def update_gamma(gamma: np.ndarray, wins: np.ndarray) -> np.ndarray:
+def update_gamma(
+    gamma: np.ndarray, wins: np.ndarray, eps: float = 1e-12
+) -> np.ndarray:
     """Updates gamma by one step of the minorisation maximisation
     algorithm.
 
@@ -151,6 +153,10 @@ def update_gamma(gamma: np.ndarray, wins: np.ndarray) -> np.ndarray:
         An N x N matrix where N is the number of players and the ij
         entry equal to the number of times that i beat j. Assumes
         diagonal is zero.
+    eps:
+        Regularisation floor applied to the returned gamma. Keeps a
+        player with zero total wins away from an exact zero so it cannot
+        seed a 0/0 = NaN cascade on the next iteration.
 
     Returns
     -------
@@ -165,8 +171,21 @@ def update_gamma(gamma: np.ndarray, wins: np.ndarray) -> np.ndarray:
     # beats i.
     pairings = wins + wins.T  # N_ij
 
-    gamma = np.sum(wins, axis=1) / np.sum(pairings / gamma_sum, axis=1)
-    return gamma
+    # Guard the division so that unplayed pairings (pairings == 0) yield 0
+    # instead of 0/0 = NaN when a player's gamma has floored to ~0. Only the
+    # entries where pairings > 0 are ever meaningful in the MM denominator.
+    ratio = np.divide(
+        pairings,
+        gamma_sum,
+        out=np.zeros_like(pairings, dtype=float),
+        where=pairings > 0,
+    )
+
+    gamma = np.sum(wins, axis=1) / np.sum(ratio, axis=1)
+
+    # Floor gamma away from zero so a zero-win player (numerator 0) cannot
+    # drive an all-NaN cascade on the next MM step (standard MM regularisation).
+    return np.maximum(gamma, eps)
 
 
 def run_mm(
